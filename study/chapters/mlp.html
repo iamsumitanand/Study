@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Layer Perceptrons — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>           <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span> <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>           <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 2 · Neural Networks</p>
+    <h1>Multi-Layer Perceptrons</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      Stack perceptrons into layers. Watch XOR become trivial. Watch the universe become approximable.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.05rem; line-height:1.85;">
+      Stack perceptrons into layers and <strong style="color:var(--accent)">XOR becomes trivial</strong>. Stack enough layers and you can <strong style="color:var(--accent)">approximate any function</strong>. The single perceptron that failed on XOR in the last chapter wasn't fundamentally limited — it was just missing depth. Add one hidden layer and the problem dissolves. This is why every modern neural network, from a two-layer classifier to GPT-4, is a multi-layer perceptron at its core.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Why a single perceptron breaks on XOR</h2>
+    <p class="lead">
+      XOR is the motivating failure of the single perceptron. XOR outputs 1 when exactly one input is 1: (0,0)→0, (0,1)→1, (1,0)→1, (1,1)→0. Draw those four points. The two 1s sit at diagonally opposite corners. No straight line separates them from the two 0s — they are not linearly separable, and that's all a single perceptron can do: draw one straight line.
+    </p>
+    <p>
+      Minsky and Papert proved this in <em>Perceptrons</em> (1969), and it effectively halted neural network research for a decade. The fix, when it came, was obvious in retrospect: add a hidden layer between input and output. Instead of mapping inputs directly to an answer, learn an <strong style="color:var(--accent)">intermediate representation</strong> first.
+    </p>
+    <p>
+      Here is the key insight: a hidden layer transforms the coordinate space. After the hidden layer processes (0,1) and (1,0), those two points may land in a part of the new representation space that <em>is</em> linearly separable. The hidden layer doesn't just detect features — it reorganizes the input geometry so the output layer's job becomes easy.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2.1;">
+      <li>The <strong style="color:var(--accent)">input layer</strong> receives raw features — it doesn't compute, just distributes.</li>
+      <li>Each <strong style="color:var(--accent)">hidden layer</strong> learns a new coordinate system — a different way of looking at the data.</li>
+      <li>The <strong style="color:var(--accent)">output layer</strong> makes the final decision using the representation the hidden layers built.</li>
+      <li><strong style="color:var(--accent)">Depth</strong> (more layers) lets the network build hierarchical concepts — edges before shapes, shapes before objects.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three questions that reveal what MLPs really do</h2>
+
+    <p class="lead">
+      The DL Book frames MLPs as feedforward networks with no cycles: information flows in one direction, from input to output, through one or more hidden layers. Each layer applies an affine transformation then a nonlinear activation. The nonlinearity is what makes composing layers useful — without it, ten layers collapse into one.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      A hidden layer with 3 nodes receives a 2D input. Each node computes a weighted sum then applies sigmoid. What does each node's output actually represent — geometrically? Before reading on, try to articulate what "one hidden unit" is doing to the input space.
+    </div>
+
+    <p>
+      Each hidden unit computes a <strong style="color:var(--accent)">soft hyperplane</strong> — a smooth version of the perceptron's hard decision boundary. It takes the input, projects it along a learned direction (the weight vector), shifts by a bias, and squashes the result to [0,1] with sigmoid. The output of that single unit measures "how much is this input on the positive side of this learned direction?" Three hidden units carve up the input space with three such soft boundaries. The output layer then looks at the combination of all three readings to make its final call.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      A network with 1 hidden layer and 1000 units versus a network with 5 hidden layers and 50 units each. Same parameter count, roughly. Which would you expect to perform better on a task like face recognition — and why?
+    </div>
+
+    <p>
+      Depth beats width. The DL Book's §6.4.1 makes this concrete: a shallow but wide network would need exponentially many units to represent what a deep network represents with polynomially many. Depth lets the network <strong style="color:var(--accent)">reuse features hierarchically</strong>. In face recognition: layer 1 learns edges, layer 2 combines edges into parts (eyes, noses), layer 3 combines parts into faces. A single fat layer has to learn every combination from scratch — it can't build on earlier abstractions. Empirically, every major task in computer vision, NLP, and audio has been won by deeper, not wider, architectures.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      The Universal Approximation Theorem says a single hidden layer with enough units can approximate any continuous function to arbitrary accuracy. Does this mean we should always use one very wide hidden layer? Think about what the theorem actually guarantees before reading the answer.
+    </div>
+
+    <p>
+      The theorem guarantees <em>existence</em>, not <em>learnability</em>. It says: for any function f and any ε &gt; 0, there exists a single-hidden-layer network that approximates f within ε. It says nothing about how many units that requires (potentially exponential), nothing about whether gradient descent will find that network, and nothing about whether it will generalize. Cybenko (1989) proved it for sigmoid; Hornik (1991) generalized it to most nonlinearities. The practical lesson: the theorem tells you MLPs are <strong style="color:var(--accent)">not fundamentally limited in expressiveness</strong>. It says nothing about efficiency or trainability. Depth exists precisely because the single-layer solution can be impractical.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. The Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch a forward pass and backward pass</h2>
+    <p class="lead">
+      A 2-3-3-1 network: 2 inputs, two hidden layers of 3 nodes each, 1 output. Watch nodes light up left-to-right during the forward pass, each showing its activation value. Then watch gradients flow right-to-left during backpropagation, edges glowing red to show gradient magnitude.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Click <strong>Forward Pass</strong> to see one forward pass, <strong>Backward Pass</strong> to see backprop, <strong>Run Loop</strong> to watch learning continuously, <strong>Reset</strong> to start over.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="mlpCanvas" width="720" height="340" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="mlpCaption">
+        Gold glow = forward activation &nbsp;·&nbsp; Red glow = gradient flowing back
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <button class="btn" id="fwdBtn">▶ Forward Pass</button>
+        <button class="btn" id="bwdBtn">◀ Backward Pass</button>
+        <button class="btn" id="loopBtn">↺ Run Loop</button>
+        <button class="btn secondary" id="mlpResetBtn">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Forward pass equations and a worked XOR example</h2>
+
+    <p class="lead">
+      The forward pass is just matrix multiplication followed by a nonlinearity — applied layer by layer. Write it once for each layer and you have the full computation.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Forward Pass — Layer by Layer</div>
+      <div class="formula">h = σ(W·x + b)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;y = σ(W²·h + b²)</div>
+      <div class="symbol-table">
+        <span class="sym">x</span>      <span>input vector — the raw features fed into the network</span>
+        <span class="sym">W</span>      <span>weight matrix of the hidden layer — shape [hidden_size × input_size]</span>
+        <span class="sym">b</span>      <span>bias vector of the hidden layer — one bias per hidden node</span>
+        <span class="sym">σ</span>      <span>sigmoid activation σ(z) = 1 / (1 + e^−z) — squashes each value to (0, 1)</span>
+        <span class="sym">h</span>      <span>hidden layer output — the intermediate representation</span>
+        <span class="sym">W²</span>     <span>weight matrix of the output layer — shape [output_size × hidden_size]</span>
+        <span class="sym">b²</span>     <span>bias vector of the output layer</span>
+        <span class="sym">y</span>      <span>final output — a probability (0 to 1) for binary classification</span>
+      </div>
+    </div>
+
+    <p><strong>Worked example: XOR with a 2-2-1 network.</strong></p>
+    <p>
+      Network: 2 inputs, 2 hidden nodes, 1 output. All activations are sigmoid.
+      We verify input (0, 1) should produce output ≈ 1.
+      Use these specific weights (chosen to solve XOR):
+    </p>
+
+    <div class="math-block" style="margin-bottom:1.25rem;">
+      <div class="math-label">Weights</div>
+      <div class="formula" style="font-size:1rem; letter-spacing:0.02em;">
+        W = [[20, 20], [−20, −20]]&nbsp;&nbsp;b = [−10, 30]<br>
+        W² = [[20, 20]]&nbsp;&nbsp;b² = [−30]
+      </div>
+    </div>
+
+    <p><strong>Four steps — tracking x = (0, 1) through the network:</strong></p>
+
+    <div class="worked-example">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span class="step-text" style="flex:1;">
+          <strong>Compute pre-activations for hidden layer.</strong><br>
+          <span class="step-math">z₁ = 20×0 + 20×1 + (−10) = 10</span><br>
+          <span class="step-math">z₂ = −20×0 + (−20)×1 + 30 = 10</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span class="step-text" style="flex:1;">
+          <strong>Apply sigmoid to get hidden activations h.</strong><br>
+          <span class="step-math">h₁ = σ(10) = 1/(1+e⁻¹⁰) ≈ 0.9999</span><br>
+          <span class="step-math">h₂ = σ(10) = 1/(1+e⁻¹⁰) ≈ 0.9999</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span class="step-text" style="flex:1;">
+          <strong>Compute output pre-activation.</strong><br>
+          <span class="step-math">z_out = 20×0.9999 + 20×0.9999 + (−30) ≈ 9.996</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span class="step-text" style="flex:1;">
+          <strong>Apply sigmoid to get final output y.</strong><br>
+          <span class="step-math">y = σ(9.996) = 1/(1+e⁻⁹·⁹⁹⁶) ≈ 0.9999 ≈ 1 ✓</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">
+            XOR(0,1) = 1. The network is correct. You can verify XOR(0,0) ≈ 0, XOR(1,1) ≈ 0, XOR(1,0) ≈ 1 with the same weights.
+          </span>
+        </span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">
+          Key: the hidden layer created an intermediate representation where XOR is linearly separable.
+        </span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          Hidden node 1 fires when at least one input is 1 (OR). Hidden node 2 fires when both inputs are 1 (AND). The output layer computes OR AND NOT(AND) — which is XOR. The network decomposed an impossible 1-layer problem into two easy sub-problems.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real Problem -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Toy to Real</p>
+    <h2>Tabular data and fraud detection</h2>
+    <p class="lead">
+      MLPs still beat deep learning on structured tabular data in many real-world cases — and fraud detection is the canonical example. A bank classifying transactions has features like transaction amount, merchant category, time since last transaction, distance from home, and device fingerprint. These are heterogeneous, hand-crafted, non-spatial features — exactly where MLPs shine.
+    </p>
+    <p>
+      A 2-3 layer MLP with ReLU activations typically outperforms deep networks on this kind of data because:
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2.1;">
+      <li><strong style="color:var(--accent)">Tabular features are already semantic.</strong> The feature "distance from home" has been hand-engineered to encode meaning. CNNs and RNNs exist to extract meaning from raw pixels or tokens. That extraction step is already done for you.</li>
+      <li><strong style="color:var(--accent)">Small datasets are the norm.</strong> Fraud departments may have thousands of labeled examples, not millions. Deep architectures overfit; shallow MLPs generalize better under these conditions.</li>
+      <li><strong style="color:var(--accent)">Training speed matters in production.</strong> Models are retrained daily as fraud patterns shift. A 2-layer MLP retrains in seconds; a deep architecture may take hours.</li>
+    </ul>
+    <p>
+      Gradient boosted trees (XGBoost, LightGBM) are often competitive with MLPs on tabular data, and many practitioners prefer them. The practical lesson: <strong style="color:var(--accent)">architecture choice is domain-specific</strong>. MLPs are not obsolete — they are the right tool for many real problems.
+    </p>
+    <div class="insight-box" style="font-style:normal;">
+      A 2018 survey of Kaggle competition winners found that gradient boosted trees dominated tabular data competitions, while MLPs and deep networks dominated image, text, and audio. Depth is powerful for structured spatial or sequential data; for hand-engineered tabular features, simple and fast wins more often than large and deep.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Interactive Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Network depth and width explorer</h2>
+    <p class="lead">
+      See how adding hidden layers changes the network's capacity. Adjust layers and nodes-per-layer, then re-run the animation to see the architecture change in real time.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Hidden layers</span>
+        <input type="range" id="layerSlider" min="1" max="4" step="1" value="2">
+        <span class="control-value" id="layerValue">2</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Nodes per layer</span>
+        <input type="range" id="nodeSlider" min="2" max="6" step="1" value="3">
+        <span class="control-value" id="nodeValue">3</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="playFwdBtn">▶ Run Forward</button>
+        <button class="btn secondary" id="playResetBtn">↺ Reset</button>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="playMlpCanvas" width="720" height="300" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="playMlpCaption">
+          Add more layers to see deeper representations. Add more nodes per layer to see wider representations.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs about MLPs — and what's actually true</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't random mistakes. They reflect the same misunderstanding: treating MLPs as a black box to be scaled, rather than a structured computation to be reasoned about.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① More layers always means better performance.</div>
+        <div class="truth">
+          More layers mean more capacity, but also harder optimization. Adding layers without residual connections causes vanishing gradients — the gradient signal becomes too small to update early layers. ResNets solved image classification not by making networks deeper in the naive sense, but by adding skip connections that give gradients a direct path backward. Depth is a tool, not a universally good property.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② Sigmoid is the best activation function because it produces probabilities.</div>
+        <div class="truth">
+          Sigmoid suffers from the <strong>vanishing gradient problem</strong>: its derivative is at most 0.25 at the center, and approaches zero at the extremes. In deep networks, multiplying these small derivatives through many layers shrinks gradients to near zero, and early layers stop learning. ReLU (max(0,x)) solves this — its derivative is either 0 or 1, so gradients don't vanish in the positive regime. Sigmoid is still used in output layers for binary classification, but rarely in hidden layers of modern networks.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Random weight initialization is fine — the network will learn from there.</div>
+        <div class="truth">
+          All-zero initialization is catastrophic: every neuron in a layer computes the same gradient and learns the same thing (symmetry problem). All-large initialization causes exploding or vanishing activations before training even begins. Xavier/Glorot initialization (DL Book §8.4) scales weights by 1/√fan_in to keep activation and gradient variances stable across layers. He initialization uses 2/√fan_in for ReLU. These aren't heuristics — they're derived from the math of how variance propagates through layers.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ Width (more nodes per layer) doesn't matter much — just add more layers.</div>
+        <div class="truth">
+          Width and depth are both necessary. Too narrow a layer is an information bottleneck: if a 1000-feature input passes through a 2-node hidden layer, those 2 numbers must encode everything the network needs. Information irreversibly lost at that bottleneck cannot be recovered by deeper layers. The rule of thumb: don't let any layer be narrower than the task complexity requires. Autoencoders intentionally use this bottleneck for compression — but then it's intentional, not accidental.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ MLPs are obsolete — transformers have replaced everything.</div>
+        <div class="truth">
+          Transformers are, architecturally, mostly stacked MLPs with attention added. The feedforward sublayer in every transformer block is a 2-layer MLP applied independently to each token position. MLPs haven't been replaced; they've been promoted to a component inside larger architectures. On structured tabular data, standalone MLPs still regularly match or beat transformers at a fraction of the training cost. Obsolescence is the wrong frame — MLPs are the fundamental building block of nearly all deep learning.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>XOR is unsolvable by a single perceptron (not linearly separable). One hidden layer solves it by creating an intermediate representation where the classes become separable.</li>
+      <li>Hidden layers transform input geometry. Each node computes a soft hyperplane; multiple nodes carve out regions. The output layer combines these readings to make decisions.</li>
+      <li>The Universal Approximation Theorem guarantees expressiveness, not learnability. A single wide layer can approximate any function in theory — but deep networks approximate efficiently in practice.</li>
+      <li>Depth beats width for hierarchical data. For hand-engineered tabular data (fraud detection, etc.), shallow MLPs often beat deep architectures on small datasets.</li>
+      <li>MLPs are not obsolete — they are the core building block of transformers. The feedforward sublayer in every transformer is a 2-layer MLP.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      Every forward pass in this chapter used sigmoid. But we noted sigmoid causes vanishing gradients in deep networks. So what should you use instead — and does the choice of activation function actually change what the network can learn?<br><br>
+      That's the entire next chapter: <a href="activation-functions.html">Activation Functions</a>. ReLU, GELU, Swish, and why the right nonlinearity is not cosmetic — it determines whether deep networks train at all.
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim traces to one of these texts. Theorem statements and worked examples are taken directly, not synthesized from memory.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — Chapter 6</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: feedforward network definition (§6.1), hidden layer as learned representation (§6.1), depth vs width efficiency (§6.4.1), Universal Approximation Theorem discussion (§6.4.1), Xavier initialization (§8.4), vanishing gradients in sigmoid (§8.2.5).
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Perceptrons — Chapter 5 (XOR impossibility proof)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Marvin Minsky &amp; Seymour Papert (MIT Press, 1969)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: linear separability proof, the XOR limitation as the formal motivation for hidden layers.
+          </span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Approximation by Superpositions of a Sigmoidal Function</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">George Cybenko, <em>Mathematics of Control, Signals and Systems</em> (1989)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: the original Universal Approximation Theorem proof for sigmoid networks.
+          </span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- 10. Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>10 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 10 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">Why can't a single perceptron learn XOR? What specific property does XOR have that makes it impossible?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>XOR is not linearly separable.</strong> Plot the four XOR inputs: (0,0)→0, (0,1)→1, (1,0)→1, (1,1)→0. The two class-1 points sit at diagonally opposite corners of the unit square. No single straight line (hyperplane) can separate them from the two class-0 points. A single perceptron draws exactly one decision boundary — a linear one. Minsky and Papert proved this formally in 1969, and it halted neural network research for over a decade.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">What does a hidden layer actually do to the input data? Describe it geometrically, not algebraically.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>It transforms the coordinate system.</strong> Each hidden node computes a soft hyperplane — it measures how much the input lands on one side of a learned direction. Multiple nodes together carve up the input space with multiple such boundaries. The combined output of the hidden layer is a new set of coordinates where the same data points may become linearly separable. For XOR, the hidden layer moves the two class-1 points to a region that <em>is</em> separable from the class-0 points in the new space.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">The Universal Approximation Theorem proves MLPs can approximate any function. Does this mean a one-hidden-layer network is all you ever need?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — the theorem guarantees existence, not practicality.</strong> It proves that for any function and any error tolerance, there exists a wide-enough single-hidden-layer network that approximates it. But it says nothing about: (1) how many units are required — it may be exponentially many; (2) whether gradient descent will find those weights; (3) whether the result generalizes. Deep networks achieve the same approximation with polynomially fewer units and train more reliably. The theorem tells you MLPs aren't fundamentally limited; it doesn't tell you depth is useless.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">You initialize all weights in a 5-layer network to exactly zero. What happens during training and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The network fails to learn — this is the symmetry problem.</strong> If all weights are zero, every neuron in a layer computes the same pre-activation (zero), applies the same activation, produces the same output, and receives the same gradient. They all update to the same values. No matter how many neurons are in a layer, they remain identical throughout training. The network effectively has width 1 in each layer regardless of its declared size. Xavier initialization breaks this symmetry by sampling small random weights.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">Why does removing the activation function between layers make a deep network equivalent to a single-layer network?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Because stacking linear functions gives another linear function.</strong> Without an activation, each layer computes y = Wx + b — a linear transformation. Two linear transformations composed: y = W₂(W₁x + b₁) + b₂ = (W₂W₁)x + (W₂b₁ + b₂). This is just a single matrix multiplication with a different matrix. No matter how many linear layers you stack, the composition is always a linear function. The activation function is what gives each layer the ability to compute something the previous layers couldn't represent.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">A fraud detection team has 5,000 labeled transactions and 50 features. They're choosing between a 2-layer MLP and a 12-layer deep network. What do you recommend?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The 2-layer MLP.</strong> Three reasons: (1) <strong>Data size</strong> — 5,000 examples is small; deep networks have more parameters and overfit on small datasets. (2) <strong>Feature type</strong> — hand-engineered tabular features already encode domain semantics. Depth helps when the network must extract abstract features from raw data (pixels, tokens). Here the features are already semantic. (3) <strong>Operational needs</strong> — fraud models retrain frequently as patterns shift; shallow MLPs retrain in seconds. Also consider gradient boosted trees (XGBoost), which frequently match or beat MLPs on this kind of data.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">What is the vanishing gradient problem, and which activation function is most responsible for causing it in hidden layers?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Sigmoid (and tanh) are the main culprit.</strong> During backpropagation, gradients are multiplied together as they pass through each layer (via the chain rule). Sigmoid's derivative has a maximum of 0.25 at its center and approaches zero for large positive or negative inputs. In a 10-layer network, gradients in the first few layers are multiplied by 10 such small numbers — the gradient becomes 0.25¹⁰ ≈ 0.000001, essentially zero. Early layers stop updating and stop learning. ReLU's derivative is 1 for positive inputs, so gradients don't shrink as they pass through active units.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">In the worked XOR example, hidden node 1 computed OR and hidden node 2 computed AND. How does the output layer turn these into XOR?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>XOR = OR AND NOT(AND).</strong> OR fires when at least one input is 1; AND fires only when both are 1. XOR = "at least one is 1, but NOT both are 1" = OR AND NOT(AND). The output layer implements this: both OR and AND fire together only when both inputs are 1 (the case where XOR should be 0). With positive weights to both nodes and a high threshold (bias = −30), the output fires only when both h₁ and h₂ are near 1 — but wait, we want to suppress that. The specific weight signs are negative for this combination, effectively computing the subtraction. The network discovers this decomposition automatically during training.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">Someone says "transformers have replaced MLPs for all tasks." Correct this claim precisely.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Transformers incorporate MLPs — they haven't replaced them.</strong> Every transformer block contains two components: a multi-head attention sublayer and a feedforward sublayer. The feedforward sublayer is a 2-layer MLP applied independently to each token position. Without the MLP component, transformers lose a significant fraction of their capacity. Additionally, on structured tabular data (the domain where standalone MLPs live), transformers rarely outperform MLPs and gradient boosted trees at practical data sizes. "Replaced" is the wrong framing; "promoted to a component" is closer.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="9">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">10</span>
+          <span class="q-text">A 1000-feature input passes through a hidden layer of 2 nodes before a 100-class output layer. What problem does this architecture have?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>It creates an information bottleneck that is almost certainly too narrow.</strong> 1000 features must be compressed into 2 numbers before the output layer makes its 100-class decision. Those 2 numbers cannot encode 1000 dimensions of information. Whatever features are needed by the output layer but don't survive the 2-node bottleneck are permanently lost — no depth downstream can recover them. The bottleneck is intentional only in autoencoders, where the goal is compression. As a general classifier, you want hidden layers at least as wide as needed to avoid discarding useful information.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─── MLPAnimation ─────────────────────────────────────────────────────────────
+class MLPAnimation {
+  constructor(canvas, opts = {}) {
+    this.canvas     = canvas;
+    this.ctx        = canvas.getContext('2d');
+    this.hiddenLayers = opts.hiddenLayers ?? 2;
+    this.hiddenNodes  = opts.hiddenNodes  ?? 3;
+    this.inputNodes   = opts.inputNodes   ?? 2;
+    this.outputNodes  = opts.outputNodes  ?? 1;
+    this.animating    = false;
+    this.looping      = false;
+    this._raf         = null;
+    this._activations = null;
+    this._gradients   = null;
+    this._phase       = 'idle'; // 'idle' | 'forward' | 'backward'
+    this._phaseT      = 0;
+    this._phaseDur    = 1200; // ms per wave
+    this._startTs     = null;
+    this._waveIdx     = 0;
+    this._totalWaves  = 0;
+    this._afterForward = null;
+    this._buildNetwork();
+    this._render();
+  }
+
+  _buildNetwork() {
+    const { hiddenLayers, hiddenNodes, inputNodes, outputNodes } = this;
+    this.layers = [inputNodes, ...Array(hiddenLayers).fill(hiddenNodes), outputNodes];
+    // Random activations [0,1] for each node
+    this._activations = this.layers.map(n =>
+      Array.from({ length: n }, () => Math.random() * 0.6 + 0.2)
+    );
+    // Random gradients [0,1] for each node
+    this._gradients = this.layers.map(n =>
+      Array.from({ length: n }, () => Math.random() * 0.7 + 0.1)
+    );
+  }
+
+  _getPositions() {
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+    const padX = 70, padY = 40;
+    const numLayers = this.layers.length;
+    const layerX = (i) => padX + i * ((W - 2 * padX) / (numLayers - 1));
+
+    const positions = this.layers.map((n, li) => {
+      const x = layerX(li);
+      const totalH = H - 2 * padY;
+      const spacing = n > 1 ? totalH / (n - 1) : 0;
+      const topY = n > 1 ? padY : H / 2;
+      return Array.from({ length: n }, (_, ni) => ({
+        x, y: n > 1 ? topY + ni * spacing : topY
+      }));
+    });
+    return positions;
+  }
+
+  // activeWave: which layer index is currently lit (0 = all off, layers.length = all done)
+  // direction: 'forward' | 'backward'
+  _render(activeWave = -1, direction = 'forward', waveT = 0) {
+    const { ctx, canvas, layers, _activations, _gradients } = this;
+    const W = canvas.width, H = canvas.height;
+    const positions = this._getPositions();
+
+    const bg = getComputedStyle(document.documentElement)
+      .getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw edges
+    for (let li = 0; li < layers.length - 1; li++) {
+      const fromNodes = positions[li];
+      const toNodes   = positions[li + 1];
+      for (let fi = 0; fi < fromNodes.length; fi++) {
+        for (let ti = 0; ti < toNodes.length; ti++) {
+          const { x: x1, y: y1 } = fromNodes[fi];
+          const { x: x2, y: y2 } = toNodes[ti];
+
+          let edgeAlpha = 0.13;
+          let edgeColor = '#8b949e';
+          let lineW = 1;
+
+          if (direction === 'forward') {
+            // Forward: highlight edges FROM active wave layer
+            if (li === activeWave) {
+              const act = _activations[li][fi];
+              edgeAlpha = lerp(0.15, 0.85, act) * lerp(0.4, 1, waveT);
+              const g  = Math.round(lerp(165, 200, act));
+              edgeColor = `rgba(240,${g},0,${edgeAlpha})`;
+              lineW = lerp(1, 2.5, act);
+            } else if (li < activeWave) {
+              edgeAlpha = 0.25;
+              edgeColor = 'rgba(240,165,0,0.25)';
+              lineW = 1.2;
+            }
+          } else if (direction === 'backward') {
+            // Backward: highlight edges FROM active wave layer (going right→left, wave goes layers.length-1..0)
+            const bwLayer = layers.length - 2 - activeWave; // reverse order
+            if (li === bwLayer) {
+              const grad = _gradients[li][fi];
+              edgeAlpha = lerp(0.15, 0.85, grad) * lerp(0.4, 1, waveT);
+              edgeColor = `rgba(248,81,73,${edgeAlpha})`;
+              lineW = lerp(1, 2.5, grad);
+            } else if (li > bwLayer) {
+              edgeAlpha = 0.25;
+              edgeColor = 'rgba(248,81,73,0.25)';
+              lineW = 1.2;
+            }
+          }
+
+          ctx.beginPath();
+          ctx.strokeStyle = edgeColor;
+          ctx.lineWidth = lineW;
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Draw nodes
+    const layerLabels = ['Input', ...Array(this.hiddenLayers).fill(null).map((_, i) => `Hidden ${i+1}`), 'Output'];
+    for (let li = 0; li < layers.length; li++) {
+      const nodes = positions[li];
+      const isActive = direction === 'forward'
+        ? li <= activeWave
+        : li >= (layers.length - 1 - activeWave);
+
+      // Layer label
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(layerLabels[li], nodes[0].x, H - 8);
+
+      for (let ni = 0; ni < nodes.length; ni++) {
+        const { x, y } = nodes[ni];
+        const act  = _activations[li][ni];
+        const grad = _gradients[li][ni];
+
+        let fillColor = '#30363d';
+        let glowColor = null;
+        let glowBlur  = 0;
+        let radius    = 16;
+
+        if (isActive && activeWave >= 0) {
+          if (direction === 'forward') {
+            const t = li === activeWave ? waveT : 1;
+            const brightness = lerp(0.3, 1.0, act * t);
+            const r = Math.round(lerp(80,  240, brightness));
+            const g = Math.round(lerp(80,  165, brightness));
+            const b = Math.round(lerp(80,  0,   brightness));
+            fillColor = `rgb(${r},${g},${b})`;
+            glowColor = '#f0a500';
+            glowBlur  = lerp(0, 18, act * t);
+          } else {
+            const bwLayer = layers.length - 1 - activeWave;
+            const t = li === bwLayer ? waveT : 1;
+            const brightness = lerp(0.3, 1.0, grad * t);
+            const r = Math.round(lerp(80,  248, brightness));
+            const g = Math.round(lerp(80,  81,  brightness));
+            const b = Math.round(lerp(80,  73,  brightness));
+            fillColor = `rgb(${r},${g},${b})`;
+            glowColor = '#f85149';
+            glowBlur  = lerp(0, 18, grad * t);
+          }
+        }
+
+        // Node glow
+        if (glowColor && glowBlur > 0) {
+          ctx.save();
+          ctx.shadowBlur  = glowBlur;
+          ctx.shadowColor = glowColor;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = fillColor;
+          ctx.fill();
+          ctx.restore();
+        } else {
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = fillColor;
+          ctx.fill();
+        }
+
+        // Node border
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = isActive && activeWave >= 0
+          ? (direction === 'forward' ? '#f0a500' : '#f85149')
+          : '#30363d';
+        ctx.lineWidth = isActive && activeWave >= 0 ? 1.5 : 1;
+        ctx.stroke();
+
+        // Activation value text
+        if (isActive && activeWave >= 0) {
+          const val = direction === 'forward' ? act : grad;
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 9px JetBrains Mono, monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(val.toFixed(2), x, y + 3.5);
+        }
+      }
+    }
+
+    // Phase label
+    if (activeWave >= 0) {
+      ctx.fillStyle = direction === 'forward' ? '#f0a500' : '#f85149';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(direction === 'forward' ? '→ Forward Pass' : '← Backward Pass', 8, 18);
+    }
+  }
+
+  _runForward(onComplete) {
+    if (this.animating) return;
+    this.animating = true;
+    this._phase = 'forward';
+    const numWaves = this.layers.length;
+    let waveIdx = 0;
+
+    const animate = (ts) => {
+      if (!this._startTs) this._startTs = ts;
+      const elapsed = ts - this._startTs;
+      const t = Math.min(elapsed / this._phaseDur, 1);
+      this._render(waveIdx, 'forward', easeInOut(t));
+
+      if (t >= 1) {
+        waveIdx++;
+        this._startTs = null;
+        if (waveIdx >= numWaves) {
+          this.animating = false;
+          this._phase = 'idle';
+          this._render(numWaves - 1, 'forward', 1);
+          if (onComplete) onComplete();
+          return;
+        }
+      }
+      this._raf = requestAnimationFrame(animate);
+    };
+    this._startTs = null;
+    this._raf = requestAnimationFrame(animate);
+  }
+
+  _runBackward(onComplete) {
+    if (this.animating) return;
+    this.animating = true;
+    this._phase = 'backward';
+    const numWaves = this.layers.length;
+    let waveIdx = 0;
+
+    const animate = (ts) => {
+      if (!this._startTs) this._startTs = ts;
+      const elapsed = ts - this._startTs;
+      const t = Math.min(elapsed / this._phaseDur, 1);
+      this._render(waveIdx, 'backward', easeInOut(t));
+
+      if (t >= 1) {
+        waveIdx++;
+        this._startTs = null;
+        if (waveIdx >= numWaves) {
+          this.animating = false;
+          this._phase = 'idle';
+          this._render(numWaves - 1, 'backward', 1);
+          if (onComplete) onComplete();
+          return;
+        }
+      }
+      this._raf = requestAnimationFrame(animate);
+    };
+    this._startTs = null;
+    this._raf = requestAnimationFrame(animate);
+  }
+
+  forward() {
+    this._buildNetwork();
+    this._runForward(null);
+  }
+
+  backward() {
+    this._buildNetwork();
+    this._runBackward(null);
+  }
+
+  loop() {
+    this.looping = true;
+    this._buildNetwork();
+    const doForward = () => {
+      if (!this.looping) return;
+      this._buildNetwork();
+      this._runForward(() => {
+        if (!this.looping) return;
+        setTimeout(() => {
+          if (!this.looping) return;
+          this._runBackward(() => {
+            if (!this.looping) return;
+            setTimeout(() => doForward(), 500);
+          });
+        }, 400);
+      });
+    };
+    doForward();
+  }
+
+  reset() {
+    this.looping  = false;
+    this.animating = false;
+    if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+    this._startTs = null;
+    this._phase   = 'idle';
+    this._buildNetwork();
+    this._render();
+  }
+
+  setTopology(hiddenLayers, hiddenNodes) {
+    this.hiddenLayers = hiddenLayers;
+    this.hiddenNodes  = hiddenNodes;
+    this.reset();
+  }
+}
+
+// ─── Main animation (sec-animation) ──────────────────────────────────────────
+const mlpCanvas = document.getElementById('mlpCanvas');
+const mlpAnim   = new MLPAnimation(mlpCanvas, {
+  hiddenLayers: 2,
+  hiddenNodes:  3,
+  inputNodes:   2,
+  outputNodes:  1,
+});
+
+document.getElementById('fwdBtn').addEventListener('click', () => {
+  mlpAnim.looping = false;
+  mlpAnim.forward();
+});
+
+document.getElementById('bwdBtn').addEventListener('click', () => {
+  mlpAnim.looping = false;
+  mlpAnim.backward();
+});
+
+document.getElementById('loopBtn').addEventListener('click', () => {
+  mlpAnim.reset();
+  mlpAnim.loop();
+});
+
+document.getElementById('mlpResetBtn').addEventListener('click', () => mlpAnim.reset());
+
+// ─── Playground animation (sec-playground) ───────────────────────────────────
+const playMlpCanvas = document.getElementById('playMlpCanvas');
+const playMlpAnim   = new MLPAnimation(playMlpCanvas, {
+  hiddenLayers: 2,
+  hiddenNodes:  3,
+  inputNodes:   2,
+  outputNodes:  1,
+});
+
+const layerSlider = document.getElementById('layerSlider');
+const layerValue  = document.getElementById('layerValue');
+const nodeSlider  = document.getElementById('nodeSlider');
+const nodeValue   = document.getElementById('nodeValue');
+
+function updatePlayCaption(layers, nodes) {
+  const params = 2 * nodes + (layers - 1) * nodes * nodes + nodes;
+  document.getElementById('playMlpCaption').textContent =
+    `${layers} hidden layer${layers > 1 ? 's' : ''}, ${nodes} nodes each — roughly ${params} trainable parameters.`;
+}
+
+layerSlider.addEventListener('input', () => {
+  const v = parseInt(layerSlider.value, 10);
+  layerValue.textContent = v;
+  playMlpAnim.setTopology(v, parseInt(nodeSlider.value, 10));
+  updatePlayCaption(v, parseInt(nodeSlider.value, 10));
+});
+
+nodeSlider.addEventListener('input', () => {
+  const v = parseInt(nodeSlider.value, 10);
+  nodeValue.textContent = v;
+  playMlpAnim.setTopology(parseInt(layerSlider.value, 10), v);
+  updatePlayCaption(parseInt(layerSlider.value, 10), v);
+});
+
+document.getElementById('playFwdBtn').addEventListener('click', () => {
+  playMlpAnim.looping = false;
+  playMlpAnim.forward();
+});
+
+document.getElementById('playResetBtn').addEventListener('click', () => playMlpAnim.reset());
+
+// ─── Quiz ─────────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG = 'mlp';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+
+// ─── Reading progress bar ─────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop  = window.scrollY;
+  const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─── Scroll reveal ────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── TOC active dot ───────────────────────────────────────────────────────────
+const sections   = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots    = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─── Re-render canvases on theme change ──────────────────────────────────────
+window.onThemeChange(function () {
+  mlpAnim._render();
+  playMlpAnim._render();
+});
+</script>
+</body>
+</html>

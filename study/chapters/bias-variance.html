@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bias-Variance Tradeoff — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>           <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span> <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>           <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 1 · Basic Machine Learning</p>
+    <h1>Bias-Variance Tradeoff</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The fundamental tension at the heart of every model you'll ever build.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-style:normal; font-size:1.05rem; line-height:1.8;">
+      Every model you ever build will fail for one of two reasons: it's <strong style="color:var(--accent)">too simple to see the pattern</strong>, or <strong style="color:var(--accent)">too sensitive to noise</strong>. There is no third failure mode. Once you understand this, you can diagnose any model's problem in seconds — and you'll know exactly what lever to pull.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>The archer at the bullseye</h2>
+    <p class="lead">
+      Imagine an archer shooting at a target. The bullseye is the true pattern in the data.
+      Each shot is a model trained on a different sample of training data.
+      The question isn't whether a single shot misses — it's <em>how</em> it misses.
+    </p>
+    <p>
+      A <strong style="color:var(--accent)">high-bias</strong> archer (underfitting) consistently shoots off-center — always wide-left, no matter how many shots they take. They have a systematic flaw. More practice doesn't help because the flaw is structural: their posture, their aim, their model of how archery works is wrong. You could give them a thousand training shots and they'd still cluster in the wrong spot.
+    </p>
+    <p>
+      A <strong style="color:var(--accent)">high-variance</strong> archer (overfitting) is accurate on average but wildly inconsistent — one shot lands top-right, the next bottom-left. Their aim is too sensitive to momentary distractions: a gust of wind, a twitch, a speck of dust. Their shots scatter all over the target. They have no systematic error, but they're untrustworthy because they overfit to every momentary fluctuation.
+    </p>
+    <p>
+      The ideal archer has <strong style="color:var(--accent)">low bias and low variance</strong>: shots cluster tightly around the bullseye. But real models face a tradeoff — making a model more flexible to reduce bias often increases its sensitivity to noise, raising variance.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li><strong style="color:var(--accent)">Underfitting</strong> — model too simple; misses the real pattern; high training <em>and</em> test error.</li>
+      <li><strong style="color:var(--accent)">Overfitting</strong> — model too complex; memorizes noise; low training error, high test error.</li>
+      <li><strong style="color:var(--accent)">Sweet spot</strong> — just complex enough to capture the signal without chasing noise.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three questions worth pausing on</h2>
+
+    <p class="lead">
+      The bias-variance tradeoff is often stated as a slogan. But there are three questions
+      that reveal exactly what it means — and why it can't be avoided.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What exactly does "variance" mean for a model? Not variance of the data — variance of the <em>model itself</em>. If you trained the same model architecture on 100 different training sets drawn from the same distribution, what would vary? Think concretely before reading on.
+    </div>
+
+    <p>
+      The <em>model's predictions</em> would vary. Specifically: pick any test point x. Train 100 models on 100 different datasets. Each model will give a different prediction for x. The <strong style="color:var(--accent)">variance</strong> of the model is the expected spread of those predictions around their mean. A high-variance model is one whose output changes dramatically depending on which training set it happened to see — it's unstable. A low-variance model gives nearly the same prediction for x regardless of which training set you used.
+    </p>
+
+    <p>
+      <strong style="color:var(--accent)">Bias</strong> is the complementary question: even if you averaged all 100 predictions together (eliminating variance), how far is that average from the true answer? That's the systematic error that more data cannot fix.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Can you have zero bias and zero variance simultaneously? Think about what each constraint requires from the model — do they point in the same direction or opposite directions?
+    </div>
+
+    <p>
+      They point in opposite directions — that's precisely why it's called a <em>tradeoff</em>. To drive bias to zero, the model must be expressive enough to fit any pattern, which means it has to be very flexible. But a very flexible model can fit noise equally well, making it sensitive to the particular training set — high variance. To drive variance to zero, the model must output nearly the same thing regardless of the training set, which means it must be very rigid — but a rigid model can't adapt to the true pattern, giving high bias.
+    </p>
+    <p>
+      Irreducible noise — randomness inherent in the data-generating process itself — means total error is <em>always</em> greater than zero even if you somehow achieved perfect balance. This is the third term in the decomposition, and no model can remove it.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why does adding more training data reduce variance but not bias? Consider each in terms of what "more data" actually changes inside the model.
+    </div>
+
+    <p>
+      More data reduces <strong style="color:var(--accent)">variance</strong> because it constrains the model more tightly — there are fewer ways to fit a large dataset, so different training sets produce more similar models. The randomness in any one sample gets averaged out. But more data does nothing for <strong style="color:var(--accent)">bias</strong> because bias is a structural limitation: if the model family can't represent the true function (a linear model trying to fit a sine curve, for instance), no amount of data will make it able to. The model will confidently converge to the wrong answer. This is why adding data is a cure for overfitting but never for underfitting.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch bias and variance emerge</h2>
+    <p class="lead">
+      The <strong>left panel</strong> shows a true function (gold dashed curve), five noisy training points (gold dots), and the model's polynomial fit (blue line). The <strong>right panel</strong> is a bullseye: each dot is where one fitted model "lands" — judged by its prediction at a fixed test point x = 0.5.
+    </p>
+    <p>
+      Press <strong>Animate Fits</strong> to step through five different training sets sequentially. Watch how the fit changes with each new set. The bullseye accumulates all fits — tight cluster = low variance, off-center cluster = high bias.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Use the complexity slider to change the polynomial degree. Low degrees underfit; high degrees overfit.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <div style="display:flex; gap:1.5rem; align-items:flex-start; flex-wrap:wrap;">
+        <canvas id="bvFitCanvas" width="400" height="300" style="flex:1; min-width:280px; max-width:100%;"></canvas>
+        <canvas id="bvBullseyeCanvas" width="260" height="300" style="flex:0 0 260px; max-width:100%;"></canvas>
+      </div>
+      <div class="animation-caption" id="bvCaption">
+        Bias²: — &nbsp;|&nbsp; Variance: — &nbsp;|&nbsp; MSE: —
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">Model Complexity</span>
+        <input type="range" id="complexitySlider" min="1" max="9" step="1" value="1">
+        <span class="control-value" id="complexityValue">degree 1</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="bvRunBtn">▶ Animate Fits</button>
+        <button class="btn secondary" id="bvResetBtn">↺ Reset</button>
+        <span style="font-size:0.85rem; color:var(--text-muted); margin-left:0.5rem;">
+          Each run uses a new random seed
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>MSE = Bias² + Variance + Irreducible Noise</h2>
+
+    <p class="lead">
+      The bias-variance tradeoff isn't just a metaphor — it's a mathematical identity. For any point x, the expected mean squared error of a model decomposes exactly into three non-negative terms that sum to total error.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">MSE Decomposition</div>
+      <div class="formula">MSE(x)  =  Bias²(x)  +  Variance(x)  +  σ²</div>
+      <div class="symbol-table">
+        <span class="sym">MSE(x)</span>     <span>expected squared error at test point x, averaged over all training sets</span>
+        <span class="sym">Bias²(x)</span>   <span>(E[f̂(x)] − f(x))² — how far the average prediction is from the truth</span>
+        <span class="sym">Variance(x)</span><span>E[(f̂(x) − E[f̂(x)])²] — how much predictions spread around their average</span>
+        <span class="sym">σ²</span>          <span>irreducible noise — variance of the true data-generating process; no model can remove this</span>
+      </div>
+    </div>
+
+    <p>
+      This decomposition holds exactly — it's an algebraic identity, not an approximation. In practice, you never observe all three terms directly. But you can <em>estimate</em> each from training and test error patterns. Here's how:
+    </p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0;">
+        <span class="step-num" style="background:transparent; color:var(--text-muted); font-weight:600;">Step</span>
+        <span style="display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; font-weight:600; font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);">
+          <span>What to measure</span><span>What it tells you</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">1</span>
+        <span style="display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; font-size:0.88rem;">
+          <span>Record training error and test error on the same model</span>
+          <span class="step-math">Both values available after every training run</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span style="display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; font-size:0.88rem;">
+          <span>If training error is high, bias is high — the model can't fit even the data it saw</span>
+          <span class="step-math">High train error → underfitting → increase complexity</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span style="display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; font-size:0.88rem;">
+          <span>If training error is low but test error is high, the gap is the variance contribution</span>
+          <span class="step-math">Large gap = overfitting → decrease complexity or add more data</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span style="display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; font-size:0.88rem;">
+          <span>The floor of test error even with perfect balance estimates σ² — what you cannot remove</span>
+          <span class="step-math">Irreducible noise sets your best possible performance ceiling</span>
+        </span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">Diagnosis in two numbers: train error vs. (test error − train error).</span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          High train error = bias problem. Large gap = variance problem. Both high = you have both problems, start with bias.
+          This two-number diagnostic is the fastest way to know which lever to pull.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real Problem -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Toy to Real</p>
+    <h2>Polynomial regression on housing prices — and validation curves</h2>
+    <p class="lead">
+      The most concrete place to see bias-variance in action is polynomial regression with a hyperparameter tuning loop. Here's what it looks like on a real problem.
+    </p>
+    <p>
+      Say you're predicting housing prices from square footage. You start with degree-1 (linear): training error is 40k, test error is 41k. Low variance (small gap) but high bias — the linear model can't capture the curve in the data. You increase to degree-3: training error drops to 8k, test error is 12k. Better balance. Degree-9: training error is nearly 0, test error explodes to 180k. Classic overfitting.
+    </p>
+    <p>
+      The tool for finding the sweet spot is the <strong style="color:var(--accent)">validation curve</strong> — a plot of training error and validation error as a function of model complexity (degree, depth, number of parameters, regularization strength).
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>At low complexity: both curves are high — underfitting, high bias.</li>
+      <li>As complexity increases: training error falls fast; validation error falls then rises.</li>
+      <li>The <strong style="color:var(--accent)">optimal complexity</strong> is the point where validation error bottoms out.</li>
+      <li>Beyond that: training error keeps falling, validation error rises — the gap is variance growing.</li>
+    </ul>
+    <div class="insight-box" style="font-style:normal;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">The key asymmetry:</strong>
+      When you're underfitting, adding features, removing regularization, and increasing complexity all help.
+      When you're overfitting, adding data, increasing regularization, and decreasing complexity all help.
+      These are opposite interventions — getting the diagnosis right before choosing the fix is everything.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>The validation curve — live</h2>
+    <p class="lead">
+      Adjust the polynomial degree from 1 to 9 and watch both training and test error update. This is the validation curve in miniature. The optimal complexity is wherever the blue test error curve bottoms out.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Polynomial degree</span>
+        <input type="range" id="pgDegreeSlider" min="1" max="9" step="1" value="1">
+        <span class="control-value" id="pgDegreeValue">1</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Training set size</span>
+        <input type="range" id="pgSizeSlider" min="10" max="80" step="5" value="20">
+        <span class="control-value" id="pgSizeValue">20</span>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="pgCanvas" width="720" height="300" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="pgCaption">
+          Degree 1 — high bias (underfitting). Train ≈ test error; both are high.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs — and the causal chain between them</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These mistakes form a chain — believe the first and the rest follow naturally. Break the first link and they all collapse.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① A model with zero training error is a great model.</div>
+        <div class="truth">
+          Zero training error almost always means the model has memorized noise — it has fit the specific random fluctuations in the training data rather than the true underlying pattern. This is the definition of overfitting. On unseen data it will fail badly. Perfect training performance is a warning sign, not a success signal.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② So just stop training before the model memorizes — train for fewer steps.</div>
+        <div class="truth">
+          Early stopping is valid, but the root problem isn't training duration — it's model complexity relative to data size. A simpler model can be trained to completion without overfitting. A wildly overparameterized model can't be saved by stopping early alone; it needs regularization, more data, or an architecture change. Early stopping treats a symptom; complexity control treats the cause.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ More data always helps.</div>
+        <div class="truth">
+          More data reduces variance — it constrains the model, making different training sets produce more similar results. But it cannot reduce bias. If your model is a straight line and the true pattern is a curve, no amount of data will fix the structural mismatch. This is why adding data is powerful for overfitting problems and useless for underfitting problems. The diagnosis must come first.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ A more complex model is always better because it can learn more.</div>
+        <div class="truth">
+          A more complex model reduces bias but raises variance. Whether this is a net gain depends on how much data you have. With abundant data, variance is naturally controlled and higher complexity helps. With limited data, a complex model will overfit. The right complexity is a function of both the problem's true pattern and your dataset size — not just one or the other.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ Bias and variance are both bad, so the goal is to minimize both.</div>
+        <div class="truth">
+          You cannot minimize both simultaneously with a fixed amount of data — that's the tradeoff. Reducing one generally increases the other. The goal is to find the point where their sum (total expected error) is minimized. Regularization is the primary tool for navigating this: it deliberately introduces a small amount of bias to achieve a larger reduction in variance, improving net generalization.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>MSE = Bias² + Variance + σ² — this is an exact algebraic identity. All three terms are non-negative; σ² sets a hard floor that no model can beat.</li>
+      <li>Bias is structural error from wrong assumptions. Variance is sensitivity to the specific training set. More data fixes variance; only more expressiveness fixes bias.</li>
+      <li>The diagnostic is two numbers: training error measures bias; the gap between test and training error measures variance. High train error = bias problem. Large gap = variance problem.</li>
+      <li>Complexity (degree, depth, parameters) controls the tradeoff: too low → underfitting; too high → overfitting; the sweet spot is wherever validation error bottoms out on the validation curve.</li>
+      <li>Regularization navigates the tradeoff deliberately — it accepts a small increase in bias to get a larger decrease in variance, improving generalization on finite data. That's the next chapter.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves open:</strong>
+      You now know that reducing model complexity reduces variance at the cost of bias. But what if you need a complex model — because the true pattern is complex — yet you have limited data? Is there a way to keep the model expressive while still controlling its variance?<br><br>
+      That's exactly what regularization does. It adds a penalty for model complexity directly into the loss function, so the optimizer is forced to balance fit quality against simplicity. It's the mathematical lever for navigating the bias-variance tradeoff in practice. And it's the <a href="regularization.html">next chapter</a>.
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these two texts.
+      Quotes and derivations are taken directly from them, not synthesized from memory.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">CS229 Lecture Notes — §3 (Generalization)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Andrew Ng &amp; Tengyu Ma, Stanford University (2022 edition)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: bias-variance definitions, the decomposition MSE = Bias² + Variance + σ²,
+            the archer/bullseye intuition, underfitting vs. overfitting framing, validation curves,
+            data size effects on variance vs. bias.
+          </span><br>
+          <a href="https://cs229.stanford.edu" style="font-family:var(--font-mono); font-size:0.8rem;">cs229.stanford.edu</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — §5.4 (Bias, Variance and the Tradeoff)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: formal MSE decomposition proof, irreducible noise floor,
+            why regularization trades bias for variance, capacity and representational power,
+            the impossibility of simultaneously minimizing bias and variance.
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- 12. Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>10 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 10 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">A model achieves 2% training error and 35% test error. Is this a bias problem or a variance problem? What's your first intervention?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Variance problem (overfitting).</strong> Low training error means the model can fit the data — bias is low. The large gap (33 percentage points) between training and test error is variance: the model is too sensitive to the specific training set and isn't generalizing. First intervention: add more training data (if available), reduce model complexity, or add regularization. Do not add features or increase capacity — that worsens variance further.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">A model achieves 38% training error and 40% test error. Is this a bias problem or a variance problem? What's your first intervention?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Bias problem (underfitting).</strong> The large training error means the model can't even fit the training data — it lacks the capacity to represent the true pattern. The small gap means variance is low. First intervention: increase model complexity (higher-degree polynomial, more layers, more features). Adding more data will not help — it can only reduce variance, and variance is already low.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">You have a degree-1 linear model fit to data that follows a sine curve. You collect 10× more training data. Does test error improve substantially? Why or why not?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — it barely improves.</strong> This is a high-bias scenario. The linear model cannot represent a sine curve regardless of how many samples it sees. More data reduces variance, but with a degree-1 model on smooth data, variance was already very small — the model confidently converges to the wrong linear fit. The bottleneck is the model's structural limitation (wrong hypothesis class), which data cannot fix. You need to increase complexity: switch to a higher-degree polynomial or a non-linear model.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">Two models: Model A has Bias² = 0.01, Variance = 0.20, σ² = 0.05. Model B has Bias² = 0.08, Variance = 0.06, σ² = 0.05. Which has lower expected test error? By how much?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Model B, by 0.10.</strong> MSE(A) = 0.01 + 0.20 + 0.05 = 0.26. MSE(B) = 0.08 + 0.06 + 0.05 = 0.19. Despite Model B having 8× higher bias, its much lower variance gives it a better total error. This illustrates why regularization (which deliberately introduces bias to reduce variance) often improves generalization: a small bias increase that produces a large variance decrease is a net win.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">On a validation curve, both training error and test error are high and roughly equal, and neither changes as you add more data. What does this tell you?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>High bias — the model is underfitting regardless of data size.</strong> When both curves are high and close together (small gap), variance is low and bias is the problem. The fact that adding data doesn't help confirms it: more data reduces variance, which is already small here. The model's hypothesis class simply cannot represent the true pattern. Fix: increase model expressiveness — more features, higher degree, deeper architecture. More data is not the answer.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">The irreducible noise σ² = 0.12 in your dataset. Your best model achieves test MSE = 0.14. How much room is left for improvement, and where does it come from?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>0.02 of improvement remaining — it comes entirely from reducing Bias² + Variance.</strong> σ² is a hard floor: no model can achieve test MSE below 0.12 on this data because the data itself contains 0.12 units of irreducible randomness. Your current model has Bias² + Variance = 0.14 − 0.12 = 0.02. With better architecture, regularization, or more data you might close that gap — but you cannot go below 0.12. This sets realistic expectations: chasing performance below the noise floor is impossible.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">You train the same degree-9 polynomial on 20 data points and on 2000 data points. Describe how bias and variance differ between the two settings.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Bias is similar; variance drops dramatically with more data.</strong> The model family (degree-9) determines bias — both models have the same capacity to represent the true function, so their bias is approximately equal. But with 20 points, the degree-9 polynomial can fit noise heavily — small changes in the training set lead to wildly different fitted curves (high variance). With 2000 points, the model is constrained by far more observations; different training sets look similar, so the fitted curves become consistent (low variance). More data tames variance without changing the model's structural assumptions.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">L2 regularization adds λ‖w‖² to the loss, penalizing large weights. In bias-variance terms, what does increasing λ do, and when is this a good trade?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Increasing λ increases bias and decreases variance.</strong> Larger λ shrinks weights toward zero, making the model less expressive — it can no longer fit the training data as tightly (bias rises). But the model becomes more stable: its weights don't swing wildly in response to different training sets (variance falls). This trade is beneficial when you're overfitting — i.e., when variance is the dominant term in total error. It's harmful when you're already underfitting (high bias), because you'd be adding bias on top of existing bias.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">You train 100 models on 100 different samples from the same distribution. For a fixed test point x, their predictions are: mean = 3.8, true value = 4.0, standard deviation = 0.3. Compute Bias², Variance, and say what MSE would be if σ² = 0.05.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Bias² = 0.04, Variance = 0.09, MSE = 0.18.</strong> Bias = E[f̂(x)] − f(x) = 3.8 − 4.0 = −0.2. Bias² = 0.04. Variance = E[(f̂(x) − E[f̂(x)])²] = σ_predictions² = 0.3² = 0.09. MSE = Bias² + Variance + σ² = 0.04 + 0.09 + 0.05 = 0.18. Note: variance dominates here. A small regularization nudge — slightly increasing bias from 0.04 to 0.06 while halving variance to 0.045 — would give MSE = 0.115, a big improvement.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="9">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">10</span>
+          <span class="q-text">Modern deep neural networks have millions of parameters — far more than training examples. Classical theory says they should massively overfit. But in practice they often generalize well. Does this break the bias-variance tradeoff?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — it reveals a subtlety the classical picture misses.</strong> The bias-variance decomposition is still valid. What's different is how implicit regularization works in deep networks: gradient descent with small random initialization tends to find solutions with low norm (implicit L2 regularization), and modern architectures have inductive biases (locality in CNNs, attention patterns in transformers) that constrain the effective hypothesis class even when the parameter count is huge. This is the "double descent" phenomenon: beyond classical overfitting, more model capacity can actually reduce variance by finding smoother interpolations. The tradeoff isn't broken — it's operating through different mechanisms than a polynomial's explicit degree.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────────
+// BiasVarianceAnimation — inline per chapter rules
+// ─────────────────────────────────────────────────────────────────
+class BiasVarianceAnimation {
+  constructor(fitCanvas, bullseyeCanvas) {
+    this.fitCanvas       = fitCanvas;
+    this.bullseyeCanvas  = bullseyeCanvas;
+    this.fitCtx          = fitCanvas.getContext('2d');
+    this.bsCtx           = bullseyeCanvas.getContext('2d');
+    this.degree          = 1;
+    this.animating       = false;
+    this.fitIndex        = 0;
+    this.allFits         = [];   // [{xs, ys, coeffs, testPred}]
+    this.TEST_X          = 0.5; // fixed evaluation point
+    this.TRUE_SCALE      = 1.2;
+    this._frameId        = null;
+    this._seed           = 42;
+
+    this._render();
+  }
+
+  // ── Seeded PRNG ───────────────────────────────────────────────
+  _rand() {
+    this._seed = (this._seed * 1664525 + 1013904223) & 0xffffffff;
+    return (this._seed >>> 0) / 4294967296;
+  }
+
+  _randNormal() {
+    const u1 = this._rand() || 1e-10;
+    const u2 = this._rand();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  }
+
+  setDegree(d) {
+    this.degree = d;
+    this.reset();
+  }
+
+  reset() {
+    cancelAnimationFrame(this._frameId);
+    this.animating = false;
+    this.fitIndex  = 0;
+    this.allFits   = [];
+    this._render();
+    document.getElementById('bvCaption').textContent =
+      'Bias²: —  |  Variance: —  |  MSE: —';
+  }
+
+  // ── True function: sin(2πx) * scale ──────────────────────────
+  _trueF(x) { return this.TRUE_SCALE * Math.sin(2 * Math.PI * x); }
+
+  // ── Generate noisy training set ───────────────────────────────
+  _genDataset(n) {
+    const xs = [], ys = [];
+    for (let i = 0; i < n; i++) {
+      const x = this._rand();
+      const y = this._trueF(x) + 0.4 * this._randNormal();
+      xs.push(x); ys.push(y);
+    }
+    return { xs, ys };
+  }
+
+  // ── Polynomial features ──────────────────────────────────────
+  _polyFeatures(x, deg) {
+    const row = [];
+    for (let d = 0; d <= deg; d++) row.push(Math.pow(x, d));
+    return row;
+  }
+
+  // ── Least-squares via normal equations (Cholesky-ish, small deg) ─
+  _fitPoly(xs, ys, deg) {
+    const n   = xs.length;
+    const p   = deg + 1;
+    // Build X matrix (n × p) and y vector
+    const X = xs.map(x => this._polyFeatures(x, deg));
+    // XtX and Xty
+    const XtX = Array.from({length:p}, () => new Array(p).fill(0));
+    const Xty = new Array(p).fill(0);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < p; j++) {
+        Xty[j] += X[i][j] * ys[i];
+        for (let k = 0; k < p; k++) {
+          XtX[j][k] += X[i][j] * X[i][k];
+        }
+      }
+    }
+    // Add tiny ridge for numerical stability
+    const ridge = 1e-8;
+    for (let j = 0; j < p; j++) XtX[j][j] += ridge;
+    // Gaussian elimination
+    const coeffs = this._solveLinear(XtX, Xty, p);
+    return coeffs;
+  }
+
+  _solveLinear(A, b, n) {
+    // Augmented matrix
+    const M = A.map((row, i) => [...row, b[i]]);
+    for (let col = 0; col < n; col++) {
+      // Find pivot
+      let maxRow = col;
+      for (let row = col + 1; row < n; row++) {
+        if (Math.abs(M[row][col]) > Math.abs(M[maxRow][col])) maxRow = row;
+      }
+      [M[col], M[maxRow]] = [M[maxRow], M[col]];
+      const piv = M[col][col];
+      if (Math.abs(piv) < 1e-12) continue;
+      for (let row = 0; row < n; row++) {
+        if (row === col) continue;
+        const factor = M[row][col] / piv;
+        for (let k = col; k <= n; k++) M[row][k] -= factor * M[col][k];
+      }
+    }
+    return M.map((row, i) => row[n] / row[i]);
+  }
+
+  _evalPoly(coeffs, x) {
+    let y = 0;
+    for (let d = 0; d < coeffs.length; d++) y += coeffs[d] * Math.pow(x, d);
+    return y;
+  }
+
+  // ── Run one fit ───────────────────────────────────────────────
+  _runFit() {
+    const { xs, ys } = this._genDataset(12);
+    const coeffs     = this._fitPoly(xs, ys, this.degree);
+    const testPred   = this._evalPoly(coeffs, this.TEST_X);
+    this.allFits.push({ xs, ys, coeffs, testPred });
+  }
+
+  // ── Stats from accumulated fits ───────────────────────────────
+  _computeStats() {
+    if (this.allFits.length === 0) return null;
+    const preds   = this.allFits.map(f => f.testPred);
+    const meanP   = preds.reduce((s,v) => s + v, 0) / preds.length;
+    const trueVal = this._trueF(this.TEST_X);
+    const bias2   = Math.pow(meanP - trueVal, 2);
+    const variance = preds.reduce((s,v) => s + Math.pow(v - meanP, 2), 0) / preds.length;
+    const mse     = bias2 + variance; // excluding irreducible here for clarity
+    return { bias2, variance, mse, meanP, trueVal };
+  }
+
+  // ── Canvas helpers ────────────────────────────────────────────
+  _fitToCanvas(x, y, canvas) {
+    const pad = 40, W = canvas.width - 2*pad, H = canvas.height - 2*pad;
+    const cx = pad + x * W;
+    const cy = pad + H/2 - (y / (this.TRUE_SCALE * 1.8)) * (H/2);
+    return { cx, cy };
+  }
+
+  // ── Draw left panel (fit canvas) ──────────────────────────────
+  _drawFit(fitData) {
+    const { fitCtx: ctx, fitCanvas: canvas } = this;
+    const bg = getComputedStyle(document.documentElement)
+      .getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const textMuted = getComputedStyle(document.documentElement)
+      .getPropertyValue('--text-muted').trim() || '#8b949e';
+    const borderClr = getComputedStyle(document.documentElement)
+      .getPropertyValue('--border').trim() || '#30363d';
+    const W = canvas.width, H = canvas.height, pad = 40;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Axes
+    ctx.strokeStyle = borderClr; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, H-pad); ctx.lineTo(W-pad, H-pad);
+    ctx.moveTo(pad, pad);   ctx.lineTo(pad, H-pad);
+    ctx.stroke();
+
+    // X-axis label
+    ctx.fillStyle = textMuted; ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('x', W/2, H-8);
+    ctx.save(); ctx.translate(14, H/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillText('y', 0, 0);
+    ctx.restore();
+
+    // True function (gold dashed)
+    ctx.beginPath(); ctx.strokeStyle = '#f0a500'; ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    for (let i = 0; i <= 200; i++) {
+      const x = i/200;
+      const { cx, cy } = this._fitToCanvas(x, this._trueF(x), canvas);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+
+    // Training points (gold dots)
+    if (fitData) {
+      fitData.xs.forEach((x, i) => {
+        const { cx, cy } = this._fitToCanvas(x, fitData.ys[i], canvas);
+        ctx.beginPath(); ctx.arc(cx, cy, 4.5, 0, Math.PI*2);
+        ctx.fillStyle = '#f0a500';
+        ctx.shadowBlur = 6; ctx.shadowColor = '#f0a500';
+        ctx.fill();
+        ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+      });
+    }
+
+    // Fitted polynomial (blue line)
+    if (fitData && fitData.coeffs) {
+      ctx.beginPath(); ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 2.5;
+      for (let i = 0; i <= 200; i++) {
+        const x = i/200;
+        const y = this._evalPoly(fitData.coeffs, x);
+        const { cx, cy } = this._fitToCanvas(x, y, canvas);
+        if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+    }
+
+    // Legend
+    ctx.font = '10px JetBrains Mono, monospace'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#f0a500';
+    ctx.fillText('— true f(x)', pad+4, pad+16);
+    ctx.fillStyle = '#58a6ff';
+    ctx.fillText('— model fit', pad+4, pad+30);
+    ctx.fillStyle = textMuted;
+    ctx.fillText(`degree = ${this.degree}`, pad+4, pad+44);
+  }
+
+  // ── Draw right panel (bullseye) ────────────────────────────────
+  _drawBullseye() {
+    const { bsCtx: ctx, bullseyeCanvas: canvas, allFits } = this;
+    const bg = getComputedStyle(document.documentElement)
+      .getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const textMuted = getComputedStyle(document.documentElement)
+      .getPropertyValue('--text-muted').trim() || '#8b949e';
+    const W = canvas.width, H = canvas.height;
+    const cx = W/2, cy = H/2 - 15;
+    const maxR = Math.min(W, H)/2 - 20;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    // Bullseye rings
+    const rings = 4;
+    for (let r = rings; r >= 1; r--) {
+      const radius = (r / rings) * maxR;
+      ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2);
+      const alpha = 0.04 + (rings - r) * 0.03;
+      ctx.fillStyle = `rgba(240,165,0,${alpha})`;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(240,165,0,0.15)';
+      ctx.lineWidth = 1; ctx.stroke();
+    }
+
+    // Bullseye center
+    ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI*2);
+    ctx.fillStyle = '#f0a500'; ctx.fill();
+
+    // Title
+    ctx.fillStyle = textMuted; ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`predict at x = ${this.TEST_X}`, cx, 20);
+
+    if (allFits.length === 0) {
+      ctx.fillStyle = textMuted; ctx.font = '11px JetBrains Mono, monospace';
+      ctx.fillText('Animate fits to see', cx, H/2 + 5);
+      ctx.fillText('where they land', cx, H/2 + 20);
+      return;
+    }
+
+    const trueVal = this._trueF(this.TEST_X);
+    const preds   = allFits.map(f => f.testPred);
+    const meanP   = preds.reduce((s,v)=>s+v,0)/preds.length;
+
+    // Determine scale: map prediction error range to bullseye radius
+    const SPREAD_SCALE = maxR / (this.TRUE_SCALE * 2.5);
+
+    // Draw mean line (bias arrow)
+    const biasY = cy - (meanP - trueVal) * SPREAD_SCALE;
+    ctx.strokeStyle = 'rgba(248,81,73,0.5)'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, biasY);
+    ctx.stroke(); ctx.setLineDash([]);
+
+    // Draw each prediction dot
+    preds.forEach((pred, i) => {
+      // Spread horizontally for variance visualization
+      const offsetX = (i - (preds.length-1)/2) * 8;
+      const dotCx   = cx + offsetX;
+      const dotCy   = cy - (pred - trueVal) * SPREAD_SCALE;
+      const alpha   = i === allFits.length-1 ? 1 : 0.5;
+      ctx.beginPath(); ctx.arc(dotCx, dotCy, i === allFits.length-1 ? 6 : 4.5, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(88,166,255,${alpha})`;
+      ctx.shadowBlur = i === allFits.length-1 ? 10 : 0;
+      ctx.shadowColor = '#58a6ff';
+      ctx.fill();
+      ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+    });
+
+    // Mean prediction dot
+    ctx.beginPath(); ctx.arc(cx, biasY, 5, 0, Math.PI*2);
+    ctx.fillStyle = '#f85149'; ctx.fill();
+
+    // Label
+    ctx.fillStyle = '#58a6ff'; ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('● each fit', cx, H-30);
+    ctx.fillStyle = '#f85149';
+    ctx.fillText('● mean prediction', cx, H-16);
+  }
+
+  render() {
+    const lastFit = this.allFits.length > 0
+      ? this.allFits[this.allFits.length - 1] : null;
+    this._drawFit(lastFit);
+    this._drawBullseye();
+  }
+
+  _render() { this.render(); }
+
+  // ── Animate: step through 5 training sets ─────────────────────
+  animate() {
+    if (this.animating) return;
+    this.animating = true;
+    this.fitIndex  = 0;
+    this.allFits   = [];
+    this._seed     = Date.now() & 0xffffffff;
+    this._animStep();
+  }
+
+  _animStep() {
+    if (this.fitIndex >= 5 || !this.animating) {
+      this.animating = false;
+      this._updateCaption();
+      return;
+    }
+    this._runFit();
+    this.fitIndex++;
+
+    // Animate the fit appearing
+    const fit      = this.allFits[this.allFits.length - 1];
+    const maxCoeff = this.allFits.length > 1
+      ? this.allFits[this.allFits.length - 2].coeffs : null;
+    let prog = 0;
+    const dur  = 600;
+    const start = performance.now();
+
+    const frame = (now) => {
+      if (!this.animating) return;
+      prog = Math.min((now - start) / dur, 1);
+      const t = easeInOut(prog);
+
+      // Interpolate coefficients from previous if available
+      let animCoeffs = fit.coeffs;
+      if (maxCoeff && maxCoeff.length === fit.coeffs.length) {
+        animCoeffs = fit.coeffs.map((c,i) => lerp(maxCoeff[i], c, t));
+      }
+      this._drawFit({ xs: fit.xs, ys: fit.ys, coeffs: animCoeffs });
+      this._drawBullseye();
+
+      if (prog < 1) {
+        this._frameId = requestAnimationFrame(frame);
+      } else {
+        this._updateCaption();
+        setTimeout(() => this._animStep(), 300);
+      }
+    };
+    this._frameId = requestAnimationFrame(frame);
+  }
+
+  _updateCaption() {
+    const stats = this._computeStats();
+    if (!stats) return;
+    const el = document.getElementById('bvCaption');
+    el.textContent =
+      `Bias²: ${stats.bias2.toFixed(4)} | Variance: ${stats.variance.toFixed(4)} | MSE: ${stats.mse.toFixed(4)}`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Playground canvas — validation curve
+// ─────────────────────────────────────────────────────────────────
+function drawValidationCurve(canvas, degree, nTrain) {
+  const ctx = canvas.getContext('2d');
+  const bg  = getComputedStyle(document.documentElement)
+    .getPropertyValue('--canvas-bg').trim() || '#161b22';
+  const textMuted = getComputedStyle(document.documentElement)
+    .getPropertyValue('--text-muted').trim() || '#8b949e';
+  const borderClr = getComputedStyle(document.documentElement)
+    .getPropertyValue('--border').trim() || '#30363d';
+  const W = canvas.width, H = canvas.height, pad = 50;
+
+  ctx.clearRect(0, 0, W, H); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // Static data: pre-computed error curves for sin target, n=20
+  // trainErr and testErr indexed by degree 1..9
+  // These are illustrative but realistic values
+  const SCALE_20 = [
+    null,
+    { train: 0.55, test: 0.58 }, // deg 1
+    { train: 0.42, test: 0.48 }, // deg 2
+    { train: 0.20, test: 0.26 }, // deg 3
+    { train: 0.12, test: 0.22 }, // deg 4
+    { train: 0.06, test: 0.20 }, // deg 5 (near optimal for n=20)
+    { train: 0.04, test: 0.28 }, // deg 6
+    { train: 0.02, test: 0.45 }, // deg 7
+    { train: 0.01, test: 0.72 }, // deg 8
+    { train: 0.005,test: 1.10 }, // deg 9
+  ];
+  const SCALE_80 = [
+    null,
+    { train: 0.55, test: 0.56 },
+    { train: 0.41, test: 0.43 },
+    { train: 0.18, test: 0.20 },
+    { train: 0.10, test: 0.13 },
+    { train: 0.04, test: 0.08 },
+    { train: 0.02, test: 0.06 },
+    { train: 0.01, test: 0.05 }, // optimal around deg 7 for n=80
+    { train: 0.007,test: 0.06 },
+    { train: 0.003,test: 0.08 },
+  ];
+
+  // Interpolate between the two tables based on nTrain
+  const t  = Math.max(0, Math.min(1, (nTrain - 10) / 70));
+  const errData = Array.from({length:10}, (_,i) => {
+    if (i === 0) return null;
+    const s20 = SCALE_20[i], s80 = SCALE_80[i];
+    return {
+      train: lerp(s20.train, s80.train, t),
+      test:  lerp(s20.test,  s80.test,  t),
+    };
+  });
+
+  const maxErr = 1.2;
+  const cw = W - 2*pad, ch = H - 2*pad;
+
+  // Grid
+  ctx.strokeStyle = borderClr; ctx.lineWidth = 1;
+  const yLines = [0.25, 0.5, 0.75, 1.0];
+  yLines.forEach(v => {
+    const py = pad + ch - (v / maxErr) * ch;
+    ctx.beginPath(); ctx.setLineDash([3,4]);
+    ctx.moveTo(pad, py); ctx.lineTo(W-pad, py);
+    ctx.strokeStyle = 'rgba(48,54,61,0.7)'; ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = textMuted; ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'right'; ctx.fillText(v.toFixed(2), pad-6, py+4);
+  });
+
+  // Axes
+  ctx.strokeStyle = borderClr; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, H-pad); ctx.lineTo(W-pad, H-pad);
+  ctx.moveTo(pad, pad);   ctx.lineTo(pad, H-pad);
+  ctx.stroke();
+
+  // X labels
+  ctx.fillStyle = textMuted; ctx.font = '11px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  for (let d = 1; d <= 9; d++) {
+    const px = pad + ((d-1)/8) * cw;
+    ctx.fillText(d, px, H-pad+16);
+  }
+  ctx.fillText('polynomial degree', W/2, H-8);
+  ctx.save(); ctx.translate(14, H/2);
+  ctx.rotate(-Math.PI/2); ctx.fillText('error', 0, 0); ctx.restore();
+
+  // Train error curve (gold)
+  ctx.beginPath(); ctx.strokeStyle = '#f0a500'; ctx.lineWidth = 2.5;
+  for (let d = 1; d <= 9; d++) {
+    const px = pad + ((d-1)/8) * cw;
+    const py = pad + ch - (Math.min(errData[d].train, maxErr) / maxErr) * ch;
+    d === 1 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Test error curve (blue)
+  ctx.beginPath(); ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 2.5;
+  for (let d = 1; d <= 9; d++) {
+    const px = pad + ((d-1)/8) * cw;
+    const py = pad + ch - (Math.min(errData[d].test, maxErr) / maxErr) * ch;
+    d === 1 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Current degree marker
+  const markX = pad + ((degree-1)/8) * cw;
+  ctx.strokeStyle = 'rgba(240,165,0,0.3)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(markX, pad); ctx.lineTo(markX, H-pad);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Highlight current point (train)
+  const trainY = pad + ch - (Math.min(errData[degree].train, maxErr)/maxErr)*ch;
+  const testY  = pad + ch - (Math.min(errData[degree].test,  maxErr)/maxErr)*ch;
+  [{ y: trainY, c:'#f0a500' }, { y: testY, c:'#58a6ff' }].forEach(({y,c}) => {
+    ctx.beginPath(); ctx.arc(markX, y, 6, 0, Math.PI*2);
+    ctx.fillStyle = c; ctx.shadowBlur = 12; ctx.shadowColor = c;
+    ctx.fill(); ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+  });
+
+  // Legend
+  ctx.font = '11px JetBrains Mono, monospace'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#f0a500'; ctx.fillText('— train error', pad+8, pad+18);
+  ctx.fillStyle = '#58a6ff'; ctx.fillText('— test error',  pad+8, pad+34);
+
+  // Return errors for caption
+  return errData[degree];
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Wire up animation
+// ─────────────────────────────────────────────────────────────────
+const bvAnim = new BiasVarianceAnimation(
+  document.getElementById('bvFitCanvas'),
+  document.getElementById('bvBullseyeCanvas')
+);
+
+const complexitySlider = document.getElementById('complexitySlider');
+const complexityValue  = document.getElementById('complexityValue');
+
+complexitySlider.addEventListener('input', () => {
+  const v = parseInt(complexitySlider.value, 10);
+  complexityValue.textContent = `degree ${v}`;
+  bvAnim.setDegree(v);
+});
+
+document.getElementById('bvRunBtn').addEventListener('click', () => bvAnim.animate());
+document.getElementById('bvResetBtn').addEventListener('click', () => bvAnim.reset());
+
+// ─────────────────────────────────────────────────────────────────
+// Wire up playground
+// ─────────────────────────────────────────────────────────────────
+const pgCanvas      = document.getElementById('pgCanvas');
+const pgDegSlider   = document.getElementById('pgDegreeSlider');
+const pgDegValue    = document.getElementById('pgDegreeValue');
+const pgSizeSlider  = document.getElementById('pgSizeSlider');
+const pgSizeValue   = document.getElementById('pgSizeValue');
+const pgCaption     = document.getElementById('pgCaption');
+
+function updatePg() {
+  const deg    = parseInt(pgDegSlider.value,  10);
+  const nTrain = parseInt(pgSizeSlider.value, 10);
+  pgDegValue.textContent  = deg;
+  pgSizeValue.textContent = nTrain;
+  const errs = drawValidationCurve(pgCanvas, deg, nTrain);
+  // Caption
+  let msg;
+  if (errs.train > 0.3)        msg = `Degree ${deg} — high bias (underfitting). Train ≈ test error; both are high.`;
+  else if (errs.test - errs.train > 0.2)
+                                msg = `Degree ${deg} — high variance (overfitting). Large gap; test error >> train error.`;
+  else                          msg = `Degree ${deg} — good balance. Train and test errors are both low and close.`;
+  pgCaption.textContent = msg;
+}
+
+pgDegSlider.addEventListener('input', updatePg);
+pgSizeSlider.addEventListener('input', updatePg);
+updatePg();
+
+// ─────────────────────────────────────────────────────────────────
+// Quiz
+// ─────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG   = 'bias-variance';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card      = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx    = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed     = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+}
+
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+
+// ─────────────────────────────────────────────────────────────────
+// Reading progress bar
+// ─────────────────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─────────────────────────────────────────────────────────────────
+// Scroll reveal
+// ─────────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─────────────────────────────────────────────────────────────────
+// TOC active dot
+// ─────────────────────────────────────────────────────────────────
+const sections   = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots    = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─────────────────────────────────────────────────────────────────
+// Re-render canvases on theme change
+// ─────────────────────────────────────────────────────────────────
+window.onThemeChange(function () {
+  bvAnim._render();
+  updatePg();
+});
+</script>
+</body>
+</html>

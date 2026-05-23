@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Information Theory — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>          <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span><span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>          <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 0 · Mathematical Foundations</p>
+    <h1>Information Theory</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The mathematics of surprise — and the true meaning of every loss function you've used.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.05rem; line-height:1.8;">
+      Cross-entropy loss — the loss function behind logistic regression, neural networks, and language models — is a direct measurement from information theory. Understand entropy and <strong style="color:var(--accent)">every loss function makes sense</strong>. Skip it and you're tuning numbers you don't understand.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Information is surprise. Entropy is average surprise.</h2>
+    <p class="lead">
+      Shannon's insight: the amount of information carried by an event is inversely proportional to how expected it was. "The sun rose this morning" carries almost no information — you already knew that. "The server crashed during the demo" carries a lot. Mathematically, information is <code>-log p(x)</code>: rare events (small <em>p</em>) produce large values, common events produce small ones.
+    </p>
+    <p>
+      Entropy <em>H(X)</em> is just the weighted average of this surprise over all possible outcomes. It answers: on average, how surprised will I be by a draw from this distribution? A fair coin has entropy of 1 bit — each flip is maximally uncertain. A biased coin that lands heads 99% of the time has entropy near zero — you already know what's coming.
+    </p>
+    <p>
+      The key insight about uniform distributions: entropy is maximized when all outcomes are equally likely. Knowing nothing about which outcome will occur means every draw is maximally surprising. Any bias — any departure from uniformity — reduces entropy because some outcomes become predictable. A distribution concentrated entirely on one outcome has zero entropy: it holds no information because it holds no surprise.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>A <strong style="color:var(--accent)">rare event</strong> (low <em>p</em>) carries <em>high</em> information when it occurs.</li>
+      <li>A <strong style="color:var(--accent)">common event</strong> (high <em>p</em>) carries <em>low</em> information — you expected it.</li>
+      <li><strong style="color:var(--accent)">Entropy</strong> measures the average information content of a distribution.</li>
+      <li><strong style="color:var(--accent)">Cross-entropy</strong> measures average information when you encode outcomes using the wrong distribution.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Build the intuitions from first principles</h2>
+
+    <p class="lead">
+      Three questions that every ML practitioner should be able to answer. Each one unlocks a different layer of why the math is the way it is.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why is <code>-log p(x)</code> the natural measure of information in an event — and not, say, <code>1/p(x)</code> or <code>1 - p(x)</code>?
+    </div>
+
+    <p>
+      Two properties uniquely determine the form. First, information must be <strong style="color:var(--accent)">additive</strong> for independent events: if I flip two independent coins, the total information should be the sum of each flip's information. This rules out <code>1/p(x)</code> and <code>1-p(x)</code>, which don't satisfy additivity for independent events (where <code>p(x,y) = p(x)·p(y)</code>). Second, information must be <strong style="color:var(--accent)">monotonically decreasing</strong> in probability — more likely events are less surprising. The logarithm is the unique function satisfying both: <code>-log(p·q) = -log(p) + (-log(q))</code>. The base of the logarithm sets the unit: base 2 gives bits, base <em>e</em> gives nats. ML uses natural log by convention.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why does minimizing cross-entropy <em>H(P, Q)</em> make the model's distribution <em>Q</em> match the true distribution <em>P</em>?
+    </div>
+
+    <p>
+      Cross-entropy is <code>H(P, Q) = -Σ P(x) log Q(x)</code>. During training, the true labels define <em>P</em> (one-hot: the correct class has probability 1, all others 0). The model outputs define <em>Q</em>. Cross-entropy measures: how many bits are needed to encode events drawn from <em>P</em>, using a code optimized for <em>Q</em>? This is minimized when <em>Q = P</em> — any divergence wastes bits. But notice the minimum equals <em>H(P)</em> (the entropy of the true labels), and the gap above that minimum is exactly KL divergence: <code>H(P,Q) = H(P) + KL(P||Q)</code>. Since <em>H(P)</em> is fixed by the data, minimizing cross-entropy is equivalent to minimizing KL divergence — pushing the model's distribution toward the true one.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      KL divergence is asymmetric: <code>KL(P||Q) ≠ KL(Q||P)</code>. Why does this asymmetry matter in practice?
+    </div>
+
+    <p>
+      The two directions penalize different failure modes. <code>KL(P||Q)</code> — "forward KL" — measures how well <em>Q</em> covers <em>P</em>. Wherever <em>P(x) &gt; 0</em> and <em>Q(x) ≈ 0</em>, the term <code>P(x)·log(P(x)/Q(x))</code> blows up to infinity. So minimizing forward KL forces <em>Q</em> to put mass everywhere <em>P</em> does — it is <strong style="color:var(--accent)">mass-covering</strong>. When <em>P</em> has multiple modes, <em>Q</em> will spread across all of them, producing a blurry average. This is what cross-entropy loss does in classification — it forces the model to account for all true classes.
+    </p>
+    <p>
+      <code>KL(Q||P)</code> — "reverse KL" — diverges when <em>P(x) ≈ 0</em> and <em>Q(x) &gt; 0</em>. Minimizing it forces <em>Q</em> to avoid regions where <em>P</em> has no mass, making <em>Q</em> <strong style="color:var(--accent)">mode-seeking</strong>: it picks one mode of <em>P</em> and concentrates there. This is the direction used in variational inference and many generative models — which explains why VAEs and diffusion models tend to produce sharp, committed samples rather than blurry averages.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Feel entropy and cross-entropy change in real time</h2>
+    <p class="lead">
+      Drag the bars to adjust probability distributions. Watch <em>H(P)</em> update live — notice entropy peaks at uniform and collapses toward zero as one outcome dominates.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Toggle between entropy, cross-entropy demo, and coding analogy. Use Reset to return to uniform.
+    </p>
+
+    <div class="animation-wrapper grain" id="itAnimWrapper">
+      <canvas id="itCanvas" width="720" height="340" style="max-width:100%; cursor:crosshair;"></canvas>
+      <div class="animation-caption" id="itCaption">
+        Drag bars to adjust <span style="color:#f0a500">P</span> · Toggle cross-entropy to also adjust <span style="color:#58a6ff">Q</span>
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <button class="btn" id="itModeEntropy" style="opacity:1;">Entropy</button>
+        <button class="btn secondary" id="itModeCross">Cross-Entropy</button>
+        <button class="btn secondary" id="itModeCoding">Coding Analogy</button>
+        <button class="btn secondary" id="itReset" style="margin-left:auto;">↺ Reset to Uniform</button>
+      </div>
+      <div id="itActiveHint" style="font-size:0.82rem; color:var(--text-muted); margin-top:0.25rem;">
+        Entropy demo — drag the gold bars. Maximum entropy at uniform; minimum when one bar = 1.
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>The core equations</h2>
+
+    <p class="lead">
+      Five formulas that the entire field traces back to. Each one builds on the last.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Self-Information</div>
+      <div class="formula">I(x)  =  −log p(x)</div>
+      <div class="symbol-table">
+        <span class="sym">p(x)</span>   <span>probability of event x — how likely it was before it happened</span>
+        <span class="sym">log</span>    <span>natural logarithm (base e) in ML; base 2 gives bits</span>
+        <span class="sym">−</span>      <span>negation so that rare events (small p) yield large positive information</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Entropy</div>
+      <div class="formula">H(X)  =  −Σ p(x) log p(x)  =  𝔼[I(x)]</div>
+      <div class="symbol-table">
+        <span class="sym">Σ</span>      <span>sum over all possible outcomes x</span>
+        <span class="sym">p(x) log p(x)</span> <span>probability-weighted surprise — contribution of each outcome</span>
+        <span class="sym">𝔼[I(x)]</span> <span>expected self-information — average surprise over the distribution</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Cross-Entropy</div>
+      <div class="formula">H(P, Q)  =  −Σ P(x) log Q(x)</div>
+      <div class="symbol-table">
+        <span class="sym">P(x)</span>   <span>true distribution — the actual probabilities (e.g. one-hot labels)</span>
+        <span class="sym">Q(x)</span>   <span>model distribution — what your model predicts</span>
+        <span class="sym">H(P,Q)</span> <span>average bits needed to encode P-events using a code built for Q</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">KL Divergence</div>
+      <div class="formula">KL(P‖Q)  =  Σ P(x) log(P(x) / Q(x))  =  H(P,Q) − H(P)</div>
+      <div class="symbol-table">
+        <span class="sym">KL(P‖Q)</span> <span>extra bits wasted by using Q instead of the true distribution P</span>
+        <span class="sym">H(P,Q) − H(P)</span> <span>cross-entropy minus entropy = the inefficiency penalty alone</span>
+        <span class="sym">≥ 0</span>    <span>always non-negative (Gibbs' inequality); equals 0 iff P = Q everywhere</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Mutual Information</div>
+      <div class="formula">I(X; Y)  =  H(X) − H(X | Y)  =  KL(P(X,Y) ‖ P(X)·P(Y))</div>
+      <div class="symbol-table">
+        <span class="sym">H(X|Y)</span> <span>conditional entropy — uncertainty in X after observing Y</span>
+        <span class="sym">H(X) − H(X|Y)</span> <span>reduction in uncertainty about X that knowing Y provides</span>
+        <span class="sym">I(X;Y) = 0</span> <span>iff X and Y are independent — knowing Y tells you nothing about X</span>
+      </div>
+    </div>
+
+    <h3 style="margin-top:2rem;">Worked Example: 4-class cross-entropy loss</h3>
+    <p>
+      A classifier outputs probabilities for four classes: <code>[0.70, 0.20, 0.07, 0.03]</code>. The true label is class 1 (the first class). Compute the cross-entropy loss.
+    </p>
+
+    <div class="worked-example">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span class="step-text">Write out the true distribution <em>P</em> (one-hot for class 1):</span>
+      </div>
+      <div class="step">
+        <span class="step-num" style="visibility:hidden;">1</span>
+        <span class="step-math">P = [1, 0, 0, 0] &nbsp;&nbsp; Q = [0.70, 0.20, 0.07, 0.03]</span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span class="step-text">Apply H(P,Q) = −Σ P(x) log Q(x). Only the term where P(x) = 1 survives:</span>
+      </div>
+      <div class="step">
+        <span class="step-num" style="visibility:hidden;">2</span>
+        <span class="step-math">H(P,Q)  =  −1·log(0.70) − 0·log(0.20) − 0·log(0.07) − 0·log(0.03)</span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span class="step-text">Compute the single surviving term:</span>
+      </div>
+      <div class="step">
+        <span class="step-num" style="visibility:hidden;">3</span>
+        <span class="step-math">H(P,Q)  =  −log(0.70)  =  0.3567 nats</span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">
+          Interpretation: the loss is 0.3567. If the model had assigned probability 1.0 to the correct class, loss would be 0. If it had assigned 0.01, loss would be 4.6 — a 13× penalty.
+        </span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          With one-hot labels, cross-entropy loss always reduces to <code>−log Q(correct class)</code>. The model is penalized logarithmically for underestimating the true class. This is why a model that says 0.01 when the answer is class 1 is catastrophically penalized, while 0.90 vs 0.99 is a much smaller gap.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real Problem Bridge -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Theory to Real ML</p>
+    <h2>Information theory shows up everywhere</h2>
+    <p class="lead">
+      These aren't analogies — they are direct applications of the same equations you just learned.
+    </p>
+
+    <h3 style="color:var(--accent); margin-top:1.5rem;">Cross-entropy loss in classification</h3>
+    <p>
+      Every softmax classifier minimizes <code>H(P,Q)</code> where <em>P</em> is the one-hot true label and <em>Q</em> is the model output. Because <em>P</em> is one-hot, the formula collapses to <code>−log Q(true class)</code> — the negative log probability assigned to the correct answer. The model is pushed to concentrate probability mass on the right class. Logistic regression is a 2-class special case.
+    </p>
+
+    <h3 style="color:var(--accent); margin-top:1.5rem;">KL divergence in the VAE ELBO</h3>
+    <p>
+      The Variational Autoencoder loss is <code>L = reconstruction loss + KL(q(z|x) ‖ p(z))</code>. The KL term regularizes the learned encoder distribution <em>q(z|x)</em> toward a standard Gaussian prior <em>p(z)</em>. Without it, the encoder could collapse to a degenerate point mass for each input — perfect reconstruction, but no usable latent space. The KL penalty forces the latent codes to remain spread out and continuous, making interpolation and sampling from the latent space meaningful.
+    </p>
+
+    <h3 style="color:var(--accent); margin-top:1.5rem;">Perplexity in language models</h3>
+    <p>
+      Perplexity is <code>exp(H(P,Q))</code> — the exponential of the cross-entropy. A perplexity of 20 means the model is as surprised as if it were choosing uniformly among 20 equally likely next tokens. Lower is better. The key property: perplexity is in token space, making it interpretable regardless of vocabulary size. A language model with perplexity 10 has learned to narrow down the next word to roughly 10 candidates on average.
+    </p>
+
+    <h3 style="color:var(--accent); margin-top:1.5rem;">Mutual information in feature selection</h3>
+    <p>
+      <code>I(feature; label)</code> measures how much knowing a feature reduces uncertainty about the label. Features with high mutual information carry genuine signal; low MI features are noise. Unlike correlation, MI captures non-linear relationships. Decision tree splits (information gain) are literally computed as the reduction in entropy <code>H(Y) - H(Y|feature)</code> — the mutual information between the feature and the label.
+    </p>
+
+    <div class="insight-box" style="font-style:normal; margin-top:1.5rem;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">The unifying thread:</strong>
+      Every one of these uses the same core move — measuring uncertainty, then measuring how much of that uncertainty a model, feature, or encoding eliminates. That's information theory: a calculus for quantifying what you know and what you don't.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Interactive Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Explore the entropy–cross-entropy gap</h2>
+    <p class="lead">
+      Adjust Q to match or mismatch P. Watch KL divergence grow as Q drifts away from P. The gap between H(P,Q) and H(P) is your wasted bits — your avoidable loss.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Set Q = P to eliminate KL divergence entirely. Watch what happens to cross-entropy.
+    </p>
+
+    <div class="playground">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1rem;">
+        <div>
+          <div style="font-size:0.8rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:#f0a500; margin-bottom:0.75rem; font-family:var(--font-mono);">Distribution P (true)</div>
+          <div id="pgP">
+            <div class="control-row" style="margin-bottom:0.5rem;">
+              <span class="control-label" style="min-width:50px;">P(A)</span>
+              <input type="range" id="pgPA" min="0.01" max="0.97" step="0.01" value="0.25">
+              <span class="control-value" id="pgPAv">0.25</span>
+            </div>
+            <div class="control-row" style="margin-bottom:0.5rem;">
+              <span class="control-label" style="min-width:50px;">P(B)</span>
+              <input type="range" id="pgPB" min="0.01" max="0.97" step="0.01" value="0.25">
+              <span class="control-value" id="pgPBv">0.25</span>
+            </div>
+            <div class="control-row" style="margin-bottom:0.5rem;">
+              <span class="control-label" style="min-width:50px;">P(C)</span>
+              <input type="range" id="pgPC" min="0.01" max="0.97" step="0.01" value="0.25">
+              <span class="control-value" id="pgPCv">0.25</span>
+            </div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem; font-family:var(--font-mono);">
+              P(D) = 1 − P(A) − P(B) − P(C) = <span id="pgPDv">0.25</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.8rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:#58a6ff; margin-bottom:0.75rem; font-family:var(--font-mono);">Distribution Q (model)</div>
+          <div id="pgQ">
+            <div class="control-row" style="margin-bottom:0.5rem;">
+              <span class="control-label" style="min-width:50px;">Q(A)</span>
+              <input type="range" id="pgQA" min="0.01" max="0.97" step="0.01" value="0.25">
+              <span class="control-value" id="pgQAv">0.25</span>
+            </div>
+            <div class="control-row" style="margin-bottom:0.5rem;">
+              <span class="control-label" style="min-width:50px;">Q(B)</span>
+              <input type="range" id="pgQB" min="0.01" max="0.97" step="0.01" value="0.25">
+              <span class="control-value" id="pgQBv">0.25</span>
+            </div>
+            <div class="control-row" style="margin-bottom:0.5rem;">
+              <span class="control-label" style="min-width:50px;">Q(C)</span>
+              <input type="range" id="pgQC" min="0.01" max="0.97" step="0.01" value="0.25">
+              <span class="control-value" id="pgQCv">0.25</span>
+            </div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem; font-family:var(--font-mono);">
+              Q(D) = 1 − Q(A) − Q(B) − Q(C) = <span id="pgQDv">0.25</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg); border-radius:var(--radius); border:1px solid var(--border); padding:1rem 1.25rem; font-family:var(--font-mono); font-size:0.9rem;">
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; text-align:center;">
+          <div>
+            <div style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.25rem;">H(P) — entropy</div>
+            <div id="pgHP" style="color:#f0a500; font-size:1.2rem; font-weight:700;">1.386</div>
+            <div style="color:var(--text-muted); font-size:0.7rem;">nats</div>
+          </div>
+          <div>
+            <div style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.25rem;">H(P,Q) — cross-entropy</div>
+            <div id="pgHPQ" style="color:#58a6ff; font-size:1.2rem; font-weight:700;">1.386</div>
+            <div style="color:var(--text-muted); font-size:0.7rem;">nats</div>
+          </div>
+          <div>
+            <div style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.25rem;">KL(P‖Q) — gap</div>
+            <div id="pgKL" style="color:#f85149; font-size:1.2rem; font-weight:700;">0.000</div>
+            <div style="color:var(--text-muted); font-size:0.7rem;">nats</div>
+          </div>
+        </div>
+        <div id="pgMsg" style="text-align:center; color:var(--text-muted); font-size:0.78rem; margin-top:0.75rem; border-top:1px solid var(--border); padding-top:0.65rem;">
+          Q = P · No wasted bits · This is the minimum cross-entropy achievable
+        </div>
+      </div>
+
+      <div class="control-row" style="margin-top:1rem;">
+        <button class="btn secondary" id="pgMirror">Set Q = P</button>
+        <button class="btn secondary" id="pgReset">Reset all to uniform</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs that block real understanding</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These are the misconceptions that cause real confusion when reading papers and debugging models.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① Entropy = disorder (like thermodynamic entropy)</div>
+        <div class="truth">
+          Shannon entropy and thermodynamic entropy share a formula and a name, but they measure fundamentally different things. Shannon entropy measures uncertainty in a probability distribution — it's purely a property of information. Thermodynamic entropy measures physical disorder of a macroscopic system. The connection is deep (Boltzmann's <em>S = k log W</em> is indeed an information-theoretic argument), but treating them as interchangeable generates false intuitions. In ML, entropy always means Shannon entropy — average surprise over a distribution.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② Cross-entropy is cross-correlation with a negative sign</div>
+        <div class="truth">
+          They share the word "cross" and nothing else. Cross-correlation is a signal-processing operation measuring similarity between two signals as a function of lag. Cross-entropy <em>H(P,Q)</em> is an information-theoretic quantity measuring the expected log-loss when using model distribution <em>Q</em> to encode samples from true distribution <em>P</em>. No time-domain structure, no convolution, no signals. The terminology collision is unfortunate but purely historical.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Lower cross-entropy loss means the model is better calibrated</div>
+        <div class="truth">
+          Lower cross-entropy means the model assigns higher probability to correct classes on the training set. Calibration is a separate question: does a 70% confidence prediction actually correspond to 70% accuracy? A model can have very low cross-entropy loss (excellent at concentrating probability on the right class) while being catastrophically miscalibrated (its confidence scores don't match empirical accuracy). Calibration requires separate measurement — Expected Calibration Error (ECE), reliability diagrams — not just reading the loss.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ KL divergence is a distance measure — it satisfies the triangle inequality</div>
+        <div class="truth">
+          KL divergence is not a metric. It violates two metric axioms: it is not symmetric (<code>KL(P‖Q) ≠ KL(Q‖P)</code> in general), and it does not satisfy the triangle inequality. The correct term is "divergence" — a directed measure of dissimilarity. When a symmetric distance is needed, the Jensen-Shannon divergence <code>JSD(P‖Q) = (KL(P‖M) + KL(Q‖M))/2</code> where <code>M = (P+Q)/2</code> is used. JSD is symmetric, bounded in [0,1], and its square root is a true metric. GANs use JSD implicitly.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ To use mutual information, you need to know the full joint distribution</div>
+        <div class="truth">
+          In theory, <code>I(X;Y) = KL(P(X,Y) ‖ P(X)P(Y))</code> requires knowing joint and marginal distributions exactly. In practice, MI can be estimated from samples without knowing the distribution: kernel density estimation, binning, or modern neural estimators like MINE (Mutual Information Neural Estimation) approximate MI from data. Decision trees estimate it via empirical frequencies. The theoretical definition requires distributions; practical computation requires only samples — which is why MI is usable in high-dimensional ML settings.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>Self-information: <code>I(x) = -log p(x)</code>. Rare events carry large information; common events carry small. The log is the only function that makes information additive for independent events.</li>
+      <li>Entropy <code>H(X)</code> is average surprise. Maximum at uniform distributions. Zero when one outcome has probability 1. Measures irreducible uncertainty in a distribution.</li>
+      <li>Cross-entropy <code>H(P,Q) = H(P) + KL(P‖Q)</code>. Minimizing cross-entropy is minimizing KL divergence from model to truth. With one-hot labels this collapses to <code>-log Q(correct class)</code>.</li>
+      <li>KL divergence is not a distance: it is asymmetric and violates the triangle inequality. Forward KL is mass-covering (used in cross-entropy loss); reverse KL is mode-seeking (used in variational inference).</li>
+      <li>Every major ML loss — classification cross-entropy, VAE ELBO, language model perplexity, decision tree splits — is a direct application of these five equations. The math is not analogous; it is identical.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">Now the math is in place. Time to understand how models actually train.</strong>
+      You can now explain why cross-entropy is the right loss function, what minimizing it actually means, and why KL divergence appears everywhere from VAEs to RLHF. The formulas that were mysterious are now derivable. The next question: given a loss function, how does a model with millions of parameters efficiently find its minimum? That's gradient descent — and it's the first chapter of Part 1.
+      <br><br>
+      <a href="gradient-descent.html" style="color:var(--accent);">Next: Gradient Descent →</a>
+      &nbsp;&nbsp;
+      <a href="probability-statistics.html" style="color:var(--text-muted); font-size:0.9rem;">← Prev: Probability &amp; Statistics</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim traces to one of these primary sources.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — Chapter 3.13</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: self-information definition, entropy, cross-entropy, KL divergence, asymmetry, mass-covering vs mode-seeking, Gibbs' inequality, mutual information.
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Elements of Information Theory — Chapter 1–2</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Thomas M. Cover &amp; Joy A. Thomas (Wiley, 2nd ed., 2006)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: axiomatic derivation of entropy, data compression interpretation, the chain rule of entropy, Jensen-Shannon divergence.
+          </span><br>
+          <span style="color:var(--text-muted); font-size:0.8rem;">Standard graduate reference</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">A Mathematical Theory of Communication</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Claude E. Shannon (Bell System Technical Journal, 1948)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            The original paper. Defines entropy, channel capacity, and the source coding theorem. The self-information formula and additive-information axioms originate here.
+          </span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">A fair 8-sided die is rolled. How much self-information (in bits) does learning the outcome carry? What if one face had probability 1?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>3 bits; 0 bits.</strong> For a fair die: <code>I(x) = -log₂(1/8) = log₂(8) = 3 bits</code>. Each face is equally likely, so every outcome is maximally surprising — 3 bits of information. If one face has probability 1: <code>I(x) = -log₂(1) = 0</code>. The outcome was certain; there is nothing to learn. This is the clearest illustration of why information measures surprise: certainty gives zero information.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">Why does entropy decrease when a uniform distribution is made non-uniform? Give the intuition and point to what changes in the formula.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Because some outcomes become predictable — they no longer contribute surprise.</strong> In <code>H(X) = -Σ p(x) log p(x)</code>, each term is <code>p(x) · I(x)</code>. When <em>p</em> increases toward 1 for one outcome, its self-information <em>I(x) → 0</em> (certain events carry no information). Meanwhile, the other outcomes' probabilities shrink, so they also contribute less. The entropy-maximizing distribution is uniform because it maximally spreads the uncertainty — no outcome can be confidently predicted. Any deviation concentrates probability, making the distribution more predictable and reducing average surprise.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">A 3-class classifier outputs [0.60, 0.30, 0.10]. The true class is class 2 (the second one). Compute the cross-entropy loss.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>1.204 nats.</strong> With one-hot labels: <code>H(P,Q) = -log Q(true class) = -log(0.30) = 1.204 nats</code>. If the model had correctly assigned the highest probability to class 2 (say 0.70), the loss would be <code>-log(0.70) = 0.357</code> — a 3.4× reduction. The model is not wrong, but it is uncertain — and cross-entropy directly penalizes that uncertainty about the correct answer.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">KL divergence KL(P‖Q) = 0 for some P ≠ Q. Is this possible? Why or why not?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — KL(P‖Q) = 0 if and only if P = Q everywhere.</strong> This is Gibbs' inequality. <code>KL(P‖Q) = Σ P(x) log(P(x)/Q(x)) = -Σ P(x) log(Q(x)/P(x))</code>. By Jensen's inequality applied to the concave log function: <code>-log(𝔼[Q/P]) ≤ 𝔼[-log(Q/P)] = KL</code>. Since <code>𝔼[Q/P] = Σ P·(Q/P) = 1</code>, we get <code>KL ≥ -log(1) = 0</code>. Equality holds iff <em>Q/P</em> is constant everywhere <em>P > 0</em>, which forces <em>Q = P</em>. This is why KL is used to measure distributional similarity — it is zero iff the distributions are identical.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">A language model has perplexity 100. What does this mean in concrete terms? Is lower perplexity always better?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The model is as surprised as if choosing uniformly among 100 equally likely next tokens.</strong> Perplexity = exp(cross-entropy loss). Perplexity 100 means each token prediction carries the same uncertainty as a uniform choice among 100 tokens. Lower perplexity means the model is more confident and accurate about what comes next — yes, lower is better for the task the model was trained on. However: perplexity is task-specific (a model with low perplexity on Wikipedia may have high perplexity on legal documents), and it measures fit to the training/evaluation distribution, not downstream task quality. A model with lower perplexity can still perform worse on summarization, reasoning, or instruction following.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">In a VAE, what happens if you remove the KL term from the ELBO loss and train with reconstruction loss alone?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The encoder collapses to a deterministic function — the model becomes a regular autoencoder.</strong> Without the KL penalty, the optimal encoder learns to map each input to a distinct, tight cluster in latent space (near-zero variance Gaussian). This minimizes reconstruction loss perfectly but makes the latent space discontinuous — you cannot interpolate between points or sample new images by drawing from the prior, because most of the latent space maps to meaningless decoder outputs. The KL term is not regularization in the loose sense — it is the mechanism that makes the latent space continuous and the prior <em>p(z)</em> actually match the aggregate posterior.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">Two features are being evaluated for a decision tree split. Feature A has MI = 0.5 nats with the label. Feature B has correlation 0.9 with the label. Which should you prefer — and can you tell?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Feature A — but the comparison is not apples-to-apples.</strong> Mutual information and correlation measure different things. MI captures all statistical dependence (linear and non-linear); correlation only measures linear dependence. A feature with correlation 0.9 may have high MI, but a feature with correlation 0.3 could also have MI = 0.8 if the relationship is non-linear. To compare them properly, you need MI for both. For a decision tree, information gain (which is MI) is the correct criterion — it directly measures how much the feature reduces label uncertainty. High correlation is evidence of a useful feature but is not the same as high MI.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">A model achieves 95% test accuracy but its cross-entropy loss is still high. How is this possible and what does it indicate?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The model is predicting the right class but with low confidence — it is under-confident and possibly miscalibrated.</strong> Cross-entropy = <code>-log Q(correct class)</code> with one-hot labels. If the model says [0.35, 0.34, 0.31] and the answer is class 1, it predicts correctly (argmax = class 1) but the loss is <code>-log(0.35) = 1.05</code> — high, because the model hedges. Accuracy only measures whether argmax is right; cross-entropy penalizes diffuse probability mass. This pattern signals miscalibration: the model is not committing to answers it is effectively right about. Temperature scaling can often fix this by sharpening the output distribution post-training.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">Why is cross-entropy loss preferred over mean squared error for classification tasks? Give the information-theoretic explanation.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Because cross-entropy is the correct loss for maximum likelihood estimation of a categorical distribution, and MSE is not.</strong> Maximizing the log-likelihood of a softmax model under one-hot labels gives exactly the cross-entropy objective — it is derived from the definition of the categorical distribution, not imposed by convention. MSE minimization corresponds to maximum likelihood under a Gaussian noise model, which is appropriate for real-valued regression but not for probability outputs. Practically: MSE gradients vanish when the sigmoid/softmax output saturates (e.g., predicts 0.999 for the wrong class), while cross-entropy gradients remain proportional to the prediction error — <code>∂L/∂z = Q - P</code>. This makes cross-entropy train faster and more reliably for classification.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────
+// InformationTheoryAnimation
+// Inline animation for entropy and cross-entropy visualization
+// ─────────────────────────────────────────────────────────────
+class InformationTheoryAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+
+    // Four outcomes A, B, C, D
+    this.pP = [0.25, 0.25, 0.25, 0.25]; // gold bars (P)
+    this.pQ = [0.25, 0.25, 0.25, 0.25]; // blue bars (Q)
+
+    this.mode = 'entropy'; // 'entropy' | 'cross' | 'coding'
+    this.dragging = null;  // { dist:'P'|'Q', idx, startY, startVal }
+
+    this.labels = ['A', 'B', 'C', 'D'];
+    this.colors = { P: '#f0a500', Q: '#58a6ff' };
+
+    this._bindEvents();
+    this._render();
+  }
+
+  // ── Math helpers ───────────────────────────────────────────
+  _entropy(p) {
+    return -p.reduce((s, pi) => s + (pi > 0 ? pi * Math.log(pi) : 0), 0);
+  }
+
+  _crossEntropy(P, Q) {
+    return -P.reduce((s, pi, i) => s + (pi > 0 && Q[i] > 0 ? pi * Math.log(Q[i]) : 0), 0);
+  }
+
+  _normalize(arr, changedIdx) {
+    // Keep changedIdx fixed, re-normalize others proportionally
+    const fixed = Math.min(Math.max(arr[changedIdx], 0.01), 0.97);
+    const rem   = 1 - fixed;
+    const others = arr.map((v, i) => (i === changedIdx ? 0 : Math.max(v, 0.01)));
+    const othSum = others.reduce((s, v) => s + v, 0);
+    return arr.map((_, i) => {
+      if (i === changedIdx) return fixed;
+      return othSum > 0 ? (others[i] / othSum) * rem : rem / (arr.length - 1);
+    });
+  }
+
+  setMode(mode) {
+    this.mode = mode;
+    this._render();
+  }
+
+  resetUniform() {
+    this.pP = [0.25, 0.25, 0.25, 0.25];
+    this.pQ = [0.25, 0.25, 0.25, 0.25];
+    this._render();
+  }
+
+  // ── Canvas geometry ────────────────────────────────────────
+  _layout() {
+    const W  = this.canvas.width;
+    const H  = this.canvas.height;
+    const pad = { top: 50, bottom: 60, left: 50, right: 30 };
+    const chartH = H - pad.top - pad.bottom;
+    const chartW = W - pad.left - pad.right;
+    return { W, H, pad, chartH, chartW };
+  }
+
+  _barX(idx, nBars, barW, gapW, offsetX) {
+    // Returns center X of bar idx in a group
+    return offsetX + idx * (barW + gapW) + barW / 2;
+  }
+
+  // ── Mouse/touch event handling ─────────────────────────────
+  _bindEvents() {
+    const c = this.canvas;
+    const onDown = (e) => {
+      e.preventDefault();
+      const pos = this._eventPos(e);
+      const hit = this._hitTest(pos.x, pos.y);
+      if (hit) {
+        this.dragging = { ...hit, startY: pos.y };
+      }
+    };
+    const onMove = (e) => {
+      if (!this.dragging) return;
+      e.preventDefault();
+      const pos = this._eventPos(e);
+      const dy  = this.dragging.startY - pos.y;
+      const { chartH } = this._layout();
+      const delta = dy / chartH;
+      const { dist, idx } = this.dragging;
+      const arr  = dist === 'P' ? this.pP : this.pQ;
+      const newVal = Math.min(0.97, Math.max(0.01, arr[idx] + delta));
+      const normalized = this._normalize([...arr], idx);
+      normalized[idx] = newVal;
+      // Re-normalize with new value
+      const updated = this._normalize(normalized, idx);
+      if (dist === 'P') this.pP = updated;
+      else               this.pQ = updated;
+      this.dragging.startY = pos.y;
+      this._render();
+    };
+    const onUp = () => { this.dragging = null; };
+
+    c.addEventListener('mousedown',  onDown);
+    c.addEventListener('mousemove',  onMove);
+    c.addEventListener('mouseup',    onUp);
+    c.addEventListener('mouseleave', onUp);
+    c.addEventListener('touchstart', onDown, { passive: false });
+    c.addEventListener('touchmove',  onMove, { passive: false });
+    c.addEventListener('touchend',   onUp);
+  }
+
+  _eventPos(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width  / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    const src = e.touches ? e.touches[0] : e;
+    return {
+      x: (src.clientX - rect.left) * scaleX,
+      y: (src.clientY - rect.top)  * scaleY,
+    };
+  }
+
+  _hitTest(x, y) {
+    const { W, H, pad, chartH } = this._layout();
+    const showTwo = this.mode === 'cross';
+    const nBars   = 4;
+    const gapW    = 8;
+
+    if (showTwo) {
+      // Two clusters of 4 bars
+      const groupW   = (W - pad.left - pad.right - 40) / 2;
+      const barW     = (groupW - gapW * (nBars - 1)) / nBars;
+      // P group
+      const pLeft = pad.left;
+      for (let i = 0; i < nBars; i++) {
+        const bx = pLeft + i * (barW + gapW);
+        const barTop = pad.top + chartH * (1 - this.pP[i]);
+        if (x >= bx && x <= bx + barW && y >= barTop - 20 && y <= pad.top + chartH) {
+          return { dist: 'P', idx: i };
+        }
+      }
+      // Q group
+      const qLeft = pad.left + groupW + 40;
+      for (let i = 0; i < nBars; i++) {
+        const bx = qLeft + i * (barW + gapW);
+        const barTop = pad.top + chartH * (1 - this.pQ[i]);
+        if (x >= bx && x <= bx + barW && y >= barTop - 20 && y <= pad.top + chartH) {
+          return { dist: 'Q', idx: i };
+        }
+      }
+    } else {
+      // Single cluster
+      const groupW = W - pad.left - pad.right;
+      const barW   = (groupW - gapW * (nBars - 1)) / nBars;
+      const arr    = this.pP;
+      for (let i = 0; i < nBars; i++) {
+        const bx     = pad.left + i * (barW + gapW);
+        const barTop = pad.top + chartH * (1 - arr[i]);
+        if (x >= bx && x <= bx + barW && y >= barTop - 20 && y <= pad.top + chartH) {
+          return { dist: 'P', idx: i };
+        }
+      }
+    }
+    return null;
+  }
+
+  // ── Rendering ──────────────────────────────────────────────
+  _render() {
+    if (this.mode === 'coding') this._renderCoding();
+    else if (this.mode === 'cross') this._renderCross();
+    else this._renderEntropy();
+  }
+
+  _bg() {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim();
+    return raw || '#161b22';
+  }
+
+  _textColor() {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+    return raw || '#8b949e';
+  }
+
+  _white() {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--white').trim();
+    return raw || '#ffffff';
+  }
+
+  _renderEntropy() {
+    const { ctx, canvas } = this;
+    const { W, H, pad, chartH, chartW } = this._layout();
+    const nBars = 4;
+    const gapW  = 12;
+    const barW  = (chartW - gapW * (nBars - 1)) / nBars;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = this._bg();
+    ctx.fillRect(0, 0, W, H);
+
+    // Axes
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top);
+    ctx.lineTo(pad.left, pad.top + chartH);
+    ctx.lineTo(pad.left + chartW, pad.top + chartH);
+    ctx.stroke();
+
+    // Y axis label
+    ctx.save();
+    ctx.fillStyle = this._textColor();
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.translate(14, pad.top + chartH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Probability', 0, 0);
+    ctx.restore();
+
+    const H_val = this._entropy(this.pP);
+    const maxH  = Math.log(nBars);
+    const hPct  = H_val / maxH;
+
+    // Bars
+    for (let i = 0; i < nBars; i++) {
+      const bx    = pad.left + i * (barW + gapW);
+      const bh    = chartH * this.pP[i];
+      const by    = pad.top + chartH - bh;
+
+      // Bar glow at max entropy
+      if (hPct > 0.99) {
+        ctx.shadowBlur  = 12;
+        ctx.shadowColor = '#f0a500';
+      }
+      ctx.fillStyle = '#f0a500';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(bx, by, barW, bh, [4, 4, 0, 0]) : ctx.rect(bx, by, barW, bh);
+      ctx.fill();
+      ctx.shadowBlur  = 0;
+      ctx.shadowColor = 'transparent';
+
+      // Label
+      ctx.fillStyle = this._textColor();
+      ctx.font = '12px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(this.labels[i], bx + barW / 2, pad.top + chartH + 18);
+
+      // Value
+      ctx.fillStyle = '#f0a500';
+      ctx.font = 'bold 11px JetBrains Mono, monospace';
+      ctx.fillText(this.pP[i].toFixed(2), bx + barW / 2, Math.max(by - 5, pad.top + 10));
+    }
+
+    // Entropy readout
+    const hColor = hPct > 0.98 ? '#3fb950' : '#f0a500';
+    ctx.fillStyle = hColor;
+    ctx.font = 'bold 14px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`H(P) = ${H_val.toFixed(4)} nats`, W - pad.right, pad.top - 10);
+
+    ctx.fillStyle = this._textColor();
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    const label = hPct > 0.98
+      ? 'Maximum entropy — uniform distribution'
+      : this.pP.some(p => p > 0.98)
+        ? 'Minimum entropy — one outcome certain'
+        : `${(hPct * 100).toFixed(0)}% of maximum entropy`;
+    ctx.fillText(label, W - pad.right, pad.top + 4);
+  }
+
+  _renderCross() {
+    const { ctx, canvas } = this;
+    const { W, H, pad, chartH } = this._layout();
+    const nBars  = 4;
+    const gapW   = 8;
+    const groupW = (W - pad.left - pad.right - 40) / 2;
+    const barW   = (groupW - gapW * (nBars - 1)) / nBars;
+    const pLeft  = pad.left;
+    const qLeft  = pad.left + groupW + 40;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = this._bg();
+    ctx.fillRect(0, 0, W, H);
+
+    // Axes
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top);
+    ctx.lineTo(pad.left, pad.top + chartH);
+    ctx.lineTo(W - pad.right, pad.top + chartH);
+    ctx.stroke();
+
+    // Group labels
+    ctx.font = 'bold 12px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#f0a500';
+    ctx.fillText('P  (true distribution)', pLeft + groupW / 2, pad.top - 14);
+    ctx.fillStyle = '#58a6ff';
+    ctx.fillText('Q  (model distribution)', qLeft + groupW / 2, pad.top - 14);
+
+    // Draw bars for P
+    for (let i = 0; i < nBars; i++) {
+      const bx = pLeft + i * (barW + gapW);
+      const bh = chartH * this.pP[i];
+      const by = pad.top + chartH - bh;
+      ctx.fillStyle = '#f0a500';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(bx, by, barW, bh, [4, 4, 0, 0]) : ctx.rect(bx, by, barW, bh);
+      ctx.fill();
+      ctx.fillStyle = this._textColor();
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(this.labels[i], bx + barW / 2, pad.top + chartH + 16);
+      ctx.fillStyle = '#f0a500';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.fillText(this.pP[i].toFixed(2), bx + barW / 2, Math.max(by - 4, pad.top + 8));
+    }
+
+    // Draw bars for Q
+    for (let i = 0; i < nBars; i++) {
+      const bx = qLeft + i * (barW + gapW);
+      const bh = chartH * this.pQ[i];
+      const by = pad.top + chartH - bh;
+      ctx.fillStyle = '#58a6ff';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(bx, by, barW, bh, [4, 4, 0, 0]) : ctx.rect(bx, by, barW, bh);
+      ctx.fill();
+      ctx.fillStyle = this._textColor();
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(this.labels[i], bx + barW / 2, pad.top + chartH + 16);
+      ctx.fillStyle = '#58a6ff';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.fillText(this.pQ[i].toFixed(2), bx + barW / 2, Math.max(by - 4, pad.top + 8));
+    }
+
+    // Stats
+    const HP   = this._entropy(this.pP);
+    const HPQ  = this._crossEntropy(this.pP, this.pQ);
+    const KL   = Math.max(0, HPQ - HP);
+
+    ctx.textAlign = 'center';
+    const midX = pad.left + groupW + 20;
+    ctx.fillStyle = '#f0a500';
+    ctx.font = 'bold 11px JetBrains Mono, monospace';
+    ctx.fillText(`H(P)=${HP.toFixed(3)}`, pLeft + groupW / 2, H - 14);
+    ctx.fillStyle = '#58a6ff';
+    ctx.fillText(`H(P,Q)=${HPQ.toFixed(3)}`, qLeft + groupW / 2, H - 14);
+    ctx.fillStyle = '#f85149';
+    ctx.font = 'bold 12px JetBrains Mono, monospace';
+    ctx.fillText(`KL=${KL.toFixed(3)} ← your loss`, midX + groupW / 2, H - 14);
+
+    // Arrow annotation for KL gap
+    if (KL > 0.01) {
+      ctx.fillStyle = '#f85149';
+      ctx.font = '10px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('← This is your loss function', qLeft + groupW / 2, pad.top - 2);
+    }
+  }
+
+  _renderCoding() {
+    const { ctx, canvas } = this;
+    const { W, H, pad } = this._layout();
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = this._bg();
+    ctx.fillRect(0, 0, W, H);
+
+    // Title
+    ctx.fillStyle = this._white();
+    ctx.font = 'bold 14px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Coding analogy — rare events need longer codes', W / 2, pad.top - 10);
+
+    // Events and their probabilities
+    const events = [
+      { label: 'A', desc: 'Very common', prob: 0.50, code: '0' },
+      { label: 'B', desc: 'Common',      prob: 0.25, code: '10' },
+      { label: 'C', desc: 'Uncommon',    prob: 0.125, code: '110' },
+      { label: 'D', desc: 'Rare',        prob: 0.0625, code: '11100' },
+      { label: 'E', desc: 'Very rare',   prob: 0.03125, code: '111110' },
+    ];
+
+    const startY = pad.top + 20;
+    const rowH   = 44;
+
+    events.forEach((ev, i) => {
+      const y = startY + i * rowH;
+
+      // Label
+      ctx.fillStyle = '#f0a500';
+      ctx.font = 'bold 15px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(ev.label, pad.left, y + 16);
+
+      // Description + probability
+      ctx.fillStyle = this._textColor();
+      ctx.font = '11px Inter, sans-serif';
+      ctx.fillText(`p = ${ev.prob.toFixed(4)}  I = ${(-Math.log(ev.prob)).toFixed(2)} nats`, pad.left + 32, y + 16);
+
+      // Code bits as colored blocks
+      const blockSize = 18;
+      const blockGap  = 3;
+      const startX    = pad.left + 210;
+      [...ev.code].forEach((bit, bi) => {
+        const bx = startX + bi * (blockSize + blockGap);
+        ctx.fillStyle = bit === '1' ? '#58a6ff' : '#f0a500';
+        ctx.fillRect(bx, y, blockSize, blockSize);
+        ctx.fillStyle = '#0d1117';
+        ctx.font = 'bold 11px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(bit, bx + blockSize / 2, y + 12);
+      });
+
+      // Code length annotation
+      const endX = pad.left + 210 + ev.code.length * (blockSize + blockGap) + 6;
+      ctx.fillStyle = this._textColor();
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${ev.code.length} bits`, endX, y + 12);
+    });
+
+    // Explanation
+    ctx.fillStyle = this._textColor();
+    ctx.font = '12px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Shorter code = more common event. Entropy = average code length. This is Shannon\'s source coding theorem.', W / 2, H - 12);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Init animation
+// ─────────────────────────────────────────────────────────────
+const itCanvas = document.getElementById('itCanvas');
+const itAnim   = new InformationTheoryAnimation(itCanvas);
+
+document.getElementById('itModeEntropy').addEventListener('click', () => {
+  itAnim.setMode('entropy');
+  document.getElementById('itActiveHint').textContent = 'Entropy demo — drag the gold bars. Maximum entropy at uniform; minimum when one bar = 1.';
+  setActiveMode('itModeEntropy');
+});
+document.getElementById('itModeCross').addEventListener('click', () => {
+  itAnim.setMode('cross');
+  document.getElementById('itActiveHint').textContent = 'Cross-entropy demo — drag gold bars (P) or blue bars (Q). KL divergence = H(P,Q) − H(P) = wasted bits.';
+  setActiveMode('itModeCross');
+});
+document.getElementById('itModeCoding').addEventListener('click', () => {
+  itAnim.setMode('coding');
+  document.getElementById('itActiveHint').textContent = 'Coding analogy — rare events need longer binary codes. Entropy = average code length (Shannon\'s source coding theorem).';
+  setActiveMode('itModeCoding');
+});
+document.getElementById('itReset').addEventListener('click', () => {
+  itAnim.resetUniform();
+});
+
+function setActiveMode(activeId) {
+  ['itModeEntropy', 'itModeCross', 'itModeCoding'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (id === activeId) {
+      btn.className = 'btn';
+    } else {
+      btn.className = 'btn secondary';
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Playground controls
+// ─────────────────────────────────────────────────────────────
+function clampAndNorm(vals, changedIdx) {
+  const fixed = Math.min(0.97, Math.max(0.01, vals[changedIdx]));
+  const rem   = 1 - fixed;
+  const others = vals.map((v, i) => i === changedIdx ? 0 : Math.max(v, 0.01));
+  const os    = others.reduce((a, b) => a + b, 0);
+  return vals.map((_, i) => {
+    if (i === changedIdx) return fixed;
+    return os > 0 ? (others[i] / os) * rem : rem / (vals.length - 1);
+  });
+}
+
+let pgPvals = [0.25, 0.25, 0.25, 0.25];
+let pgQvals = [0.25, 0.25, 0.25, 0.25];
+
+function pgEntropy(p) {
+  return -p.reduce((s, pi) => s + (pi > 0 ? pi * Math.log(pi) : 0), 0);
+}
+function pgCrossEntropy(P, Q) {
+  return -P.reduce((s, pi, i) => s + (pi > 0 && Q[i] > 0 ? pi * Math.log(Q[i]) : 0), 0);
+}
+
+function pgUpdate() {
+  const HP  = pgEntropy(pgPvals);
+  const HPQ = pgCrossEntropy(pgPvals, pgQvals);
+  const KL  = Math.max(0, HPQ - HP);
+
+  document.getElementById('pgHP').textContent  = HP.toFixed(4);
+  document.getElementById('pgHPQ').textContent = HPQ.toFixed(4);
+  document.getElementById('pgKL').textContent  = KL.toFixed(4);
+
+  // Update D values
+  const pd = Math.max(0, 1 - pgPvals[0] - pgPvals[1] - pgPvals[2]);
+  const qd = Math.max(0, 1 - pgQvals[0] - pgQvals[1] - pgQvals[2]);
+  document.getElementById('pgPDv').textContent = pd.toFixed(2);
+  document.getElementById('pgQDv').textContent = qd.toFixed(2);
+
+  // Message
+  const msg = KL < 0.001
+    ? 'Q = P · No wasted bits · This is the minimum cross-entropy achievable'
+    : `KL = ${KL.toFixed(4)} nats wasted — H(P,Q) = H(P) + KL`;
+  document.getElementById('pgMsg').textContent = msg;
+}
+
+function makeSliderPair(sliderId, valId, pArr, idx) {
+  const slider = document.getElementById(sliderId);
+  const valEl  = document.getElementById(valId);
+  slider.addEventListener('input', () => {
+    const v = parseFloat(slider.value);
+    valEl.textContent = v.toFixed(2);
+    pArr[idx] = v;
+    pgUpdate();
+  });
+}
+
+makeSliderPair('pgPA', 'pgPAv', pgPvals, 0);
+makeSliderPair('pgPB', 'pgPBv', pgPvals, 1);
+makeSliderPair('pgPC', 'pgPCv', pgPvals, 2);
+makeSliderPair('pgQA', 'pgQAv', pgQvals, 0);
+makeSliderPair('pgQB', 'pgQBv', pgQvals, 1);
+makeSliderPair('pgQC', 'pgQCv', pgQvals, 2);
+
+document.getElementById('pgMirror').addEventListener('click', () => {
+  pgQvals = [...pgPvals];
+  ['A','B','C'].forEach((l,i) => {
+    const s = document.getElementById('pgQ' + l);
+    const v = document.getElementById('pgQ' + l + 'v');
+    s.value = pgQvals[i].toFixed(2);
+    v.textContent = pgQvals[i].toFixed(2);
+  });
+  pgUpdate();
+});
+
+document.getElementById('pgReset').addEventListener('click', () => {
+  pgPvals = [0.25, 0.25, 0.25, 0.25];
+  pgQvals = [0.25, 0.25, 0.25, 0.25];
+  ['A','B','C'].forEach((l,i) => {
+    ['P','Q'].forEach(d => {
+      const s = document.getElementById('pg' + d + l);
+      const v = document.getElementById('pg' + d + l + 'v');
+      s.value = '0.25';
+      v.textContent = '0.25';
+    });
+  });
+  pgUpdate();
+});
+
+pgUpdate();
+
+// ─────────────────────────────────────────────────────────────
+// Quiz
+// ─────────────────────────────────────────────────────────────
+const CHAPTER_SLUG  = 'information-theory';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / 9 revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / 9 revealed`;
+
+// ─────────────────────────────────────────────────────────────
+// Reading progress bar
+// ─────────────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─────────────────────────────────────────────────────────────
+// Scroll reveal
+// ─────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─────────────────────────────────────────────────────────────
+// TOC active dot
+// ─────────────────────────────────────────────────────────────
+const sections = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots  = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─────────────────────────────────────────────────────────────
+// Theme change — re-render canvas
+// ─────────────────────────────────────────────────────────────
+window.onThemeChange(function () {
+  itAnim._render();
+});
+</script>
+</body>
+</html>

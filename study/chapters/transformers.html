@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transformers &amp; Attention — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>           <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real World</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span> <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>           <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 3 · Deep Learning</p>
+    <h1>Transformers &amp; Attention</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The architecture that made every major AI breakthrough of the last five years possible.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.05rem; line-height:1.8;">
+      LSTMs read your sentence word by word, holding everything in a single hidden state — a small compressed number that must remember the whole past. Transformers read <strong style="color:var(--accent)">all words simultaneously</strong>, and every word asks every other word: <em>"how relevant are you to me?"</em> No compression. No forgetting. Pure parallel attention.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Attention as a soft lookup table</h2>
+    <p class="lead">
+      The transformer's core insight is deceptively simple: to understand a word, look at all other words in the sentence simultaneously and weight each by relevance. This is called <strong style="color:var(--accent)">self-attention</strong>, and it replaces the sequential bottleneck of RNNs with massively parallel computation.
+    </p>
+    <p>
+      Think of attention as a soft database lookup. You have a <strong style="color:var(--accent)">query</strong> — the word you're currently processing. You compare it against a set of <strong style="color:var(--accent)">keys</strong> — representations of every word in context. The comparison scores become weights, and you use those weights to mix together the corresponding <strong style="color:var(--accent)">values</strong> — the actual content you retrieve. The output is a weighted blend of all values, biased toward the most relevant ones.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">Query (Q)</strong> — what this token is looking for: <em>"I'm 'bank' — am I a riverbank or a financial bank?"</em></li>
+      <li>The <strong style="color:var(--accent)">Key (K)</strong> — what each token advertises: <em>"I'm 'river' and I'm highly relevant to river-related queries."</em></li>
+      <li>The <strong style="color:var(--accent)">Value (V)</strong> — what each token actually contributes when retrieved: the content that gets mixed into the output.</li>
+    </ul>
+    <p>
+      The <strong style="color:var(--accent)">parallelism advantage</strong> is massive. Where an LSTM processes token 1, then 2, then 3 (each step depending on the last), a transformer computes all attention scores for all token pairs at once. On modern GPUs that can do thousands of matrix multiplications in parallel, this makes transformers an order of magnitude faster to train — and it's why they surpassed LSTMs in nearly every benchmark within two years of being introduced.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three questions you must be able to answer</h2>
+
+    <p class="lead">
+      The transformer has three design choices that confuse almost everyone the first time. Work through each one — they're not arbitrary, each solves a specific problem.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      The input to a transformer is a sequence of token embeddings — each token is just a single vector. Q, K, and V are all computed from that same vector via three separate linear projections. Why would you project the same thing three different ways instead of using the original embedding directly?
+    </div>
+
+    <p>
+      Because Q, K, and V serve fundamentally different roles. Using the raw embedding as all three would force a single representation to simultaneously encode "what I'm searching for," "what I offer to others," and "the content I contribute" — these are distinct and often contradictory. The three separate weight matrices allow the model to learn specialized representations for each role. Q can encode intent; K can encode relevance signals; V can encode semantic content. This specialization is not optional — it's what makes attention expressive rather than trivial.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Multi-head attention runs the attention mechanism h times in parallel, each with its own Q, K, V projections, then concatenates the results. A single attention head could in principle learn to attend to anything. What does running multiple heads actually add?
+    </div>
+
+    <p>
+      Different heads capture different relationship types simultaneously. In practice, heads specialize: one head might track coreference ("she" → "Alice"), another syntactic dependencies (verb → subject), another positional proximity. A single head would have to compromise across all these patterns. Multi-head attention lets the model maintain multiple attention distributions at once — each head attends to what it finds most useful, and the concatenated output integrates all of them. The "Attention Is All You Need" paper (Vaswani et al., 2017) showed that heads in trained models do systematically specialize in interpretable linguistic relationships.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      LSTMs process tokens sequentially, so they automatically encode position — token 1 is processed first, its state is passed to token 2, and so on. But transformers process all tokens in parallel simultaneously. What problem does this create, and what's the fix?
+    </div>
+
+    <p>
+      Parallel processing means the transformer has no inherent notion of order. Given tokens "dog bites man" and "man bites dog," attention over the same three tokens would produce identical representations — because without position information, both sequences are just a set of three tokens. The fix is <strong style="color:var(--accent)">positional encoding</strong>: a vector added to each token embedding that encodes its position. The original transformer used sine and cosine functions at different frequencies, so each position gets a unique, smooth pattern. The model can then learn to use positional information just like any other feature. Without it, transformers would be permutation-invariant — blind to word order entirely.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch attention flow through a sentence</h2>
+    <p class="lead">
+      Six tokens from the sentence <em>"the cat sat on the mat"</em>. Each colored box is a token. The heatmap shows attention weights — brighter cells mean stronger attention. Click any token to see which tokens it attends to most.
+    </p>
+    <p>
+      Toggle between attention heads to see how each head captures different relationships. Notice that different heads light up different cells — that's multi-head specialization made visible.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Click any token box to inspect its attention row. Toggle heads with the selector.
+    </p>
+
+    <div class="animation-wrapper grain" id="attentionWrapper">
+      <canvas id="attnCanvas" width="720" height="420" style="max-width:100%; cursor:pointer;"></canvas>
+      <div class="animation-caption" id="attnCaption">
+        Click a token to inspect its attention pattern — or press Animate to watch each query token in sequence.
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">Attention head</span>
+        <button class="btn" id="headBtn1" style="margin-right:0.4rem;">Head 1</button>
+        <button class="btn secondary" id="headBtn2" style="margin-right:0.4rem;">Head 2</button>
+        <button class="btn secondary" id="headBtn3" style="margin-right:0.4rem;">Head 3</button>
+        <button class="btn secondary" id="headBtn4">Head 4</button>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="attnAnimBtn">▶ Animate</button>
+        <button class="btn secondary" id="attnResetBtn">↺ Reset</button>
+        <span style="font-size:0.85rem; color:var(--text-muted); margin-left:0.5rem;">
+          Or click any token to highlight its row
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Scaled dot-product attention</h2>
+
+    <p class="lead">
+      The full attention formula packs four operations into one line: a dot product, a scaling correction, a softmax, and a weighted sum. Each step has an exact reason.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Scaled Dot-Product Attention</div>
+      <div class="formula">Attention(Q, K, V) = softmax( Q·Kᵀ / √d<sub>k</sub> ) · V</div>
+      <div class="symbol-table">
+        <span class="sym">Q</span>         <span>Query matrix — one row per token, shape (n × d<sub>k</sub>)</span>
+        <span class="sym">K</span>         <span>Key matrix — one row per token, shape (n × d<sub>k</sub>)</span>
+        <span class="sym">V</span>         <span>Value matrix — one row per token, shape (n × d<sub>v</sub>)</span>
+        <span class="sym">Q·Kᵀ</span>      <span>Raw attention scores — dot product of every query with every key, shape (n × n)</span>
+        <span class="sym">√d<sub>k</sub></span> <span>Scaling factor — prevents softmax from saturating when d<sub>k</sub> is large</span>
+        <span class="sym">softmax(·)</span> <span>Converts raw scores to a probability distribution over keys (rows sum to 1)</span>
+      </div>
+    </div>
+
+    <p>
+      <strong>Why divide by √d<sub>k</sub>?</strong> Without scaling, dot products grow large as embedding dimension d<sub>k</sub> increases — the magnitude of Q·Kᵀ scales with d<sub>k</sub>. Large values push softmax into regions where gradients are near zero (the function saturates at 0 or 1). Dividing by √d<sub>k</sub> keeps the variance at ~1 regardless of embedding size, so softmax stays in its useful range. This is not a heuristic — the paper proves the variance of the dot product is d<sub>k</sub> if Q and K have unit variance, so √d<sub>k</sub> is the exact corrective factor.
+    </p>
+
+    <p><strong>Worked example — 3 tokens, 2D embeddings, compute from scratch:</strong></p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.4rem; background:var(--bg-card) !important;">
+        <span class="step-num" style="background:var(--text-muted); color:var(--bg);">i</span>
+        <span style="font-family:var(--font-mono); font-size:0.8rem; font-weight:600; color:var(--text-muted);">
+          Tokens: "cat" (Q=[1,0]), "sat" (K=[0,1]), "mat" (K=[1,1]) — d<sub>k</sub>=2
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">1</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          Compute Q·Kᵀ for query "cat" against all keys:<br>
+          <span class="step-math">score("cat","sat") = [1,0]·[0,1] = 0</span><br>
+          <span class="step-math">score("cat","mat") = [1,0]·[1,1] = 1</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          Scale by 1/√d<sub>k</sub> = 1/√2 ≈ 0.707:<br>
+          <span class="step-math">scaled = [0 × 0.707, 1 × 0.707] = [0, 0.707]</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          Apply softmax: e<sup>0</sup>=1, e<sup>0.707</sup>≈2.028, sum≈3.028:<br>
+          <span class="step-math">weights = [1/3.028, 2.028/3.028] ≈ [0.330, 0.670]</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          Weighted sum of V vectors (V<sub>sat</sub>=[0,1], V<sub>mat</sub>=[1,1]):<br>
+          <span class="step-math">output = 0.330×[0,1] + 0.670×[1,1] = [0.670, 1.000]</span>
+        </span>
+      </div>
+      <div class="step" style="margin-top:0; flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">
+          "cat" attends 67% to "mat", 33% to "sat". The output blends their values accordingly.
+        </span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          With real trained weights, Q, K, V would be learned projections — but the mechanics are identical.
+          Every attention computation reduces to: score → scale → normalize → weighted-mix.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real World -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Architecture to World Impact</p>
+    <h2>One architecture — text, images, audio, code</h2>
+    <p class="lead">
+      The transformer was introduced for machine translation. Within five years it had taken over nearly every domain in ML. The same scaled dot-product attention runs inside all of them.
+    </p>
+
+    <div class="worked-example" style="margin-bottom:1.25rem;">
+      <div class="step" style="background:color-mix(in srgb, var(--blue) 5%, var(--bg-card)) !important; flex-direction:column; gap:0.3rem;">
+        <span style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--blue);">BERT (2018) — Bidirectional Text Understanding</span>
+        <span style="font-size:0.9rem; color:var(--text);">
+          Pre-trained by masking random tokens and predicting them. Self-attention is bidirectional — every token attends to all others, past and future. BERT set state-of-the-art on 11 NLP benchmarks simultaneously at launch. The key insight: pre-train on massive unlabeled text, fine-tune on small labeled datasets.
+        </span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.3rem;">
+        <span style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--accent);">GPT (2018→) — Autoregressive Text Generation</span>
+        <span style="font-size:0.9rem; color:var(--text);">
+          Causal (masked) self-attention: each token attends only to previous tokens, never future ones. Trained to predict the next token. Scale this up (GPT-3: 175B parameters, GPT-4: ~1T) and emergent capabilities appear — reasoning, coding, translation — without task-specific training. The same architecture, just bigger and masked differently.
+        </span>
+      </div>
+      <div class="step" style="background:color-mix(in srgb, var(--green) 5%, var(--bg-card)) !important; flex-direction:column; gap:0.3rem;">
+        <span style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--green);">ViT — Vision Transformer (2020)</span>
+        <span style="font-size:0.9rem; color:var(--text);">
+          Images split into 16×16 patches, each patch flattened into a vector and treated as a "token." The standard transformer encoder runs on these patch tokens. ViT matched and then surpassed CNNs on ImageNet at scale — proving the architecture isn't just for sequences, it's a general-purpose computation engine.
+        </span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.3rem;">
+        <span style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--text-muted);">Audio, Code, Proteins, Video…</span>
+        <span style="font-size:0.9rem; color:var(--text);">
+          Whisper (speech-to-text), Codex/GitHub Copilot (code), AlphaFold2 (protein structure), Sora (video generation) — all transformers. The common thread: represent your domain as a sequence of tokens, apply scaled dot-product attention. The architecture generalizes because attention is domain-agnostic.
+        </span>
+      </div>
+    </div>
+
+    <div class="insight-box">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">Why did transformers win so decisively?</strong>
+      Three reasons compound: (1) Parallelism enables training on vastly more data than RNNs allow. (2) Attention has no theoretical limit on context length — a token can attend to tokens arbitrarily far away. (3) Scale works — adding parameters and data consistently improves performance with no obvious ceiling. RNNs lacked all three.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Tune the attention temperature</h2>
+    <p class="lead">
+      The scaling factor 1/√d<sub>k</sub> controls "temperature" — how peaked or diffuse the attention distribution is. A low temperature concentrates attention on a few tokens (sharp). A high temperature spreads it evenly (soft). See the effect live.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Temperature (τ)</span>
+        <input type="range" id="tempSlider" min="0.1" max="3.0" step="0.1" value="1.0">
+        <span class="control-value" id="tempValue">1.0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Query token</span>
+        <select id="querySelect" style="background:var(--bg-card); color:var(--text); border:1px solid var(--border); border-radius:var(--radius); padding:0.35rem 0.65rem; font-family:var(--font-body); font-size:0.9rem; cursor:pointer;">
+          <option value="0">the (pos 0)</option>
+          <option value="1">cat (pos 1)</option>
+          <option value="2" selected>sat (pos 2)</option>
+          <option value="3">on (pos 3)</option>
+          <option value="4">the (pos 4)</option>
+          <option value="5">mat (pos 5)</option>
+        </select>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="playgroundCanvas" width="720" height="220" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="playgroundCaption">
+          τ = 1.0 — standard scaling. Try τ → 0.1 (sharp focus) or τ → 3.0 (diffuse attention).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five causal misconceptions — and the chain that connects them</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't five unrelated mistakes. Each one leads naturally to the next. Trace the chain and all five become impossible to forget.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① Attention tells you what a word "means."</div>
+        <div class="truth">
+          Attention tells you which tokens are relevant to a given query — it produces a weighted mixture of values. It does not produce a semantic definition. The output is a context-dependent representation, not a lookup of meaning. "The bank" near "river" and "the bank" near "deposit" produce different attention patterns and different output vectors — both correct uses of the mechanism.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② Then each attention head must learn a single linguistic relationship (like subject-verb).</div>
+        <div class="truth">
+          Heads do specialize in practice, but there's no mechanism enforcing it. Heads learn whatever mixture of patterns minimizes training loss. Some are interpretable (coreference, syntactic), others aren't. More importantly, heads can change behavior depending on context — the same head doesn't always do the same thing for every input. Claiming heads are cleanly decomposable linguistic detectors is an oversimplification the original authors warned against.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Transformers can handle unlimited context because attention spans the whole sequence.</div>
+        <div class="truth">
+          Attention is O(n²) in sequence length — doubling the context length quadruples compute and memory. In practice, all transformers have a maximum context window (GPT-4: 128K tokens, Gemini 1.5: 1M). Beyond that, tokens simply aren't accessible. Techniques like sliding windows, sparse attention, and retrieval augmentation exist precisely because attention doesn't scale to unlimited length. "Unlimited context" is the single most common misconception about transformers.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ So the context limit problem is just engineering — given enough compute, transformers remember everything.</div>
+        <div class="truth">
+          Even within the context window, not all tokens are equally attended to. Empirically, transformers show strong recency bias — recent tokens get disproportionate attention. Information far from the query in the sequence is often effectively lost even when technically in context. This is why "lost in the middle" is a documented failure mode: models with 100K token windows systematically ignore information in the middle of the input.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ Transformers are fundamentally different from everything before them — they're a new paradigm.</div>
+        <div class="truth">
+          Transformers are built from primitives that existed before 2017: dot-product attention (Bahdanau et al., 2015), residual connections (ResNet, 2015), layer normalization (Ba et al., 2016), and feedforward layers. The insight in "Attention Is All You Need" was eliminating recurrence entirely and showing that attention + position encoding was sufficient. The paradigm shift was architectural, not mathematical — the ingredients were already available.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Six things to lock in</h2>
+    <ul class="summary-list">
+      <li>Self-attention computes a weighted sum of all tokens' values, where weights come from query-key dot products. Every token attends to every other in parallel.</li>
+      <li>Q, K, V are three separate linear projections of the same input — each specialized for a different role: what you're searching for, what you offer, what you contribute.</li>
+      <li>Scaling by 1/√d<sub>k</sub> prevents softmax saturation. Without it, large embedding dimensions would collapse attention into near-one-hot distributions with vanishing gradients.</li>
+      <li>Multi-head attention runs h independent attention operations and concatenates outputs — letting different heads capture different relationship types simultaneously.</li>
+      <li>Positional encoding adds order information to otherwise position-blind token embeddings. Without it, transformers are permutation-invariant — word order is invisible.</li>
+      <li>Transformers have O(n²) complexity in sequence length. Context windows are a hard engineering constraint, not a soft preference — all deployed models have one.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      Training a transformer from scratch requires enormous amounts of labeled data and compute — neither of which most people have. So how do you take a transformer pre-trained by Google or OpenAI on billions of examples and adapt it to your specific task with only hundreds of examples and a consumer GPU?<br><br>
+      That's transfer learning and fine-tuning. And it's the next chapter. <a href="transfer-learning.html" style="color:var(--accent);">Transfer Learning →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim traces to one of these primary sources.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Attention Is All You Need</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Vaswani, Shazeer, Parmar et al. — NeurIPS 2017</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: scaled dot-product attention formula, the √d<sub>k</sub> scaling rationale, multi-head attention, positional encoding design, the full transformer encoder-decoder architecture.
+          </span><br>
+          <a href="https://arxiv.org/abs/1706.03762" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1706.03762</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">BERT: Pre-training of Deep Bidirectional Transformers</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Devlin, Chang, Lee, Toutanova — NAACL 2019</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: bidirectional self-attention, masked language modeling, the pre-train / fine-tune paradigm.
+          </span><br>
+          <a href="https://arxiv.org/abs/1810.04805" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1810.04805</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">An Image is Worth 16×16 Words (ViT)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Dosovitskiy et al. — ICLR 2021</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: patch tokenization of images, transformer application to vision, ViT vs CNN comparison.
+          </span><br>
+          <a href="https://arxiv.org/abs/2010.11929" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/2010.11929</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">Why are Q, K, and V three separate projections of the same input rather than one? What goes wrong if you use the raw embedding as all three?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The three roles are distinct and often contradictory.</strong> Q encodes "what I'm searching for," K encodes "what I advertise to others," and V encodes "what content I contribute." Using the raw embedding for all three forces a single representation to serve all roles simultaneously — the model can't specialize. Separate weight matrices let Q, K, V diverge during training to represent each role optimally. Without this separation, attention degenerates into a weaker, less expressive operation.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">The attention formula divides by √d<sub>k</sub>. What specific failure mode does this prevent, and why is √d<sub>k</sub> exactly the right divisor?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>It prevents softmax saturation.</strong> Without scaling, dot products Q·Kᵀ grow in magnitude with d<sub>k</sub> — if Q and K have unit variance, their dot product has variance d<sub>k</sub>, so standard deviation √d<sub>k</sub>. Large values push softmax into near-zero gradient regions (the function saturates near 0 or 1). Dividing by √d<sub>k</sub> keeps the variance of the scaled dot product at ~1, maintaining softmax in its useful gradient-flowing range regardless of embedding size. √d<sub>k</sub> is exact, not approximate.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">A transformer processes "dog bites man" and "man bites dog" with identical token embeddings but no positional encoding. What do the two sentences produce?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Identical output representations.</strong> Without positional encoding, attention computes the same weighted sums regardless of token order — the model is permutation-invariant. Both sentences are just a bag of three tokens with the same embeddings. The outputs would be the same vector for both, making it impossible to distinguish subject from object. Positional encoding (sine/cosine patterns or learned vectors) breaks this symmetry by injecting unique position-dependent information into each token embedding before attention.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">A model has 8 attention heads, each with d<sub>k</sub> = 64. You double the number of heads to 16 while keeping total model dimension constant. What happens to d<sub>k</sub> per head, and what's the trade-off?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>d<sub>k</sub> per head halves to 32.</strong> Total model dimension = h × d<sub>k</sub> = 8 × 64 = 512. With 16 heads: d<sub>k</sub> = 512/16 = 32. Trade-off: more heads means more diverse attention patterns and relationship types can be captured simultaneously (richer multi-head expressivity), but each head now operates in a lower-dimensional space, potentially reducing its ability to represent complex individual relationships. The original transformer used h=8 and d<sub>k</sub>=64 as a practical balance — this is a hyperparameter to tune, not a fixed rule.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">What is causal (masked) self-attention, and why is it necessary for GPT-style language models but not BERT-style models?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Causal attention prevents a token from attending to future tokens by masking them to −∞ before softmax.</strong> GPT generates text autoregressively — it predicts token n+1 given tokens 1…n. If token n could attend to token n+1 during training, the model would trivially "look up" the answer rather than learn to predict it. The mask enforces temporal causality. BERT is trained to predict masked tokens from bidirectional context — it never needs to generate sequentially, so all-to-all attention is both valid and beneficial for understanding tasks.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">A transformer with context length 4K tokens processes a 4K-token document perfectly. You want to process an 8K-token document with the same model without retraining. What breaks, and what are your options?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Positional encodings break.</strong> The model has only seen positions 0–4095 during training; positions 4096–8191 are out of distribution. With learned positional embeddings, those positions simply don't exist. With sine/cosine encodings they can extrapolate but quality degrades. Options: (1) truncate to 4K tokens; (2) use sliding window chunking; (3) retrain/fine-tune with longer context; (4) use retrieval-augmented generation to select relevant chunks; (5) upgrade to RoPE (Rotary Position Embedding) or ALiBi which extrapolate better by design.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">Transformers replaced RNNs/LSTMs in most applications. Name two specific capabilities transformers have that LSTMs structurally cannot have — not just "better," but architecturally impossible for LSTMs.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>1. True parallel training across all positions.</strong> LSTMs must process token n before token n+1 — each step depends on the previous hidden state. This is a structural sequential dependency that cannot be parallelized regardless of hardware. Transformers compute all positions simultaneously, enabling use of thousands of GPU cores at once. <strong>2. Direct O(1) path length between any two tokens.</strong> In an LSTM, information from token 1 must pass through every intermediate hidden state to reach token 100 — a path of length 99, with each step being a potential bottleneck. In attention, token 1 connects directly to token 100 in a single step.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">ViT (Vision Transformer) applies the standard transformer encoder to images. What must be done to an image to make it compatible with transformer input, and what is the token in this context?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The image is split into fixed-size patches (e.g. 16×16 pixels), each patch flattened into a 1D vector, then linearly projected to the model's embedding dimension.</strong> Each patch becomes one "token." A 224×224 image with 16×16 patches produces (224/16)² = 196 tokens plus one [CLS] token for classification — 197 total. Position embeddings are added (patches have 2D spatial positions, so position encoding must capture this). The transformer then runs standard self-attention over these 197 vectors. The key insight: the architecture doesn't care what a token represents — patches are as valid as words.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">A colleague claims: "Transformers have a 1M-token context window, so they can understand an entire book perfectly." Identify two specific, distinct problems with this claim using concepts from this chapter.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Problem 1 — O(n²) compute cost:</strong> A 1M-token context requires attention matrices of size 1M × 1M = 10¹² operations. This is technically feasible only with extreme approximations (sparse attention, chunking). Even when offered, it is vastly more expensive than short contexts — not equivalent compute with more tokens. <strong>Problem 2 — "Lost in the middle" degradation:</strong> Empirically, transformers show recency bias and attention diffusion over long contexts. Information in the middle of a 1M-token document is systematically underweighted even when technically in context. "Having a 1M context window" ≠ "uniformly attending to everything in that window."
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<!-- Nav footer -->
+<div style="max-width:var(--max-width); margin:3rem auto; padding:1.5rem; display:flex; justify-content:space-between; border-top:1px solid var(--border);">
+  <a href="lstm-gru.html" style="color:var(--text-muted); font-size:0.9rem;">← LSTMs &amp; GRUs</a>
+  <a href="transfer-learning.html" style="color:var(--text-muted); font-size:0.9rem;">Transfer Learning →</a>
+</div>
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─── AttentionAnimation ──────────────────────────────────────────────────────
+
+class AttentionAnimation {
+  constructor(canvasId, captionId) {
+    this.canvas  = document.getElementById(canvasId);
+    this.ctx     = this.canvas.getContext('2d');
+    this.caption = document.getElementById(captionId);
+
+    this.tokens = ['the', 'cat', 'sat', 'on', 'the', 'mat'];
+    this.tokenColors = ['#58a6ff','#f0a500','#3fb950','#f85149','#58a6ff','#e0c070'];
+
+    // 4 attention heads — pre-computed weight matrices (rows = query, cols = key)
+    // Each row sums to 1.0
+    this.heads = [
+      // Head 1 — positional proximity (attends to nearby tokens)
+      [
+        [0.50, 0.30, 0.10, 0.05, 0.03, 0.02],
+        [0.25, 0.45, 0.20, 0.07, 0.02, 0.01],
+        [0.05, 0.25, 0.40, 0.20, 0.07, 0.03],
+        [0.02, 0.07, 0.25, 0.35, 0.22, 0.09],
+        [0.02, 0.03, 0.07, 0.20, 0.43, 0.25],
+        [0.01, 0.02, 0.04, 0.08, 0.25, 0.60],
+      ],
+      // Head 2 — article-noun (the→cat, the→mat)
+      [
+        [0.10, 0.65, 0.08, 0.05, 0.07, 0.05],
+        [0.55, 0.15, 0.12, 0.05, 0.08, 0.05],
+        [0.07, 0.15, 0.30, 0.18, 0.10, 0.20],
+        [0.05, 0.10, 0.18, 0.25, 0.12, 0.30],
+        [0.04, 0.05, 0.08, 0.10, 0.08, 0.65],
+        [0.04, 0.06, 0.10, 0.15, 0.50, 0.15],
+      ],
+      // Head 3 — verb-subject-object (sat → cat, mat)
+      [
+        [0.15, 0.45, 0.20, 0.10, 0.05, 0.05],
+        [0.40, 0.20, 0.25, 0.08, 0.04, 0.03],
+        [0.05, 0.45, 0.15, 0.10, 0.05, 0.20],
+        [0.05, 0.10, 0.30, 0.20, 0.10, 0.25],
+        [0.05, 0.06, 0.08, 0.12, 0.15, 0.54],
+        [0.04, 0.08, 0.25, 0.10, 0.43, 0.10],
+      ],
+      // Head 4 — long-range (first token ↔ last token)
+      [
+        [0.15, 0.05, 0.05, 0.08, 0.12, 0.55],
+        [0.05, 0.20, 0.12, 0.10, 0.08, 0.45],
+        [0.08, 0.10, 0.20, 0.12, 0.10, 0.40],
+        [0.10, 0.08, 0.15, 0.20, 0.12, 0.35],
+        [0.50, 0.08, 0.10, 0.12, 0.10, 0.10],
+        [0.55, 0.07, 0.08, 0.10, 0.10, 0.10],
+      ],
+    ];
+
+    this.currentHead    = 0;
+    this.activeRow      = -1;  // -1 = no selection
+    this.animating      = false;
+    this._animTimer     = null;
+    this._animRow       = 0;
+    this._animPhase     = 0;   // 0..1 within current row fade
+    this._animFrameId   = null;
+
+    this._render();
+  }
+
+  setHead(h) {
+    this.currentHead = h;
+    this._render();
+  }
+
+  reset() {
+    if (this._animFrameId) cancelAnimationFrame(this._animFrameId);
+    if (this._animTimer)   clearTimeout(this._animTimer);
+    this.animating   = false;
+    this.activeRow   = -1;
+    this._animRow    = 0;
+    this._animPhase  = 0;
+    this.caption.textContent = 'Click a token to inspect its attention pattern — or press Animate to watch each query token in sequence.';
+    this._render();
+  }
+
+  animate() {
+    if (this.animating) return;
+    this.animating  = true;
+    this.activeRow  = -1;
+    this._animRow   = 0;
+    this._animPhase = 0;
+    this._animateRow();
+  }
+
+  _animateRow() {
+    if (!this.animating) return;
+    if (this._animRow >= this.tokens.length) {
+      this.animating = false;
+      this.activeRow = -1;
+      this.caption.textContent = 'Animation complete. Click any token to inspect its row.';
+      this._render();
+      return;
+    }
+
+    const row    = this._animRow;
+    const start  = performance.now();
+    const dur    = 700;
+
+    const frame = (now) => {
+      if (!this.animating) return;
+      const t = Math.min((now - start) / dur, 1);
+      this.activeRow   = row;
+      this._animPhase  = easeInOut(t);
+      this._render();
+      if (t < 1) {
+        this._animFrameId = requestAnimationFrame(frame);
+      } else {
+        this._updateCaption(row);
+        this._animTimer = setTimeout(() => {
+          this._animRow++;
+          this._animateRow();
+        }, 900);
+      }
+    };
+    this._animFrameId = requestAnimationFrame(frame);
+  }
+
+  _updateCaption(row) {
+    const weights = this.heads[this.currentHead][row];
+    let maxIdx = 0;
+    for (let i = 1; i < weights.length; i++) {
+      if (weights[i] > weights[maxIdx]) maxIdx = i;
+    }
+    this.caption.textContent =
+      `Token "${this.tokens[row]}" attends most to "${this.tokens[maxIdx]}" ` +
+      `(weight: ${(weights[maxIdx] * 100).toFixed(0)}%) · Head ${this.currentHead + 1}`;
+  }
+
+  clickToken(idx) {
+    if (this.animating) {
+      if (this._animFrameId) cancelAnimationFrame(this._animFrameId);
+      if (this._animTimer)   clearTimeout(this._animTimer);
+      this.animating = false;
+    }
+    this.activeRow = idx;
+    this._animPhase = 1;
+    this._updateCaption(idx);
+    this._render();
+  }
+
+  handleCanvasClick(e) {
+    const rect  = this.canvas.getBoundingClientRect();
+    const mx    = (e.clientX - rect.left) * (this.canvas.width  / rect.width);
+    const my    = (e.clientY - rect.top)  * (this.canvas.height / rect.height);
+
+    const W = this.canvas.width;
+    const tokenY = 30, tokenH = 36, tokenW = 72, tokenGap = 12;
+    const totalW = this.tokens.length * (tokenW + tokenGap) - tokenGap;
+    const startX = (W - totalW) / 2;
+
+    for (let i = 0; i < this.tokens.length; i++) {
+      const tx = startX + i * (tokenW + tokenGap);
+      if (mx >= tx && mx <= tx + tokenW && my >= tokenY && my <= tokenY + tokenH) {
+        this.clickToken(i);
+        return;
+      }
+    }
+  }
+
+  _render() {
+    const { ctx, canvas, tokens, tokenColors, heads, currentHead, activeRow } = this;
+    const W = canvas.width, H = canvas.height;
+
+    // Background
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const n = tokens.length;
+    const tokenW = 72, tokenH = 36, tokenGap = 12;
+    const totalW = n * (tokenW + tokenGap) - tokenGap;
+    const startX = (W - totalW) / 2;
+    const tokenY = 28;
+
+    const gridSize   = 44;
+    const gridGap    = 6;
+    const gridTotal  = n * (gridSize + gridGap) - gridGap;
+    const gridStartX = (W - gridTotal) / 2;
+    const gridStartY = 100;
+
+    const weights = heads[currentHead];
+    const alpha   = activeRow >= 0 ? this._animPhase : 1;
+
+    // ── Draw heatmap grid ─────────────────────────────────────────────
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        const x = gridStartX + c * (gridSize + gridGap);
+        const y = gridStartY + r * (gridSize + gridGap);
+        const w = weights[r][c];
+
+        // Base intensity
+        let intensity = w;
+        let cellAlpha = 1.0;
+
+        if (activeRow >= 0 && r !== activeRow) {
+          cellAlpha = 0.15 * alpha + (1 - alpha) * 1.0;
+          if (activeRow < 0) cellAlpha = 1.0;
+        } else if (activeRow >= 0 && r === activeRow) {
+          intensity = w;
+          cellAlpha = 1.0;
+        }
+
+        // Color: interpolate from dark bg to token color based on weight
+        const base = hexToRgb(tokenColors[r]) || {r:240, g:165, b:0};
+        const bgRgb = bg.startsWith('#') ? hexToRgb(bg) : {r:22, g:27, b:34};
+        const t = intensity;
+        const cr = Math.round(lerp(bgRgb.r, base.r, t));
+        const cg = Math.round(lerp(bgRgb.g, base.g, t));
+        const cb = Math.round(lerp(bgRgb.b, base.b, t));
+
+        ctx.save();
+        ctx.globalAlpha = cellAlpha;
+        ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        roundRect(ctx, x, y, gridSize, gridSize, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        // Weight label if highlighted row
+        if (activeRow === r || (activeRow < 0 && intensity > 0.35)) {
+          ctx.fillStyle = intensity > 0.4 ? '#000' : getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e6edf3';
+          ctx.font = '10px JetBrains Mono, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText((w * 100).toFixed(0) + '%', x + gridSize / 2, y + gridSize / 2);
+        }
+        ctx.restore();
+      }
+    }
+
+    // ── Draw row label (query) ────────────────────────────────────────
+    for (let r = 0; r < n; r++) {
+      const y = gridStartY + r * (gridSize + gridGap) + gridSize / 2;
+      ctx.save();
+      ctx.globalAlpha = (activeRow < 0 || activeRow === r) ? 1 : 0.3;
+      ctx.fillStyle   = tokenColors[r];
+      ctx.font        = 'bold 10px JetBrains Mono, monospace';
+      ctx.textAlign   = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tokens[r], gridStartX - 10, y);
+      ctx.restore();
+    }
+
+    // ── Draw col label (key) ─────────────────────────────────────────
+    for (let c = 0; c < n; c++) {
+      const x = gridStartX + c * (gridSize + gridGap) + gridSize / 2;
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle   = tokenColors[c];
+      ctx.font        = 'bold 10px JetBrains Mono, monospace';
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(tokens[c], x, gridStartY - 6);
+      ctx.restore();
+    }
+
+    // ── Draw axis labels ─────────────────────────────────────────────
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+    ctx.font = '10px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.save();
+    ctx.translate(gridStartX - 52, gridStartY + gridTotal / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Query (Q)', 0, 0);
+    ctx.restore();
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Key (K)', gridStartX + gridTotal / 2, gridStartY - 22);
+
+    // ── Draw token boxes at top ──────────────────────────────────────
+    for (let i = 0; i < n; i++) {
+      const tx = startX + i * (tokenW + tokenGap);
+      const isActive = (activeRow === i);
+      const isFaded  = (activeRow >= 0 && !isActive);
+
+      ctx.save();
+      ctx.globalAlpha = isFaded ? 0.35 : 1.0;
+
+      // Box fill
+      const col = tokenColors[i];
+      ctx.fillStyle = isActive
+        ? col
+        : colorWithAlpha(col, 0.18);
+      ctx.strokeStyle = col;
+      ctx.lineWidth   = isActive ? 2.5 : 1.5;
+      roundRect(ctx, tx, tokenY, tokenW, tokenH, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      // Token text
+      ctx.fillStyle = isActive
+        ? '#000'
+        : (getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e6edf3');
+      ctx.font      = 'bold 13px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tokens[i], tx + tokenW / 2, tokenY + tokenH / 2);
+      ctx.restore();
+    }
+
+    // ── Head indicator ───────────────────────────────────────────────
+    const headLabels = ['Head 1\nProximity', 'Head 2\nArticle→Noun', 'Head 3\nVerb→Args', 'Head 4\nLong-Range'];
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f0a500';
+    ctx.font = 'bold 11px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`Head ${currentHead + 1}`, W - 14, 14);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+    ctx.font = '10px Inter, sans-serif';
+    const subtitle = ['Proximity', 'Article→Noun', 'Verb→Args', 'Long-Range'][currentHead];
+    ctx.fillText(subtitle, W - 14, 28);
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16),
+  } : null;
+}
+
+function colorWithAlpha(hex, a) {
+  const c = hexToRgb(hex);
+  if (!c) return `rgba(240,165,0,${a})`;
+  return `rgba(${c.r},${c.g},${c.b},${a})`;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+// ── Playground canvas ─────────────────────────────────────────────────────────
+
+function drawPlayground(temp, queryIdx) {
+  const canvas  = document.getElementById('playgroundCanvas');
+  const ctx     = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const tokens = ['the', 'cat', 'sat', 'on', 'the', 'mat'];
+  const tokenColors = ['#58a6ff','#f0a500','#3fb950','#f85149','#58a6ff','#e0c070'];
+
+  // Raw attention scores (before temperature / softmax) for each query
+  const rawScores = [
+    [2.0, 0.5, 0.3, 0.2, 1.8, 0.4],
+    [1.5, 2.5, 0.8, 0.4, 0.3, 0.2],
+    [0.3, 2.0, 1.5, 0.8, 0.4, 1.0],
+    [0.3, 0.5, 1.5, 2.0, 0.6, 1.5],
+    [1.8, 0.3, 0.4, 0.6, 2.0, 1.2],
+    [0.4, 0.3, 0.8, 0.5, 1.5, 2.8],
+  ];
+
+  // Apply temperature and softmax
+  const scores = rawScores[queryIdx].map(s => s / temp);
+  const maxS   = Math.max(...scores);
+  const exps   = scores.map(s => Math.exp(s - maxS));
+  const sumE   = exps.reduce((a, b) => a + b, 0);
+  const weights = exps.map(e => e / sumE);
+
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Bar chart
+  const barW   = 60, barGap = 22;
+  const totalW = tokens.length * (barW + barGap) - barGap;
+  const startX = (W - totalW) / 2;
+  const maxH   = H - 80;
+  const baseY  = H - 44;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const x  = startX + i * (barW + barGap);
+    const bh = Math.max(4, weights[i] * maxH);
+    const y  = baseY - bh;
+
+    ctx.fillStyle = i === queryIdx
+      ? tokenColors[i]
+      : colorWithAlpha(tokenColors[i], 0.55);
+    roundRect(ctx, x, y, barW, bh, 4);
+    ctx.fill();
+
+    // Weight label
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e6edf3';
+    ctx.font      = 'bold 11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText((weights[i] * 100).toFixed(1) + '%', x + barW / 2, y - 3);
+
+    // Token label
+    ctx.fillStyle = tokenColors[i];
+    ctx.font      = 'bold 12px JetBrains Mono, monospace';
+    ctx.textBaseline = 'top';
+    ctx.fillText(tokens[i], x + barW / 2, baseY + 6);
+  }
+
+  // Query label
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+  ctx.font = '11px Inter, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`Query: "${tokens[queryIdx]}" at pos ${queryIdx}`, 14, 8);
+}
+
+// ── Wire everything up ────────────────────────────────────────────────────────
+
+const attnAnim = new AttentionAnimation('attnCanvas', 'attnCaption');
+
+// Head buttons
+const headBtns = [
+  document.getElementById('headBtn1'),
+  document.getElementById('headBtn2'),
+  document.getElementById('headBtn3'),
+  document.getElementById('headBtn4'),
+];
+
+headBtns.forEach((btn, idx) => {
+  btn.addEventListener('click', () => {
+    headBtns.forEach(b => b.classList.add('secondary'));
+    btn.classList.remove('secondary');
+    attnAnim.setHead(idx);
+  });
+});
+
+document.getElementById('attnAnimBtn').addEventListener('click',  () => attnAnim.animate());
+document.getElementById('attnResetBtn').addEventListener('click', () => {
+  attnAnim.reset();
+  headBtns.forEach(b => b.classList.add('secondary'));
+  headBtns[0].classList.remove('secondary');
+  attnAnim.setHead(0);
+});
+
+document.getElementById('attnCanvas').addEventListener('click', (e) => {
+  attnAnim.handleCanvasClick(e);
+});
+
+// Playground
+const tempSlider     = document.getElementById('tempSlider');
+const tempValue      = document.getElementById('tempValue');
+const querySelect    = document.getElementById('querySelect');
+const pgCaption      = document.getElementById('playgroundCaption');
+
+function updatePlayground() {
+  const t = parseFloat(tempSlider.value);
+  const q = parseInt(querySelect.value, 10);
+  tempValue.textContent = t.toFixed(1);
+  drawPlayground(t, q);
+
+  if (t <= 0.3)       pgCaption.textContent = `τ = ${t.toFixed(1)} — very sharp. Nearly all attention collapses to one token.`;
+  else if (t <= 0.8)  pgCaption.textContent = `τ = ${t.toFixed(1)} — peaked distribution. Clear winner, small secondary contributions.`;
+  else if (t <= 1.2)  pgCaption.textContent = `τ = ${t.toFixed(1)} — standard scaling (√d_k normalizes to ~1.0). Balanced attention.`;
+  else if (t <= 2.0)  pgCaption.textContent = `τ = ${t.toFixed(1)} — soft attention. Weights spread more evenly across tokens.`;
+  else                pgCaption.textContent = `τ = ${t.toFixed(1)} — near-uniform. Model struggles to distinguish relevant tokens.`;
+}
+
+tempSlider.addEventListener('input', updatePlayground);
+querySelect.addEventListener('change', updatePlayground);
+updatePlayground();
+
+// ── Quiz ──────────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG   = 'transformers';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card       = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx    = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / 9 revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / 9 revealed`;
+
+// ── Reading progress bar ──────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ── Scroll reveal ─────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ── TOC active dot ────────────────────────────────────────────────────────────
+const sections  = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots   = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ── Re-render canvases on theme change ───────────────────────────────────────
+window.onThemeChange(function () {
+  attnAnim._render();
+  updatePlayground();
+});
+</script>
+</body>
+</html>

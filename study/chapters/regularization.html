@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regularization (L1, L2, Dropout) — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>          <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span><span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>          <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 1 · Basic Machine Learning</p>
+    <h1>Regularization (L1, L2, Dropout)</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      How to stop your model memorizing the training set and start it actually learning.
+    </p>
+    <div style="display:flex; gap:1.5rem; margin-top:1rem; font-size:0.85rem; font-family:var(--font-mono);">
+      <a href="bias-variance.html" style="color:var(--text-muted);">← Bias-Variance</a>
+      <a href="evaluation-metrics.html" style="color:var(--text-muted);">Evaluation Metrics →</a>
+    </div>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.05rem; line-height:1.8;">
+      Without regularization, a model with 1000 parameters will fit 999-point noise perfectly and predict nothing.
+      It has more degrees of freedom than constraints — so it solves a different problem than the one you wanted.
+      <strong style="color:var(--accent)">Regularization</strong> is the mechanism that forces a model to do less, so it generalizes more.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Occam's Razor as a loss penalty</h2>
+    <p class="lead">
+      Among models that explain the training data equally well, prefer the simpler one.
+      That's Occam's Razor — and regularization is the mathematical way to encode it.
+      You add a term to the loss function that punishes complexity, so the optimizer has to
+      balance fitting the data against keeping weights small.
+    </p>
+    <p>
+      Without regularization, gradient descent is told exactly one thing: minimize training loss.
+      It will use every parameter to its full extent — even fitting the noise in the training data.
+      The result is a model that has memorized the training set rather than learned the underlying
+      pattern. This is <strong style="color:var(--accent)">overfitting</strong>.
+    </p>
+    <p>
+      The key insight is that large weights are suspicious. A model that assigns enormous weight to
+      a single feature is betting everything on that feature being reliably predictive — even when
+      it only appeared by chance in training. Regularization penalizes this overconfidence by
+      adding the magnitude of the weights to the thing being minimized.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">data term</strong> — how well the model fits the training data (the original loss).</li>
+      <li>The <strong style="color:var(--accent)">regularization term</strong> — how large the weights are (the penalty).</li>
+      <li>The <strong style="color:var(--accent)">λ (lambda)</strong> — the knob that controls the trade-off between the two.</li>
+    </ul>
+    <p>
+      The tension between these two terms is the whole game. Too much regularization and the model
+      is too simple to fit anything (high bias). Too little and it memorizes noise (high variance).
+      The right λ is the sweet spot where the model learns the actual signal.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three mechanisms — three different effects on weights</h2>
+
+    <p class="lead">
+      L1, L2, and Dropout all reduce overfitting, but through fundamentally different mechanisms.
+      Understanding why each produces different weight distributions is more useful than
+      just knowing when to apply them.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      L1 regularization (Lasso) tends to produce exactly zero weights — true sparsity.
+      L2 regularization (Ridge) shrinks weights toward zero but rarely reaches it exactly.
+      Why would a tiny difference in the penalty function (|w| vs w²) produce such a dramatically
+      different outcome? Think about the geometry before reading on.
+    </div>
+
+    <p>
+      The answer is in the derivatives. The L2 penalty is w², and its gradient is 2w.
+      As a weight approaches zero, its gradient approaches zero too — the penalty's pull weakens.
+      A weight near 0.001 only gets pushed by a force of 0.002. It shrinks forever but never quite
+      arrives at zero. The L1 penalty is |w|, and its subgradient (at w ≠ 0) is just sign(w) — always ±1,
+      regardless of magnitude. A weight at 0.001 feels the same push as a weight at 10.
+      The constant force can drive small weights all the way to exactly zero.
+      This is why L1 produces <strong style="color:var(--accent)">sparse</strong> solutions.
+    </p>
+    <p>
+      Geometrically: the L2 constraint is a circle (ball in high dimensions). The L1 constraint is
+      a diamond (cross-polytope). A loss ellipsoid is most likely to first touch a diamond at one of
+      its corners — where all but one coordinate is zero. A circle has no corners, so the intersection
+      typically has no exact zeros. Sparsity is a geometric consequence of L1's sharp corners.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Dropout randomly sets neurons to zero during training with probability p.
+      Each forward pass uses a different random sub-network. The final model averages over all
+      these sub-networks. How does this act as an ensemble, and why might an ensemble of
+      thin networks generalize better than one fat network trained to convergence?
+    </div>
+
+    <p>
+      A standard ensemble trains k separate models independently on the full dataset, then averages
+      their predictions. Predictions become reliable because different models make different errors,
+      and averaging cancels noise. Dropout approximates this at nearly zero extra cost.
+      With a network of n neurons and Dropout rate p, there are 2<sup>n·p</sup> possible sub-networks.
+      Training one network with Dropout trains all of them simultaneously with shared weights.
+      At test time, scaling activations by (1−p) approximates the geometric mean of all predictions.
+      Each sub-network can't memorize the training data alone — it's too small — so the ensemble
+      is forced to learn features that are robust across many sub-network configurations.
+      <strong style="color:var(--accent)">Co-adaptation</strong> (where neurons conspire to memorize specific training examples together)
+      is broken because each neuron must be useful even when its collaborators are randomly absent.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      You're building a gene expression model with 20,000 features (genes) but only 500 training
+      samples. Only a small number of genes are actually related to the outcome. Which regularizer
+      would you choose — L1 or L2 — and why? What about a neural network classifying images?
+    </div>
+
+    <p>
+      For the genomics problem: L1. You suspect most features are irrelevant, and L1's sparsity
+      performs automatic feature selection — irrelevant gene weights go to exactly zero, giving you
+      an interpretable, sparse model. With only 500 samples and 20,000 features, you need this
+      aggressive selection. For image classification: neither alone — Dropout. Images don't have
+      sparse structure; every pixel contributes. You need a deep network, and Dropout prevents
+      co-adaptation while acting as an ensemble across sub-architectures. L2 is the choice when
+      you believe most features are genuinely useful and want smooth shrinkage without zeroing —
+      e.g., polynomial regression where every term contributes something.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 4. The Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Constrained optimization: where loss meets constraint</h2>
+    <p class="lead">
+      Regularization can be reframed as constrained optimization: minimize loss subject to the
+      constraint that ||w|| ≤ t. The loss landscape (ellipse contours) meets the constraint region
+      (L2 circle or L1 diamond). The optimal regularized solution is the point where the
+      smallest loss ellipse first touches the constraint boundary.
+    </p>
+    <p>
+      Watch how the gradient descent path — starting from the unconstrained optimum — is forced
+      to slide along the constraint boundary until it finds the regularized minimum.
+      For L1, that minimum tends to be at a corner of the diamond (a sparse solution).
+      For L2, the circle has no corners, so the minimum is interior — dense, but shrunk.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="regCanvas" width="720" height="380" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="regCaption">
+        L2: Circle constraint — the optimal point shrinks weights uniformly (dense solution)
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <button class="btn" id="btnL1">L1 (Diamond)</button>
+        <button class="btn secondary" id="btnL2">L2 (Circle)</button>
+        <button class="btn secondary" id="btnAnimate" style="margin-left:0.5rem;">▶ Animate</button>
+        <button class="btn secondary" id="btnReset">↺ Reset</button>
+      </div>
+      <div class="control-row" style="margin-top:0.5rem;">
+        <span id="regAnnotation" style="font-family:var(--font-mono); font-size:0.85rem; color:var(--accent);">
+          Dense shrinkage — weights approach zero uniformly
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Objectives, penalties, and a worked example</h2>
+
+    <p class="lead">
+      Each regularizer modifies the loss function by adding a penalty on the weights.
+      The optimizer then minimizes the combined objective — data fit plus complexity.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">L1 Regularization — Lasso</div>
+      <div class="formula">J(w) = L(w) + λ · Σ|wⱼ|</div>
+      <div class="symbol-table">
+        <span class="sym">L(w)</span>    <span>original loss (e.g., mean squared error on training data)</span>
+        <span class="sym">λ</span>       <span>regularization strength — larger λ means more penalty on weight magnitude</span>
+        <span class="sym">Σ|wⱼ|</span> <span>L1 norm — sum of absolute values of all weights</span>
+        <span class="sym">effect</span>  <span>drives some weights to exactly zero → feature selection / sparse model</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">L2 Regularization — Ridge</div>
+      <div class="formula">J(w) = L(w) + λ · Σwⱼ²</div>
+      <div class="symbol-table">
+        <span class="sym">L(w)</span>    <span>original loss (same as above)</span>
+        <span class="sym">λ</span>       <span>regularization strength — same role as in L1</span>
+        <span class="sym">Σwⱼ²</span>   <span>L2 norm squared — sum of squared weights (penalizes large weights most)</span>
+        <span class="sym">effect</span>  <span>shrinks all weights toward zero proportionally — dense but small model</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Dropout — Bernoulli Mask During Training</div>
+      <div class="formula">ĥ = h ⊙ m,  where m ~ Bernoulli(1−p) per neuron per forward pass</div>
+      <div class="symbol-table">
+        <span class="sym">h</span>   <span>activation vector at a layer (values produced by neurons)</span>
+        <span class="sym">m</span>   <span>binary mask — each element is 1 (keep) with probability (1−p) or 0 (drop)</span>
+        <span class="sym">p</span>   <span>dropout rate — fraction of neurons randomly zeroed per forward pass</span>
+        <span class="sym">⊙</span>   <span>element-wise (Hadamard) product — mask applied independently per neuron</span>
+        <span class="sym">test</span><span>at inference, no dropout; activations scaled by (1−p) to match expected magnitude</span>
+      </div>
+    </div>
+
+    <p><strong>Worked example: Ridge penalty on a 5-weight linear model</strong></p>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:0.5rem;">
+      Model weights learned without regularization vs with Ridge (λ = 0.5). Watch how Ridge
+      shrinks all weights — but the larger weights shrink more in absolute terms.
+    </p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0;">
+        <span class="step-num" style="background:transparent; color:var(--text-muted); font-size:0.8rem;">—</span>
+        <span style="display:grid; grid-template-columns:4rem 5rem 6rem 6rem 5rem; gap:0 1rem; font-weight:600; font-family:var(--font-mono); font-size:0.78rem; color:var(--text-muted);">
+          <span>Weight</span><span>Unregularized</span><span>Ridge penalty</span><span>Regularized</span><span>Δ magnitude</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">w₁</span>
+        <span style="display:grid; grid-template-columns:5rem 6rem 6rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">3.40</span>
+          <span class="step-math">λ·2·3.40 = 3.40</span>
+          <span class="step-math">2.27</span>
+          <span class="step-math">−1.13</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">w₂</span>
+        <span style="display:grid; grid-template-columns:5rem 6rem 6rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">1.20</span>
+          <span class="step-math">λ·2·1.20 = 1.20</span>
+          <span class="step-math">0.80</span>
+          <span class="step-math">−0.40</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">w₃</span>
+        <span style="display:grid; grid-template-columns:5rem 6rem 6rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">0.60</span>
+          <span class="step-math">λ·2·0.60 = 0.60</span>
+          <span class="step-math">0.40</span>
+          <span class="step-math">−0.20</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">w₄</span>
+        <span style="display:grid; grid-template-columns:5rem 6rem 6rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">−2.10</span>
+          <span class="step-math">λ·2·2.10 = 2.10</span>
+          <span class="step-math">−1.40</span>
+          <span class="step-math">−0.70</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">w₅</span>
+        <span style="display:grid; grid-template-columns:5rem 6rem 6rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">0.10</span>
+          <span class="step-math">λ·2·0.10 = 0.10</span>
+          <span class="step-math">0.07</span>
+          <span class="step-math">−0.03</span>
+        </span>
+      </div>
+      <div class="step" style="margin-top:0; flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">Pattern: Ridge shrinks each weight by a constant factor (1/(1+2λ) = 1/2), proportional to its original magnitude.</span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          No weight reaches exactly zero — the large weight w₁ (3.40) shrinks more in absolute terms (−1.13)
+          than the small weight w₅ (0.10, shrinks only −0.03). But the <em>relative</em> shrinkage is identical:
+          all weights are multiplied by the same factor. This proportional shrinkage is L2's signature —
+          it cannot produce exact zeros, only uniform deflation.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 6. Real Problem Bridge -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Toy to Real</p>
+    <h2>Three domains, three regularizers</h2>
+    <p class="lead">
+      Each regularizer dominates a different area of practice — and understanding why illuminates
+      something about the structure of those problems.
+    </p>
+
+    <p>
+      <strong style="color:var(--accent)">L1 in genomics feature selection.</strong>
+      A cancer prognosis model has expression measurements for ~20,000 genes but only a few hundred
+      patient samples. The ground truth is that maybe a few dozen genes actually drive the outcome.
+      Lasso (L1 regularization) is the standard tool because it simultaneously fits the model and
+      selects features: the coefficients of irrelevant genes go to exactly zero. The result is an
+      interpretable, sparse model — a 20,000-feature problem reduced to 40 non-zero coefficients.
+      L2 would spread the weight across all 20,000 genes, producing a model that's hard to interpret
+      and doesn't suggest which genes are actually causal.
+    </p>
+
+    <p>
+      <strong style="color:var(--accent)">L2 in linear and logistic regression.</strong>
+      Ridge regression is the default regularizer for linear models because it has a closed-form solution
+      and works well when you believe most features contribute something. In logistic regression,
+      L2 regularization prevents the weights from growing to infinity when classes are perfectly
+      separable — the unregularized maximum likelihood estimate is undefined in that case.
+      L2 also stabilizes the Hessian, which makes the optimization landscape better conditioned
+      and training more reliable.
+    </p>
+
+    <p>
+      <strong style="color:var(--accent)">Dropout in deep neural networks.</strong>
+      Dropout was introduced for image classification (AlexNet, 2012) and became the default
+      regularizer for deep networks. The intuition is that deep networks have far more parameters
+      than training examples — they can and will memorize. Dropout prevents co-adaptation between
+      neurons and forces each pathway through the network to be independently useful.
+      In practice, Dropout rates of 0.2–0.5 are used on fully-connected layers; convolutional
+      layers use lower rates or specialized variants (DropBlock). Modern architectures also
+      combine Dropout with weight decay (L2) for the strongest regularization effect.
+    </p>
+
+    <div class="insight-box" style="font-style:normal;">
+      These three aren't mutually exclusive. Elastic Net combines L1 + L2 (getting both sparsity
+      and stability). Deep networks routinely use weight decay (L2) + Dropout simultaneously.
+      The question isn't "which regularizer?" but "what kind of complexity am I worried about?"
+      Spurious features → L1. Overconfident large weights → L2. Co-adapted neurons → Dropout.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 7. Interactive Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Feel what λ does to the weight distribution</h2>
+    <p class="lead">
+      Tune λ and the dropout rate to see how regularization strength reshapes the model.
+      A higher λ concentrates weights near zero. Dropout rate controls how aggressively
+      neurons are randomly silenced during each forward pass.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">L1/L2 strength (λ)</span>
+        <input type="range" id="lambdaSlider" min="0" max="1" step="0.05" value="0.1">
+        <span class="control-value" id="lambdaValue">0.10</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Dropout rate (p)</span>
+        <input type="range" id="dropSlider" min="0" max="0.7" step="0.05" value="0.3">
+        <span class="control-value" id="dropValue">0.30</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="pgL1Btn">L1</button>
+        <button class="btn secondary" id="pgL2Btn">L2</button>
+        <button class="btn secondary" id="pgDropBtn">Dropout</button>
+        <button class="btn secondary" id="pgResetBtn">↺ Reset</button>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="playCanvas" width="720" height="260" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="playCaption">
+          L1 (λ=0.10) — sparse: many weights driven to exactly zero
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five causal misconceptions about regularization</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't isolated mistakes — they share a common root: confusing a technique's
+      <em>observable effect</em> with its <em>actual mechanism</em>. Each misconception
+      looks plausible until you follow the math one step further.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① Regularization prevents overfitting by reducing model complexity.</div>
+        <div class="truth">
+          The model's architecture (number of parameters) doesn't change. Regularization constrains
+          the <em>effective</em> complexity by shrinking or zeroing weights — but a regularized
+          100-layer network is still a 100-layer network. The mechanism isn't complexity reduction;
+          it's penalizing the optimizer for using that complexity aggressively.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② L1 always produces a sparser model than L2.</div>
+        <div class="truth">
+          Only at the optimal regularized solution. During training, with the same λ, the path taken
+          by gradient descent can look very different. And at high enough λ, both L1 and L2 push
+          all weights toward zero — the comparison only makes sense at the same regularization
+          strength and the same data. On data with no truly irrelevant features, L1 may not
+          produce useful sparsity at all.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Dropout makes training slower because you're using a smaller network each step.</div>
+        <div class="truth">
+          On modern hardware, the opposite is often true. Smaller sub-networks per step means cheaper
+          forward and backward passes. Dropout also acts as noise injection, which can escape
+          saddle points faster and sometimes requires fewer total steps. The cost is usually in
+          total epochs (you need more passes through the data to converge), but per-iteration cost
+          is lower.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ More regularization is always safer — when in doubt, increase λ.</div>
+        <div class="truth">
+          Regularization introduces bias. Too much pushes all weights so close to zero that the model
+          can't represent the true function — high bias, poor training accuracy, and poor test accuracy.
+          The optimal λ is a sweet spot, not an upper bound. Excessive regularization is just
+          underfitting by a different route. This is the same bias-variance trade-off; regularization
+          shifts the balance, not eliminates it.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ L2 regularization and early stopping are completely different techniques.</div>
+        <div class="truth">
+          They're mathematically equivalent under specific conditions. For quadratic loss functions,
+          early stopping corresponds exactly to L2 regularization with λ inversely proportional to
+          the number of gradient steps taken. Both effectively limit how far the optimizer moves from
+          the origin (small-weight initialization). This equivalence was proven by Goodfellow et al.
+          (DL Book §7.8) and is why early stopping is sometimes described as "free regularization."
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>Regularization adds a weight penalty to the loss objective, forcing the optimizer to balance data fit against weight magnitude — encoding Occam's Razor mathematically.</li>
+      <li>L1 produces sparse solutions (exact zeros) because its gradient is a constant ±1 regardless of weight magnitude — small weights feel the same pull as large ones.</li>
+      <li>L2 shrinks all weights proportionally toward zero without exact zeros, because its gradient is 2w — the pull diminishes as weights approach zero.</li>
+      <li>Dropout trains an implicit ensemble of sub-networks with shared weights, breaking co-adaptation — each neuron must be independently useful, not dependent on specific partners.</li>
+      <li>Early stopping is mathematically equivalent to L2 regularization for quadratic losses — both limit how far weights can travel from their initialization.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      You now know how to prevent a model from overfitting to training data. But how do you know
+      whether it's working? You need to measure the model's performance — and measuring it correctly
+      is surprisingly subtle. Is accuracy the right metric? What about imbalanced classes?
+      When does a 95% accurate model actually fail catastrophically?<br><br>
+      That's Evaluation Metrics. And it's the next chapter.
+      <br><br>
+      <a href="evaluation-metrics.html" style="font-family:var(--font-mono); font-size:0.9rem;">Evaluation Metrics →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — Chapter 7 (Regularization)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: L1 vs L2 geometric interpretation, sparsity argument, Dropout as ensemble,
+            co-adaptation, early stopping ↔ L2 equivalence (§7.8), Elastic Net, weight decay.
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">CS229 Lecture Notes — Regularization Supplement</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Andrew Ng &amp; Tengyu Ma, Stanford University (2022 edition)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: bias-variance trade-off framing, Ridge and Lasso objectives, λ selection,
+            penalized likelihood interpretation, regularization as Bayesian prior.
+          </span><br>
+          <a href="https://cs229.stanford.edu" style="font-family:var(--font-mono); font-size:0.8rem;">cs229.stanford.edu</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Dropout: A Simple Way to Prevent Neural Networks from Overfitting</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Srivastava, Hinton, Krizhevsky, Sutskever &amp; Salakhutdinov (JMLR, 2014)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: Dropout mechanics (Bernoulli mask), test-time scaling, ensemble interpretation,
+            co-adaptation prevention, recommended dropout rates.
+          </span><br>
+          <a href="https://jmlr.org/papers/v15/srivastava14a.html" style="font-family:var(--font-mono); font-size:0.8rem;">jmlr.org/papers/v15/srivastava14a.html</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Open access</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">You train a linear model with L1 regularization and end up with exactly 3 non-zero weights out of 50. You retrain with L2 at the same λ. How many non-zero weights do you expect now?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>All 50 will be non-zero (but small).</strong> L2's gradient is 2w — as a weight approaches zero, the penalty's pull weakens proportionally, so the optimizer never has enough force to push the last bit to exactly zero. L1's subgradient is constant ±1, so tiny weights feel the same push as large ones, allowing complete elimination. The number of non-zero weights is not a hyperparameter of L2 — it's always equal to the number of features.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">A model has training accuracy 98% and test accuracy 62%. You double λ. Training accuracy drops to 87%, test accuracy rises to 79%. Did regularization work? What's still missing?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Yes, regularization worked — but it's a partial fix, not a solution.</strong> The gap narrowed from 36% to 8%, which is exactly what regularization should do: reduce overfitting by constraining weight magnitudes. But 79% test accuracy may still be too low for the application. What's missing: you've tuned one hyperparameter (λ) but haven't considered whether you have enough training data, whether the features are informative, or whether the model architecture is appropriate. Regularization can only constrain an existing model; it can't add information that isn't in the data.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">Why do you scale activations by (1−p) at test time when using Dropout? What happens if you forget?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>To match the expected activation magnitude between training and test.</strong> During training, each neuron is active with probability (1−p), so on average only (1−p) of inputs flow through. At test time, all neurons are active — without scaling, outputs are (1/(1−p)) times larger than the model was trained to expect. This mismatches what the subsequent layers learned to process. If you forget the scaling, predictions will be systematically overconfident (softmax outputs too extreme) and the model will perform worse than a completely unregularized model. Modern frameworks handle this automatically via "inverted dropout" — scaling during training so test time needs no adjustment.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">You're building a fraud detection model where you suspect only 5–10 of your 200 features are actually predictive. Which regularizer would you use, and why specifically?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>L1 (Lasso).</strong> The key fact here is that you believe most features are <em>irrelevant</em> — not just small, but genuinely noise. L1 performs automatic feature selection by driving irrelevant weights to exactly zero. The result is interpretable (you know which 5–10 features matter) and the sparse model is less likely to overfit on the 190 noise features. L2 would keep all 200 features with small weights, making it harder to know which features actually drove predictions. Dropout isn't applicable here (no neural network). If you're uncertain about the sparsity assumption, Elastic Net (L1+L2) is the safer choice.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">Under what conditions is early stopping mathematically equivalent to L2 regularization? What does this tell you about their mechanisms?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>For quadratic (MSE) loss with gradient descent from a near-zero initialization.</strong> DL Book §7.8: when the loss surface is locally quadratic, the number of gradient descent steps acts as a reciprocal of λ. Stopping early is equivalent to having a large λ (heavy regularization); training longer is equivalent to small λ. The mechanism is the same: both limit how far the weights travel from the origin (initial values near zero). This is why early stopping is called "free regularization" — it costs nothing in model capacity. The equivalence breaks for non-quadratic losses and other optimizers, but the intuition (restricting weight magnitude) holds broadly.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">You increase λ from 0.01 to 10.0. Both training accuracy and test accuracy drop significantly. What went wrong, and what should you do?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Excessive regularization — the model is now underfitting.</strong> λ = 10.0 pushes all weights so close to zero that the model can't represent the true relationship in the data. High bias. Both metrics dropping means the problem is no longer overfitting — you've overshot. Fix: reduce λ significantly and cross-validate to find the optimal value. The correct λ is the one where test performance is maximized — not the largest λ that still trains. Regularization is a dial, not a safety net: too much is just underfitting by a different name.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">A neural network trained without Dropout memorizes training data (100% training accuracy, 60% test). You retrain with Dropout(p=0.5) and get 91% training, 85% test. Why does training accuracy drop, and is this a problem?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Training accuracy drops because the network can no longer memorize individual training examples — and this is the point, not a problem.</strong> With Dropout, each forward pass uses a different sub-network. No single sub-network has enough capacity to memorize all 100% of training examples. The model is forced to learn features that are robust across many configurations, not memorize specific input-output pairs. The 9% drop in training accuracy is the regularization cost. The 25% gain in test accuracy is the regularization benefit. The train-test gap dropped from 40% to 6% — this is exactly what you wanted.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">You have two features: house area (range: 500–5000 ft²) and number of rooms (range: 1–10). You apply L2 regularization. Which weight will be penalized more, and does this create a problem?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The weight for house area will be penalized far more — and yes, this is a serious problem.</strong> To fit the same underlying relationship, the coefficient for area must be ~500× smaller than for rooms (because area values are ~500× larger). L2 penalizes w², so a coefficient of 0.002 for area gets penalized almost nothing while the coefficient for rooms gets penalized heavily, even if they encode the same real-world importance. The fix is to normalize or standardize features before applying regularization — bring them to the same scale so the penalty is applied fairly across all dimensions. This is why feature scaling is a prerequisite for regularization, not an optional step.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">A colleague argues: "Dropout is just adding noise — it's not principled regularization like L1/L2." How would you respond using the ensemble interpretation?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Dropout is principled regularization with a stronger theoretical basis than L1/L2 for deep networks.</strong> L1 and L2 add noise-like terms to the gradient (especially in mini-batch SGD). Dropout's noise is structured: it trains an implicit ensemble of 2<sup>n·p</sup> sub-networks with shared weights simultaneously. The test-time prediction approximates the geometric mean of all sub-network predictions (proven by Srivastava et al. 2014). Standard model ensembles are the strongest known regularization technique — they reduce variance by averaging uncorrelated errors. Dropout approximates this at negligible extra cost. Far from being unprincipled, Dropout has the clearest ensemble justification of the three regularizers discussed in this chapter.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─── Regularization Animation (sec-animation) ───────────────────────────────
+// Shows: 2D loss landscape (ellipse contours) + L1 diamond or L2 circle constraint
+// Unconstrained optimum (gold dot outside region), animated path to constrained minimum
+
+class RegularizationAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+    this.mode   = 'L2'; // 'L1' or 'L2'
+    this.animating = false;
+    this.raf    = null;
+    this.t      = 0;     // animation progress 0..1
+
+    // Loss landscape center (unconstrained optimum) in data coords
+    // Data coords: x in [-3,3], y in [-3,3]
+    this.optX = 2.1;
+    this.optY = 1.6;
+
+    // Constraint radius in data coords
+    this.constraintR = 1.2;
+
+    // Precomputed constrained optima
+    this._precompute();
+    this._render();
+  }
+
+  // Map data coords to canvas pixels
+  _toCanvas(dx, dy) {
+    const { canvas } = this;
+    const pad = 50;
+    const W   = canvas.width  - 2 * pad;
+    const H   = canvas.height - 2 * pad;
+    const cx  = pad + ((dx + 3) / 6) * W;
+    const cy  = pad + ((3 - dy) / 6) * H; // flip y
+    return [cx, cy];
+  }
+
+  _precompute() {
+    // L2 constrained optimum: project unconstrained opt onto circle of radius r
+    const { optX, optY, constraintR } = this;
+    const dist = Math.sqrt(optX * optX + optY * optY);
+    this.l2OptX = (optX / dist) * constraintR;
+    this.l2OptY = (optY / dist) * constraintR;
+
+    // L1 constrained optimum: project onto diamond |x|+|y| = r
+    // The unconstrained opt is at (2.1, 1.6), both positive
+    // The corner closest to the opt along the main positive axis is (r, 0)
+    // But the actual L1 solution: point on diamond nearest to opt
+    // Diamond in +,+ quadrant: x + y = r, x >= 0, y >= 0
+    // Nearest point on line x+y=r to (optX,optY) is ((optX-optY+r)/2, (optY-optX+r)/2)
+    const r = constraintR;
+    const nx = (optX - optY + r) / 2;
+    const ny = (optY - optX + r) / 2;
+    if (nx <= 0) {
+      this.l1OptX = 0;
+      this.l1OptY = r;
+    } else if (ny <= 0) {
+      this.l1OptX = r;
+      this.l1OptY = 0;
+    } else {
+      this.l1OptX = nx;
+      this.l1OptY = ny;
+    }
+    // For visual drama, snap to corner (r, 0) to show sparsity
+    this.l1OptX = r;
+    this.l1OptY = 0;
+  }
+
+  _render() {
+    const { canvas, ctx, mode } = this;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f0a500';
+    const blue   = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim()   || '#58a6ff';
+    const border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+    const textM  = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const { optX, optY, constraintR } = this;
+    const [ocx, ocy] = this._toCanvas(optX, optY);
+    const [ox0, oy0] = this._toCanvas(0, 0);
+
+    // ── Loss contours (concentric ellipses centred on unconstrained opt) ──
+    const numContours = 7;
+    for (let i = numContours; i >= 1; i--) {
+      const a = (i / numContours) * 2.8; // semi-axis x (in data coords)
+      const b = (i / numContours) * 1.9; // semi-axis y — elongated for drama
+
+      // Convert semi-axes to pixel lengths
+      const [ax1, ] = this._toCanvas(optX + a, optY);
+      const [ax0, ] = this._toCanvas(optX,     optY);
+      const [, by1]   = this._toCanvas(optX, optY + b);
+      const [, by0]   = this._toCanvas(optX, optY);
+      const ra = Math.abs(ax1 - ax0);
+      const rb = Math.abs(by1 - by0);
+
+      const alpha = 0.07 + (numContours - i) * 0.02;
+      ctx.save();
+      ctx.strokeStyle = `rgba(240,165,0,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(ocx, ocy, ra, rb, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ── Constraint region ──
+    // Compute pixel radius of constraint circle (constraintR in data coords)
+    const [cr1, ] = this._toCanvas(constraintR, 0);
+    const pixR    = Math.abs(cr1 - ox0);
+
+    ctx.save();
+    if (mode === 'L2') {
+      // Filled circle
+      ctx.beginPath();
+      ctx.arc(ox0, oy0, pixR, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(88,166,255,0.08)';
+      ctx.fill();
+      ctx.strokeStyle = blue;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      // L1 diamond
+      const [d1, ] = this._toCanvas(constraintR, 0);
+      const [d2, ] = this._toCanvas(-constraintR, 0);
+      const [, d3]  = this._toCanvas(0, constraintR);
+      const [, d4]  = this._toCanvas(0, -constraintR);
+      ctx.beginPath();
+      ctx.moveTo(d1, oy0);
+      ctx.lineTo(ox0, d3);
+      ctx.lineTo(d2, oy0);
+      ctx.lineTo(ox0, d4);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(88,166,255,0.08)';
+      ctx.fill();
+      ctx.strokeStyle = blue;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // ── Constraint label ──
+    ctx.save();
+    ctx.font = `500 11px var(--font-mono, monospace)`;
+    ctx.fillStyle = blue;
+    ctx.textAlign = 'center';
+    const labelX = ox0 + (mode === 'L2' ? pixR * 0.72 : pixR * 0.55);
+    const labelY = oy0 - (mode === 'L2' ? pixR * 0.72 : pixR * 0.55);
+    ctx.fillText(mode === 'L2' ? '‖w‖₂ ≤ t' : '‖w‖₁ ≤ t', labelX, labelY - 6);
+    ctx.restore();
+
+    // ── Unconstrained optimum (gold star) ──
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(ocx, ocy, 7, 0, Math.PI * 2);
+    ctx.fillStyle = accent;
+    ctx.fill();
+    ctx.strokeStyle = bg;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+    // label
+    ctx.save();
+    ctx.font = `500 11px var(--font-mono, monospace)`;
+    ctx.fillStyle = accent;
+    ctx.textAlign = 'left';
+    ctx.fillText('unconstrained\noptimum', ocx + 10, ocy - 4);
+    ctx.restore();
+
+    // ── Animated path from unconstrained opt to constrained opt ──
+    const [targX, targY] = mode === 'L2'
+      ? [this.l2OptX, this.l2OptY]
+      : [this.l1OptX, this.l1OptY];
+    const [tcx, tcy] = this._toCanvas(targX, targY);
+
+    if (this.t > 0) {
+      const te = easeInOut(Math.min(this.t, 1));
+
+      // Phase 1: path from opt toward constraint boundary (straight line, t: 0..0.5)
+      // Phase 2: slide along boundary (t: 0.5..1)
+
+      if (te <= 0.5) {
+        // Moving toward boundary
+        const frac = te / 0.5;
+        // Boundary point in direction of optimum
+        let bx, by;
+        if (mode === 'L2') {
+          const dist = Math.sqrt(optX * optX + optY * optY);
+          bx = (optX / dist) * constraintR;
+          by = (optY / dist) * constraintR;
+        } else {
+          // For L1, the boundary point along the direction to opt
+          const d  = Math.abs(optX) + Math.abs(optY);
+          bx = optX * (constraintR / d);
+          by = optY * (constraintR / d);
+        }
+        const [bpx, bpy] = this._toCanvas(bx, by);
+        const curX = lerp(ocx, bpx, frac);
+        const curY = lerp(ocy, bpy, frac);
+
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(ocx, ocy);
+        ctx.lineTo(curX, curY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Traveller dot
+        ctx.beginPath();
+        ctx.arc(curX, curY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = accent;
+        ctx.fill();
+        ctx.restore();
+      } else {
+        // Sliding along boundary
+        const frac = (te - 0.5) / 0.5;
+        let bx, by;
+        if (mode === 'L2') {
+          const dist = Math.sqrt(optX * optX + optY * optY);
+          bx = (optX / dist) * constraintR;
+          by = (optY / dist) * constraintR;
+        } else {
+          const d  = Math.abs(optX) + Math.abs(optY);
+          bx = optX * (constraintR / d);
+          by = optY * (constraintR / d);
+        }
+        const [bpx, bpy] = this._toCanvas(bx, by);
+
+        // Draw full path from opt to boundary entry
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(ocx, ocy);
+        ctx.lineTo(bpx, bpy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+
+        // Slide along boundary
+        const curX = lerp(bpx, tcx, frac);
+        const curY = lerp(bpy, tcy, frac);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(240,165,0,0.5)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(bpx, bpy);
+        ctx.lineTo(curX, curY);
+        ctx.stroke();
+        // Traveller
+        ctx.beginPath();
+        ctx.arc(curX, curY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = accent;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // ── Constrained optimum (shown after animation or at t=0) ──
+    if (this.t >= 1) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(tcx, tcy, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#3fb950';
+      ctx.fill();
+      ctx.strokeStyle = bg;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+      // label
+      ctx.save();
+      ctx.font = `500 11px var(--font-mono, monospace)`;
+      ctx.fillStyle = '#3fb950';
+      const labelAnchor = targX > 0.5 ? 'right' : 'left';
+      ctx.textAlign = labelAnchor;
+      const lx = labelAnchor === 'right' ? tcx - 10 : tcx + 10;
+      const annotation = mode === 'L2' ? 'dense\nshrinkage' : 'sparse\n(corner!)';
+      ctx.fillText(mode === 'L2' ? 'dense shrinkage' : 'sparse solution (corner!)', lx, tcy - 12);
+      ctx.restore();
+    } else if (this.t === 0) {
+      // Show target as ghost
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(tcx, tcy, 6, 0, Math.PI * 2);
+      ctx.strokeStyle = '#3fb950';
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ── Axes ──
+    ctx.save();
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(this._toCanvas(-3, 0)[0], oy0);
+    ctx.lineTo(this._toCanvas(3, 0)[0], oy0);
+    ctx.moveTo(ox0, this._toCanvas(0, -3)[1]);
+    ctx.lineTo(ox0, this._toCanvas(0, 3)[1]);
+    ctx.stroke();
+    ctx.restore();
+
+    // Axis labels
+    ctx.save();
+    ctx.font = `12px var(--font-mono, monospace)`;
+    ctx.fillStyle = textM;
+    ctx.textAlign = 'center';
+    ctx.fillText('w₁', this._toCanvas(2.8, 0)[0], oy0 + 18);
+    ctx.textAlign = 'right';
+    ctx.fillText('w₂', ox0 - 8, this._toCanvas(0, 2.7)[1] + 4);
+    ctx.restore();
+  }
+
+  setMode(m) {
+    this.mode = m;
+    this.t    = 0;
+    this.animating = false;
+    if (this.raf) { cancelAnimationFrame(this.raf); this.raf = null; }
+    this._precompute();
+    this._render();
+  }
+
+  animate() {
+    if (this.animating) return;
+    this.t = 0;
+    this.animating = true;
+    const duration = 2200; // ms
+    const start = performance.now();
+    const step = (now) => {
+      if (!this.animating) return;
+      this.t = Math.min((now - start) / duration, 1);
+      this._render();
+      if (this.t < 1) {
+        this.raf = requestAnimationFrame(step);
+      } else {
+        this.animating = false;
+        this.raf = null;
+      }
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+
+  reset() {
+    this.animating = false;
+    if (this.raf) { cancelAnimationFrame(this.raf); this.raf = null; }
+    this.t = 0;
+    this._render();
+  }
+}
+
+// ─── Playground: weight distribution bar chart ──────────────────────────────
+class RegPlayground {
+  constructor(canvas) {
+    this.canvas  = canvas;
+    this.ctx     = canvas.getContext('2d');
+    this.mode    = 'L1';
+    this.lambda  = 0.1;
+    this.dropP   = 0.3;
+    // Base weights (unregularized) — fixed for reproducibility
+    this.baseW   = [3.4, 1.2, 0.6, -2.1, 0.1, 1.8, -0.9, 2.5, 0.3, -1.5,
+                    0.05, 1.1, -0.4, 0.8, -1.7, 2.0, -0.2, 0.7, -3.1, 1.4];
+    this._render();
+  }
+
+  _applyReg(w, mode, lambda, dropP) {
+    if (mode === 'L1') {
+      return w.map(v => {
+        const shrink = lambda * 3;
+        if (Math.abs(v) <= shrink) return 0;
+        return v > 0 ? v - shrink : v + shrink;
+      });
+    } else if (mode === 'L2') {
+      const factor = 1 / (1 + lambda * 2);
+      return w.map(v => v * factor);
+    } else { // Dropout
+      return w.map(v => (Math.random() > dropP ? v : 0));
+    }
+  }
+
+  _render() {
+    const { canvas, ctx, mode, lambda, dropP, baseW } = this;
+    const bg     = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f0a500';
+    const blue   = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim()   || '#58a6ff';
+    const green  = getComputedStyle(document.documentElement).getPropertyValue('--green').trim()   || '#3fb950';
+    const border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+    const textM  = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+    const textC  = getComputedStyle(document.documentElement).getPropertyValue('--text').trim()   || '#e6edf3';
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const regW = this._applyReg(baseW, mode, lambda, dropP);
+    const n    = baseW.length;
+    const padL = 40, padR = 20, padT = 30, padB = 30;
+    const W    = canvas.width  - padL - padR;
+    const H    = canvas.height - padT - padB;
+    const midY = padT + H / 2;
+    const maxAbs = 3.5;
+
+    // Zero line
+    ctx.save();
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, midY);
+    ctx.lineTo(canvas.width - padR, midY);
+    ctx.stroke();
+    ctx.restore();
+
+    const barW = Math.max(8, (W / n) - 4);
+
+    for (let i = 0; i < n; i++) {
+      const base = baseW[i];
+      const reg  = regW[i];
+      const bx   = padL + (i / n) * W + (W / n) * 0.5 - barW / 2;
+
+      // Unregularized bar (faint)
+      const baseH = (Math.abs(base) / maxAbs) * (H / 2);
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = textM;
+      if (base >= 0) ctx.fillRect(bx, midY - baseH, barW, baseH);
+      else           ctx.fillRect(bx, midY, barW, baseH);
+      ctx.restore();
+
+      // Regularized bar
+      const regH = (Math.abs(reg) / maxAbs) * (H / 2);
+      const col  = mode === 'Dropout'
+        ? (reg === 0 ? 'rgba(248,81,73,0.8)' : green)
+        : (Math.abs(reg) < 0.01 ? 'rgba(248,81,73,0.7)' : accent);
+      ctx.save();
+      ctx.fillStyle = col;
+      if (reg >= 0) ctx.fillRect(bx + 1, midY - regH, barW - 2, Math.max(regH, 1));
+      else          ctx.fillRect(bx + 1, midY, barW - 2, Math.max(regH, 1));
+      ctx.restore();
+    }
+
+    // Y-axis labels
+    ctx.save();
+    ctx.font = `10px var(--font-mono, monospace)`;
+    ctx.fillStyle = textM;
+    ctx.textAlign = 'right';
+    ctx.fillText('+3', padL - 4, padT + 6);
+    ctx.fillText('0',  padL - 4, midY + 4);
+    ctx.fillText('−3', padL - 4, padT + H + 4);
+    ctx.restore();
+
+    // Count zeros for L1
+    if (mode === 'L1') {
+      const zeros = regW.filter(v => Math.abs(v) < 0.01).length;
+      ctx.save();
+      ctx.font = `11px var(--font-mono, monospace)`;
+      ctx.fillStyle = accent;
+      ctx.textAlign = 'left';
+      ctx.fillText(`${zeros}/${n} weights = 0 (sparse)`, padL + 4, padT + 14);
+      ctx.restore();
+    } else if (mode === 'Dropout') {
+      const dropped = regW.filter(v => v === 0).length;
+      ctx.save();
+      ctx.font = `11px var(--font-mono, monospace)`;
+      ctx.fillStyle = green;
+      ctx.textAlign = 'left';
+      ctx.fillText(`${dropped}/${n} neurons dropped this pass`, padL + 4, padT + 14);
+      ctx.restore();
+    }
+  }
+
+  setMode(m)   { this.mode   = m; this._render(); }
+  setLambda(l) { this.lambda = l; this._render(); }
+  setDrop(p)   { this.dropP  = p; this._render(); }
+  resample()   { this._render(); } // for Dropout re-randomize
+}
+
+// ─── Wire up animation controls ─────────────────────────────────────────────
+const regCanvas = document.getElementById('regCanvas');
+const regAnim   = new RegularizationAnimation(regCanvas);
+const regCaption    = document.getElementById('regCaption');
+const regAnnotation = document.getElementById('regAnnotation');
+
+function updateRegUI(mode) {
+  if (mode === 'L1') {
+    document.getElementById('btnL1').className = 'btn';
+    document.getElementById('btnL2').className = 'btn secondary';
+    regCaption.textContent    = 'L1: Diamond constraint — path hits a corner, producing a sparse solution (w₂ = 0)';
+    regAnnotation.textContent = 'Sparse solution (corner) — one weight driven to exactly zero';
+  } else {
+    document.getElementById('btnL1').className = 'btn secondary';
+    document.getElementById('btnL2').className = 'btn';
+    regCaption.textContent    = 'L2: Circle constraint — the optimal point shrinks weights uniformly (dense solution)';
+    regAnnotation.textContent = 'Dense shrinkage — weights approach zero uniformly';
+  }
+}
+
+document.getElementById('btnL1').addEventListener('click', () => {
+  regAnim.setMode('L1');
+  updateRegUI('L1');
+});
+document.getElementById('btnL2').addEventListener('click', () => {
+  regAnim.setMode('L2');
+  updateRegUI('L2');
+});
+document.getElementById('btnAnimate').addEventListener('click', () => regAnim.animate());
+document.getElementById('btnReset').addEventListener('click',   () => regAnim.reset());
+
+// ─── Wire up playground ──────────────────────────────────────────────────────
+const playCanvas = document.getElementById('playCanvas');
+const playground = new RegPlayground(playCanvas);
+const playCaption = document.getElementById('playCaption');
+
+function updatePlayCaption() {
+  const m = playground.mode;
+  const l = playground.lambda;
+  const p = playground.dropP;
+  if (m === 'L1')      playCaption.textContent = `L1 (λ=${l.toFixed(2)}) — sparse: many weights driven to exactly zero`;
+  else if (m === 'L2') playCaption.textContent = `L2 (λ=${l.toFixed(2)}) — dense shrinkage: all weights scaled by 1/(1+2λ)`;
+  else                  playCaption.textContent = `Dropout (p=${p.toFixed(2)}) — red bars: dropped neurons this forward pass`;
+}
+
+document.getElementById('lambdaSlider').addEventListener('input', (e) => {
+  const v = parseFloat(e.target.value);
+  document.getElementById('lambdaValue').textContent = v.toFixed(2);
+  playground.setLambda(v);
+  updatePlayCaption();
+});
+document.getElementById('dropSlider').addEventListener('input', (e) => {
+  const v = parseFloat(e.target.value);
+  document.getElementById('dropValue').textContent = v.toFixed(2);
+  playground.setDrop(v);
+  updatePlayCaption();
+});
+document.getElementById('pgL1Btn').addEventListener('click', () => {
+  playground.setMode('L1');
+  document.getElementById('pgL1Btn').className = 'btn';
+  document.getElementById('pgL2Btn').className = 'btn secondary';
+  document.getElementById('pgDropBtn').className = 'btn secondary';
+  updatePlayCaption();
+});
+document.getElementById('pgL2Btn').addEventListener('click', () => {
+  playground.setMode('L2');
+  document.getElementById('pgL1Btn').className = 'btn secondary';
+  document.getElementById('pgL2Btn').className = 'btn';
+  document.getElementById('pgDropBtn').className = 'btn secondary';
+  updatePlayCaption();
+});
+document.getElementById('pgDropBtn').addEventListener('click', () => {
+  playground.setMode('Dropout');
+  document.getElementById('pgL1Btn').className = 'btn secondary';
+  document.getElementById('pgL2Btn').className = 'btn secondary';
+  document.getElementById('pgDropBtn').className = 'btn';
+  updatePlayCaption();
+});
+document.getElementById('pgResetBtn').addEventListener('click', () => {
+  playground.setMode(playground.mode);
+  updatePlayCaption();
+});
+
+// ─── Quiz ────────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG = 'regularization';
+const QUIZ_TOTAL   = 9;
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / ${QUIZ_TOTAL} revealed`;
+}
+
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / ${QUIZ_TOTAL} revealed`;
+
+// ─── Reading progress bar ────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─── Scroll reveal ───────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── TOC active dot ──────────────────────────────────────────────────────────
+const sections  = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots   = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─── Re-render canvases on theme change ─────────────────────────────────────
+window.onThemeChange(function() {
+  regAnim._render();
+  playground._render();
+});
+</script>
+</body>
+</html>

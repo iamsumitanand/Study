@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ML Study — From Gradient Descent to Generative AI</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
+  <script src="motivation.js"></script>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+<div class="container">
+
+  <!-- Hero -->
+  <div class="site-hero reveal">
+    <p class="section-label">Personal Study Reference</p>
+    <h1>From Gradient Descent<br>to Generative AI</h1>
+    <p class="hero-sub">
+      Precise, visual, and interactive. Every concept built from intuition up —
+      with animations that show the math moving, not just sitting on a page.
+    </p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="stat-num" id="stat-available">37</div>
+        <div class="stat-label">Chapters available</div>
+      </div>
+      <div class="hero-stat">
+        <div class="stat-num">37</div>
+        <div class="stat-label">Total chapters</div>
+      </div>
+      <div class="hero-stat">
+        <div class="stat-num" id="stat-read">0</div>
+        <div class="stat-label">Chapters read</div>
+      </div>
+      <div class="hero-stat">
+        <div class="stat-num">6</div>
+        <div class="stat-label">Parts</div>
+      </div>
+      <div class="hero-stat">
+        <div class="stat-num" id="stat-quiz">0</div>
+        <div class="stat-label">Questions answered</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Part 0: Mathematical Foundations -->
+  <div class="reveal">
+    <div class="bento-part-label">
+      <span>Part 0 — Mathematical Foundations</span>
+      <span class="bento-part-progress" id="prog-label-0">0 / 4</span>
+    </div>
+    <div class="bento-part-progress-bar"><div class="bento-part-progress-fill" id="prog-fill-0" style="width:0%"></div></div>
+    <div class="bento-grid" style="margin-top:0.75rem;">
+      <a class="bento-card featured available span-7 grain" href="chapters/vectors-linear-algebra.html" id="card-vectors-linear-algebra">
+        <div class="card-part">Start here</div>
+        <div class="card-title">Vectors & Linear Algebra</div>
+        <div class="card-desc">Every number a neural network processes is a vector. Every weight matrix is a linear transformation. This is where AI math begins.</div>
+        <div class="card-status" id="status-vectors-linear-algebra">✓ Available</div>
+      </a>
+      <a class="bento-card available span-5 grain" href="chapters/calculus-derivatives.html" id="card-calculus-derivatives">
+        <div class="card-title">Calculus & Derivatives</div>
+        <div class="card-desc">Derivatives tell gradient descent which way to step. Without this, training is magic.</div>
+        <div class="card-status" id="status-calculus-derivatives">✓ Available</div>
+      </a>
+      <a class="bento-card available span-6 grain" href="chapters/probability-statistics.html" id="card-probability-statistics">
+        <div class="card-title">Probability & Statistics</div>
+        <div class="card-desc">ML finds the most probable answer. Probability is the language it speaks.</div>
+        <div class="card-status" id="status-probability-statistics">✓ Available</div>
+      </a>
+      <a class="bento-card available span-6 grain" href="chapters/information-theory.html" id="card-information-theory">
+        <div class="card-title">Information Theory</div>
+        <div class="card-desc">Cross-entropy loss, KL divergence, and perplexity all come from here. One chapter unlocks every loss function.</div>
+        <div class="card-status" id="status-information-theory">✓ Available</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Part 1: Basic ML -->
+  <div class="reveal">
+    <div class="bento-part-label">
+      <span>Part 1 — Basic Machine Learning</span>
+      <span class="bento-part-progress" id="prog-label-1">0 / 10</span>
+    </div>
+    <div class="bento-part-progress-bar"><div class="bento-part-progress-fill" id="prog-fill-1" style="width:0%"></div></div>
+    <div class="bento-grid" style="margin-top:0.75rem;">
+      <a class="bento-card featured available span-7 grain" href="chapters/gradient-descent.html" id="card-gradient-descent">
+        <div class="card-part">Start here</div>
+        <div class="card-title">Gradient Descent</div>
+        <div class="card-desc">The engine inside every AI model you've heard of. Understand this and you understand training itself.</div>
+        <div class="card-status" id="status-gradient-descent">✓ Available</div>
+      </a>
+      <a class="bento-card available span-5 grain" href="chapters/linear-regression.html" id="card-linear-regression"><div class="card-title">Linear Regression</div><div class="card-status" id="status-linear-regression">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/logistic-regression.html" id="card-logistic-regression"><div class="card-title">Logistic Regression</div><div class="card-status" id="status-logistic-regression">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/decision-trees.html" id="card-decision-trees"><div class="card-title">Decision Trees &amp; Random Forests</div><div class="card-status" id="status-decision-trees">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/svm.html" id="card-svm"><div class="card-title">Support Vector Machines</div><div class="card-status" id="status-svm">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/k-means.html" id="card-k-means"><div class="card-title">K-Means Clustering</div><div class="card-status" id="status-k-means">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/pca.html" id="card-pca"><div class="card-title">PCA &amp; Dimensionality Reduction</div><div class="card-status" id="status-pca">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/bias-variance.html" id="card-bias-variance"><div class="card-title">Bias-Variance Tradeoff</div><div class="card-status" id="status-bias-variance">✓ Available</div></a>
+      <a class="bento-card available span-6 grain" href="chapters/regularization.html" id="card-regularization"><div class="card-title">Regularization (L1, L2, Dropout)</div><div class="card-status" id="status-regularization">✓ Available</div></a>
+      <a class="bento-card available span-6 grain" href="chapters/evaluation-metrics.html" id="card-evaluation-metrics"><div class="card-title">Evaluation Metrics</div><div class="card-status" id="status-evaluation-metrics">✓ Available</div></a>
+    </div>
+  </div>
+
+  <!-- Part 2: Neural Networks -->
+  <div class="reveal">
+    <div class="bento-part-label">
+      <span>Part 2 — Neural Networks</span>
+      <span class="bento-part-progress" id="prog-label-2">0 / 7</span>
+    </div>
+    <div class="bento-part-progress-bar"><div class="bento-part-progress-fill" id="prog-fill-2" style="width:0%"></div></div>
+    <div class="bento-grid" style="margin-top:0.75rem;">
+      <a class="bento-card available span-6 grain" href="chapters/perceptron.html" id="card-perceptron"><div class="card-title">The Perceptron</div><div class="card-status" id="status-perceptron">✓ Available</div></a>
+      <a class="bento-card available span-6 grain" href="chapters/mlp.html" id="card-mlp"><div class="card-title">Multi-Layer Perceptrons</div><div class="card-status" id="status-mlp">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/activation-functions.html" id="card-activation-functions"><div class="card-title">Activation Functions</div><div class="card-status" id="status-activation-functions">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/backpropagation.html" id="card-backpropagation"><div class="card-title">Backpropagation</div><div class="card-status" id="status-backpropagation">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/optimizers.html" id="card-optimizers"><div class="card-title">Optimizers (SGD, Adam, RMSProp)</div><div class="card-status" id="status-optimizers">✓ Available</div></a>
+      <a class="bento-card available span-6 grain" href="chapters/weight-init.html" id="card-weight-init"><div class="card-title">Weight Initialization</div><div class="card-status" id="status-weight-init">✓ Available</div></a>
+      <a class="bento-card available span-6 grain" href="chapters/batch-norm.html" id="card-batch-norm"><div class="card-title">Batch Normalization</div><div class="card-status" id="status-batch-norm">✓ Available</div></a>
+    </div>
+  </div>
+
+  <!-- Part 3: Deep Learning -->
+  <div class="reveal">
+    <div class="bento-part-label">
+      <span>Part 3 — Deep Learning</span>
+      <span class="bento-part-progress" id="prog-label-3">0 / 6</span>
+    </div>
+    <div class="bento-part-progress-bar"><div class="bento-part-progress-fill" id="prog-fill-3" style="width:0%"></div></div>
+    <div class="bento-grid" style="margin-top:0.75rem;">
+      <a class="bento-card available span-4 grain" href="chapters/vector-embeddings.html" id="card-vector-embeddings">
+        <div class="card-title">Vector Embeddings</div>
+        <div class="card-desc">Meaning as coordinates. The idea that makes transformers, RAG, and semantic search possible.</div>
+        <div class="card-status" id="status-vector-embeddings">✓ Available</div>
+      </a>
+      <a class="bento-card available span-6 grain" href="chapters/cnn.html" id="card-cnn"><div class="card-title">Convolutional Neural Networks</div><div class="card-status" id="status-cnn">✓ Available</div></a>
+      <a class="bento-card available span-6 grain" href="chapters/rnn.html" id="card-rnn"><div class="card-title">Recurrent Neural Networks</div><div class="card-status" id="status-rnn">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/lstm-gru.html" id="card-lstm-gru"><div class="card-title">LSTMs &amp; GRUs</div><div class="card-status" id="status-lstm-gru">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/transformers.html" id="card-transformers"><div class="card-title">Transformers &amp; Attention</div><div class="card-status" id="status-transformers">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/transfer-learning.html" id="card-transfer-learning"><div class="card-title">Transfer Learning</div><div class="card-status" id="status-transfer-learning">✓ Available</div></a>
+    </div>
+  </div>
+
+  <!-- Part 4: Generative AI -->
+  <div class="reveal">
+    <div class="bento-part-label">
+      <span>Part 4 — Generative AI</span>
+      <span class="bento-part-progress" id="prog-label-4">0 / 5</span>
+    </div>
+    <div class="bento-part-progress-bar"><div class="bento-part-progress-fill" id="prog-fill-4" style="width:0%"></div></div>
+    <div class="bento-grid" style="margin-top:0.75rem;">
+      <a class="bento-card available span-6 grain" href="chapters/autoencoders.html" id="card-autoencoders"><div class="card-title">Autoencoders &amp; VAEs</div><div class="card-status" id="status-autoencoders">✓ Available</div></a>
+      <a class="bento-card available span-6 grain" href="chapters/gans.html" id="card-gans"><div class="card-title">GANs</div><div class="card-status" id="status-gans">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/diffusion-models.html" id="card-diffusion-models"><div class="card-title">Diffusion Models</div><div class="card-status" id="status-diffusion-models">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/llms.html" id="card-llms"><div class="card-title">Large Language Models</div><div class="card-status" id="status-llms">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/fine-tuning-rlhf.html" id="card-fine-tuning-rlhf"><div class="card-title">Fine-tuning &amp; RLHF</div><div class="card-status" id="status-fine-tuning-rlhf">✓ Available</div></a>
+    </div>
+  </div>
+
+  <!-- Part 5: Modern GenAI -->
+  <div class="reveal">
+    <div class="bento-part-label">
+      <span>Part 5 — Modern GenAI</span>
+      <span class="bento-part-progress" id="prog-label-5">0 / 5</span>
+    </div>
+    <div class="bento-part-progress-bar"><div class="bento-part-progress-fill" id="prog-fill-5" style="width:0%"></div></div>
+    <div class="bento-grid" style="margin-top:0.75rem;">
+      <a class="bento-card available span-6 grain" href="chapters/rag.html" id="card-rag"><div class="card-title">Retrieval-Augmented Generation (RAG)</div><div class="card-status" id="status-rag">✓ Available</div></a>
+      <a class="bento-card available span-6 grain" href="chapters/mcp.html" id="card-mcp"><div class="card-title">Model Context Protocol (MCP)</div><div class="card-status" id="status-mcp">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/agentic-ai.html" id="card-agentic-ai"><div class="card-title">Agentic AI &amp; Tool Use</div><div class="card-status" id="status-agentic-ai">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/n8n.html" id="card-n8n"><div class="card-title">N8N &amp; Workflow Automation</div><div class="card-status" id="status-n8n">✓ Available</div></a>
+      <a class="bento-card available span-4 grain" href="chapters/prompt-engineering.html" id="card-prompt-engineering"><div class="card-title">Prompt Engineering</div><div class="card-status" id="status-prompt-engineering">✓ Available</div></a>
+    </div>
+  </div>
+
+  <!-- Source Library -->
+  <div class="reveal" style="margin-top:3rem;">
+    <div class="bento-part-label"><span>Source Library</span></div>
+    <p style="color:var(--text-muted); font-size:0.88rem; margin:0.75rem 0 1.25rem; line-height:1.7;">
+      Every chapter on this site is derived from these eight authoritative sources.
+      Nothing is synthesised from memory — each factual claim traces back to one of these texts.
+    </p>
+    <div class="bento-grid">
+
+      <div class="bento-card span-6 grain">
+        <div class="card-part">A · Part 1 — Basic ML</div>
+        <div class="card-title">CS229 Lecture Notes</div>
+        <div class="card-desc">Andrew Ng &amp; Tengyu Ma, Stanford (2022). The gold standard for ML fundamentals — mathematically rigorous but readable. Covers all of Part 1 from scratch.</div>
+        <div style="margin-top:0.75rem;"><a href="https://cs229.stanford.edu" style="font-family:var(--font-mono); font-size:0.78rem;">cs229.stanford.edu</a> <span style="color:var(--text-muted); font-size:0.78rem;">· Free PDF</span></div>
+      </div>
+
+      <div class="bento-card span-6 grain">
+        <div class="card-part">B · Part 1 — Basic ML</div>
+        <div class="card-title">Introduction to Statistical Learning (ISLR)</div>
+        <div class="card-desc">James, Witten, Hastie &amp; Tibshirani. Best for intuition and visual understanding of ML algorithms. Pairs with CS229 — A for derivations, B for interpretation.</div>
+        <div style="margin-top:0.75rem;"><a href="https://statlearning.com" style="font-family:var(--font-mono); font-size:0.78rem;">statlearning.com</a> <span style="color:var(--text-muted); font-size:0.78rem;">· Free PDF</span></div>
+      </div>
+
+      <div class="bento-card span-6 grain">
+        <div class="card-part">C · Parts 2–4 — Neural Nets → GenAI</div>
+        <div class="card-title">Deep Learning Book</div>
+        <div class="card-desc">Goodfellow, Bengio &amp; Courville (MIT Press, 2016). The definitive textbook on neural networks and deep learning. Primary source for optimization, backprop, CNNs, RNNs, GANs, VAEs.</div>
+        <div style="margin-top:0.75rem;"><a href="https://deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.78rem;">deeplearningbook.org</a> <span style="color:var(--text-muted); font-size:0.78rem;">· Free online</span></div>
+      </div>
+
+      <div class="bento-card span-6 grain">
+        <div class="card-part">D · Parts 2–3 — Neural Nets → Deep Learning</div>
+        <div class="card-title">Dive into Deep Learning (d2l.ai)</div>
+        <div class="card-desc">Zhang et al. Code, math, and intuition together — every concept has a runnable implementation. Best for MLPs through transformers. Actively maintained.</div>
+        <div style="margin-top:0.75rem;"><a href="https://d2l.ai" style="font-family:var(--font-mono); font-size:0.78rem;">d2l.ai</a> <span style="color:var(--text-muted); font-size:0.78rem;">· Free online</span></div>
+      </div>
+
+      <div class="bento-card span-4 grain">
+        <div class="card-part">E · Parts 2–3</div>
+        <div class="card-title">CS231n Notes</div>
+        <div class="card-desc">Stanford (Fei-Fei Li, Karpathy). Purpose-built for CNNs — also the best treatment of backprop, activation functions, and weight initialisation on the web.</div>
+        <div style="margin-top:0.75rem;"><a href="https://cs231n.github.io" style="font-family:var(--font-mono); font-size:0.78rem;">cs231n.github.io</a> <span style="color:var(--text-muted); font-size:0.78rem;">· Free</span></div>
+      </div>
+
+      <div class="bento-card span-4 grain">
+        <div class="card-part">F · Parts 4–5 — GenAI → Modern</div>
+        <div class="card-title">Lilian Weng's Blog</div>
+        <div class="card-desc">OpenAI researcher. The single best blog for GANs, VAEs, diffusion models, RLHF, LLM agents, and RAG. Dense and precise — every post is a mini textbook.</div>
+        <div style="margin-top:0.75rem;"><a href="https://lilianweng.github.io" style="font-family:var(--font-mono); font-size:0.78rem;">lilianweng.github.io</a> <span style="color:var(--text-muted); font-size:0.78rem;">· Free</span></div>
+      </div>
+
+      <div class="bento-card span-4 grain">
+        <div class="card-part">G · Part 3–4 — Transformers → LLMs</div>
+        <div class="card-title">The Illustrated Transformer</div>
+        <div class="card-desc">Jay Alammar. Visual, precise explanations of transformers, attention, BERT, and GPT. Referenced wherever Part 3–4 covers sequence models.</div>
+        <div style="margin-top:0.75rem;"><a href="https://jalammar.github.io" style="font-family:var(--font-mono); font-size:0.78rem;">jalammar.github.io</a> <span style="color:var(--text-muted); font-size:0.78rem;">· Free</span></div>
+      </div>
+
+      <div class="bento-card span-12 grain">
+        <div class="card-part">H · Part 5 — Modern GenAI</div>
+        <div class="card-title">Anthropic &amp; OpenAI Official Documentation</div>
+        <div class="card-desc">Primary sources for MCP, prompt engineering, agentic AI, and tool use. No textbook exists for these topics yet — official docs are the authoritative reference. Both are cited side-by-side where they differ.</div>
+        <div style="margin-top:0.75rem; display:flex; gap:1.5rem; flex-wrap:wrap;">
+          <span><a href="https://docs.anthropic.com" style="font-family:var(--font-mono); font-size:0.78rem;">docs.anthropic.com</a> <span style="color:var(--text-muted); font-size:0.78rem;">· Free</span></span>
+          <span><a href="https://platform.openai.com/docs" style="font-family:var(--font-mono); font-size:0.78rem;">platform.openai.com/docs</a> <span style="color:var(--text-muted); font-size:0.78rem;">· Free</span></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="reveal" style="text-align:center; padding: 2.5rem 0; color:var(--text-muted); font-size:0.82rem; border-top: 1px solid var(--border); margin-top: 2rem;">
+    Personal study reference · Local only
+  </footer>
+
+</div>
+
+<script>
+// ── Scroll reveal ──────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); revealObserver.unobserve(e.target); } });
+}, { threshold: 0.08 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ── Progress tracking via localStorage ────────────────────
+const CHAPTERS = {
+  0: ['vectors-linear-algebra','calculus-derivatives','probability-statistics','information-theory'],
+  1: ['gradient-descent','linear-regression','logistic-regression','decision-trees','svm','k-means','pca','bias-variance','regularization','evaluation-metrics'],
+  2: ['perceptron','mlp','activation-functions','backpropagation','optimizers','weight-init','batch-norm'],
+  3: ['vector-embeddings','cnn','rnn','lstm-gru','transformers','transfer-learning'],
+  4: ['autoencoders','gans','diffusion-models','llms','fine-tuning-rlhf'],
+  5: ['rag','mcp','agentic-ai','n8n','prompt-engineering'],
+};
+
+function getRead() {
+  try { return JSON.parse(localStorage.getItem('study_read') || '[]'); } catch(e) { return []; }
+}
+
+function updateIndex() {
+  const read = getRead();
+  let totalRead = 0;
+
+  Object.entries(CHAPTERS).forEach(([part, chapters]) => {
+    const doneCount = chapters.filter(c => read.includes(c)).length;
+    const pct = chapters.length ? Math.round((doneCount / chapters.length) * 100) : 0;
+    const fill = document.getElementById(`prog-fill-${part}`);
+    const label = document.getElementById(`prog-label-${part}`);
+    if (fill) fill.style.width = pct + '%';
+    if (label) label.textContent = `${doneCount} / ${chapters.length}`;
+    totalRead += doneCount;
+  });
+
+  const statRead = document.getElementById('stat-read');
+  if (statRead) statRead.textContent = totalRead;
+
+  // Card glow + read status
+  read.forEach(slug => {
+    const card = document.getElementById(`card-${slug}`);
+    if (card) {
+      card.classList.add('completed');
+      const status = document.getElementById(`status-${slug}`);
+      if (status) status.textContent = '✓ Read';
+    }
+  });
+
+  // Quiz score
+  const statQuiz = document.getElementById('stat-quiz');
+  if (statQuiz) statQuiz.textContent = StudyMotivation.getTotalQuizScore();
+}
+
+updateIndex();
+</script>
+</body>
+</html>

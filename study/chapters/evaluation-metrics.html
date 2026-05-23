@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evaluation Metrics — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>           <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span> <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>           <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 1 · Basic Machine Learning</p>
+    <h1>Evaluation Metrics</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      Measuring what your model actually does — not what you hope it does.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-style:normal; font-size:1.05rem; line-height:1.8;">
+      <strong style="color:var(--accent)">Accuracy: 99% on cancer screening.</strong> The model predicts "no cancer" for everyone. Congratulations? If 99% of patients are healthy, you just built the most useless model imaginable — and your metric rewarded you for it. Every number we use to judge a model has a hidden assumption baked in. The skill isn't computing metrics; it's knowing which ones lie to you and when.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>The right metric for the right problem</h2>
+    <p class="lead">
+      Accuracy is the ratio of correct predictions to total predictions. In balanced datasets,
+      it's perfectly reasonable. In imbalanced ones — where one class vastly outnumbers the other —
+      it actively hides failure. A model that never fires a positive prediction can achieve 99%
+      accuracy on a 1% positive-rate dataset while being completely worthless.
+    </p>
+    <p>
+      The root problem is <strong style="color:var(--accent)">class imbalance</strong>: real-world
+      classification tasks are rarely 50/50. Cancer is rare. Fraud is rare. Equipment failure is rare.
+      When the negative class dominates, accuracy measures how well your model ignores the positives —
+      which is precisely backwards from what you care about.
+    </p>
+    <p>
+      Different tasks demand different trade-offs. Cancer screening demands you catch every case,
+      even at the cost of false alarms. Spam filtering demands you don't bury real emails, even at
+      the cost of some spam slipping through. Fraud detection demands you don't flag innocent customers,
+      even at the cost of missing some fraud. No single metric captures all of these simultaneously —
+      which is why the field developed Precision, Recall, F1, and AUC: each one answers a
+      different question about what "good" means.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li><strong style="color:var(--accent)">Precision</strong> — of everything I labeled positive, how many actually were? (False alarm rate)</li>
+      <li><strong style="color:var(--accent)">Recall</strong> — of everything that actually was positive, how many did I find? (Miss rate)</li>
+      <li><strong style="color:var(--accent)">F1</strong> — a single number balancing both when neither can be sacrificed entirely</li>
+      <li><strong style="color:var(--accent)">AUC</strong> — how well can the model separate classes across all possible thresholds?</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>The trade-offs that can't be avoided</h2>
+
+    <p class="lead">
+      Every binary classifier assigns a probability score, then makes a decision at a threshold.
+      Shift the threshold and you fundamentally change what the model values.
+      Understanding metrics means understanding what you're implicitly optimizing when you choose one.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Maximizing Recall means catching more true positives — but what happens to false positives as you lower the threshold to catch more cases? What does that mean in a medical screening scenario for both the patient and the healthcare system?
+    </div>
+
+    <p>
+      Maximizing Recall pushes the threshold down: you flag more cases as positive, catching more
+      true positives — but also generating more false positives. In medical screening, this means
+      more unnecessary follow-up tests, procedures, and patient anxiety for people who are actually
+      healthy. The healthcare system bears the cost of those false alarms. This is a deliberate
+      trade: you accept more false positives to ensure you miss fewer true positives. Whether that
+      trade is worth it depends entirely on the relative severity of missing a case versus
+      triggering a false alarm. For late-stage cancer, missing a case is catastrophic;
+      a biopsy for a healthy person is stressful but manageable. So high Recall is the right choice —
+      but the cost is real.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      AUC measures performance across all thresholds simultaneously. Can you imagine a situation where a model with high AUC would still be useless in practice — or even dangerous?
+    </div>
+
+    <p>
+      AUC is misleading when the class imbalance is extreme or the cost asymmetry is large.
+      A model can achieve 0.95 AUC while performing terribly at the specific operating threshold
+      you actually deploy it at. AUC also ignores calibration: a model that ranks positives above
+      negatives consistently but with poorly calibrated probabilities will have high AUC but
+      fail when you try to make actual probability-based decisions. In fraud detection, a high-AUC
+      model that also fires false positives on high-value customers may cost more in customer
+      churn than the fraud it catches.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      F1 is a single number. So is accuracy. So is AUC. If every metric eventually collapses to a scalar, why can't any single number fully capture model quality?
+    </div>
+
+    <p>
+      Because model quality is inherently multidimensional. Any single scalar aggregates across
+      conditions and compresses information. F1 treats false positives and false negatives as
+      equally costly — which is almost never true in practice. AUC averages over thresholds that
+      you will never deploy. Accuracy aggregates across classes with different importances.
+      The right answer is: know what decision your model ultimately feeds into, and optimize
+      the metric that reflects the cost structure of <em>that</em> decision. No pre-packaged
+      single number will do that for you automatically.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 4. The Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>ROC curve and confusion matrix — live</h2>
+    <p class="lead">
+      A synthetic dataset: 50 positive and 50 negative samples with pre-set probability scores.
+      Drag the threshold slider and watch the ROC curve trace out, the operating point move,
+      and the confusion matrix update in real time.
+    </p>
+    <p>
+      Notice how Precision and Recall pull in opposite directions as you move the threshold.
+      The ROC curve's shape tells you how separable the classes are — a curve hugging the
+      top-left corner means a well-discriminating model.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="cmCanvas" width="720" height="480" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="cmCaption">
+        Precision: — &nbsp;·&nbsp; Recall: — &nbsp;·&nbsp; F1: — &nbsp;·&nbsp; Accuracy: —
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">Threshold</span>
+        <input type="range" id="threshSlider" min="0.0" max="1.0" step="0.01" value="0.5">
+        <span class="control-value" id="threshValue">0.50</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Four formulas and what they measure</h2>
+
+    <p class="lead">
+      Everything follows from the four cells of the confusion matrix: true positives (TP),
+      false positives (FP), true negatives (TN), and false negatives (FN).
+      Each metric is a ratio that emphasizes a different combination.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Precision</div>
+      <div class="formula">Precision  =  TP / (TP + FP)</div>
+      <div class="symbol-table">
+        <span class="sym">TP</span> <span>true positives — predicted positive, actually positive</span>
+        <span class="sym">FP</span> <span>false positives — predicted positive, actually negative (false alarms)</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Recall (Sensitivity)</div>
+      <div class="formula">Recall  =  TP / (TP + FN)</div>
+      <div class="symbol-table">
+        <span class="sym">TP</span> <span>true positives — cases correctly found</span>
+        <span class="sym">FN</span> <span>false negatives — cases missed (the model said "no" when it should have said "yes")</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">F1 Score</div>
+      <div class="formula">F1  =  2 · P · R / (P + R)</div>
+      <div class="symbol-table">
+        <span class="sym">P</span> <span>Precision — harmonic mean penalizes extreme imbalance between P and R</span>
+        <span class="sym">R</span> <span>Recall — F1 is low whenever either P or R is low, even if the other is perfect</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">AUC (Area Under the ROC Curve)</div>
+      <div class="formula">AUC  =  ∫₀¹ TPR(FPR) d(FPR)</div>
+      <div class="symbol-table">
+        <span class="sym">TPR</span> <span>true positive rate = Recall — fraction of positives correctly found at a given threshold</span>
+        <span class="sym">FPR</span> <span>false positive rate = FP/(FP+TN) — fraction of negatives incorrectly flagged</span>
+        <span class="sym">AUC</span> <span>probability that a randomly chosen positive ranks higher than a randomly chosen negative</span>
+      </div>
+    </div>
+
+    <p><strong>Worked example — 10 samples, computed from scratch:</strong></p>
+    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:0.75rem;">
+      5 actual positives (P), 5 actual negatives (N). Model predictions at threshold 0.5:
+    </p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0; padding-bottom:0.4rem;">
+        <span class="step-num" style="color:var(--text-muted);"></span>
+        <span style="display:grid; grid-template-columns:4rem 5rem 5rem 5rem 7rem; gap:0 0.75rem; font-weight:600; font-family:var(--font-mono); font-size:0.78rem; color:var(--text-muted);">
+          <span>Sample</span><span>Actual</span><span>Score</span><span>Pred</span><span>Outcome</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">1</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Pos</span><span class="step-math">0.91</span><span class="step-math">Pos</span><span style="color:var(--green); font-family:var(--font-mono);">TP ✓</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Pos</span><span class="step-math">0.78</span><span class="step-math">Pos</span><span style="color:var(--green); font-family:var(--font-mono);">TP ✓</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Pos</span><span class="step-math">0.63</span><span class="step-math">Pos</span><span style="color:var(--green); font-family:var(--font-mono);">TP ✓</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Pos</span><span class="step-math">0.42</span><span class="step-math">Neg</span><span style="color:var(--red); font-family:var(--font-mono);">FN ✗</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">5</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Pos</span><span class="step-math">0.31</span><span class="step-math">Neg</span><span style="color:var(--red); font-family:var(--font-mono);">FN ✗</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">6</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Neg</span><span class="step-math">0.72</span><span class="step-math">Pos</span><span style="color:var(--red); font-family:var(--font-mono);">FP ✗</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">7</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Neg</span><span class="step-math">0.38</span><span class="step-math">Neg</span><span style="color:var(--green); font-family:var(--font-mono);">TN ✓</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">8</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Neg</span><span class="step-math">0.25</span><span class="step-math">Neg</span><span style="color:var(--green); font-family:var(--font-mono);">TN ✓</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">9</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Neg</span><span class="step-math">0.18</span><span class="step-math">Neg</span><span style="color:var(--green); font-family:var(--font-mono);">TN ✓</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">10</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 7rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">Neg</span><span class="step-math">0.09</span><span class="step-math">Neg</span><span style="color:var(--green); font-family:var(--font-mono);">TN ✓</span>
+        </span>
+      </div>
+      <div class="step" style="margin-top:0; flex-direction:column; gap:0.5rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="font-family:var(--font-mono); font-size:0.85rem; color:var(--text-muted);">TP=3 · FP=1 · TN=4 · FN=2</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--blue);">
+          Precision = 3/(3+1) = <strong>0.75</strong> &nbsp;|&nbsp;
+          Recall = 3/(3+2) = <strong>0.60</strong>
+        </span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--accent);">
+          F1 = 2·0.75·0.60/(0.75+0.60) = <strong>0.667</strong> &nbsp;|&nbsp;
+          Accuracy = 7/10 = <strong>0.70</strong>
+        </span>
+        <span style="color:var(--text-muted); font-size:0.85rem;">
+          Note: Accuracy (70%) looks decent. But the model missed 40% of all positive cases — which in a medical context would be unacceptable. Recall reveals what accuracy hides.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 6. Real Problem Bridge -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Toy to Real</p>
+    <h2>Three tasks, three right metrics</h2>
+    <p class="lead">
+      The same model optimized with different objectives becomes a different tool.
+      These three domains show why the choice of metric is an engineering decision
+      with real-world consequences — not a statistical formality.
+    </p>
+
+    <div class="explain-card">
+      <div class="explain-header">
+        <span class="explain-badge badge-10">Medical</span>
+        <strong style="color:var(--white);">Cancer screening — maximize Recall</strong>
+      </div>
+      <div class="explain-body">
+        <p>
+          A false negative (missed cancer) leads to delayed treatment, potentially fatal.
+          A false positive (unnecessary biopsy) is stressful and costly, but manageable.
+          The cost asymmetry is enormous. Optimize for Recall above 0.95 — accept lower
+          Precision as the price. The threshold gets set very low: "when in doubt, flag it."
+          Accuracy would reward the lazy model that never flags anything.
+        </p>
+      </div>
+    </div>
+
+    <div class="explain-card">
+      <div class="explain-header">
+        <span class="explain-badge badge-pro">Email</span>
+        <strong style="color:var(--white);">Spam detection — balanced F1</strong>
+      </div>
+      <div class="explain-body">
+        <p>
+          A false negative (spam in inbox) is annoying. A false positive (real email in spam)
+          is often worse — a user misses a job offer or invoice. Neither failure mode dominates
+          clearly. F1 is the right target: it punishes models that sacrifice either Precision
+          or Recall too heavily. Modern spam filters tune F1 on large labeled datasets and accept
+          that neither error rate will reach zero.
+        </p>
+      </div>
+    </div>
+
+    <div class="explain-card">
+      <div class="explain-header">
+        <span class="explain-badge badge-teach">Fraud</span>
+        <strong style="color:var(--white);">Fraud detection — maximize Precision</strong>
+      </div>
+      <div class="explain-body">
+        <p>
+          A false positive (blocking a legitimate transaction) damages customer trust, triggers
+          support calls, and may end the banking relationship. False negatives (missed fraud)
+          are absorbed by insurance and fraud departments — painful, but diffuse.
+          High-Precision models fire only when confident. The threshold is set high.
+          Recall suffers — some fraud slips through — but customers are never wrongly blocked
+          on high-confidence legitimate transactions.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 8. Interactive Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Precision–Recall trade-off</h2>
+    <p class="lead">
+      Adjust the threshold and watch Precision and Recall move in opposite directions.
+      The F1 curve peaks at the optimal balance point — which almost never coincides
+      with threshold 0.5 on real imbalanced datasets.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Threshold</span>
+        <input type="range" id="pgThreshSlider" min="0.0" max="1.0" step="0.01" value="0.5">
+        <span class="control-value" id="pgThreshValue">0.50</span>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="pgCanvas" width="720" height="300" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="pgCaption">
+          Move the threshold to see how each metric changes
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 9. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs — and how they connect</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't five random mistakes. Each one is the natural consequence of the one before it.
+      Trace the chain and none of them can survive.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① "Accuracy is a reliable model evaluation metric."</div>
+        <div class="truth">
+          Only on balanced datasets. Accuracy counts all errors equally regardless of class.
+          On a dataset that is 99% negative, a model that predicts "negative" for everything
+          achieves 99% accuracy while detecting zero positives. Accuracy is the right metric
+          only after you've confirmed your dataset is roughly balanced — which is rare in practice.
+          This is the root error; every misconception downstream inherits it.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② "If accuracy misleads, just look at both classes separately — accuracy ignores imbalance, but that doesn't affect Precision or Recall."</div>
+        <div class="truth">
+          Imbalance affects everything. Precision is affected because having many negatives
+          inflates the denominator of FP-based calculations when a model fires carelessly.
+          Recall is affected because a model that learns to say "positive" rarely (to avoid FP)
+          will have low Recall regardless of how balanced you think the framing is.
+          Imbalance affects which errors occur — not just how you count them.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ "Fine — but Precision and Recall don't matter until deployment. During training, just optimize the loss."</div>
+        <div class="truth">
+          Cross-entropy loss during training optimizes predicted probabilities, not decisions.
+          At deployment, you apply a threshold to turn probabilities into decisions — and
+          Precision/Recall are properties of that decision boundary, not the probabilities.
+          A model with excellent cross-entropy loss can produce terrible Precision or Recall
+          depending on where you set the threshold. The two are genuinely separate concerns.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ "Then just tune the threshold to hit the Precision you want — one metric is enough."</div>
+        <div class="truth">
+          Moving the threshold to improve one metric always degrades another. Raising it improves
+          Precision but hurts Recall. Lowering it does the reverse. You cannot optimize both
+          simultaneously with a single threshold — this is the Precision-Recall trade-off,
+          and it's a mathematical constraint, not a tuning problem. F1 helps by enforcing a
+          balance, but any single scalar still hides the trade-off it made.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ "AUC = 0.97 means the model is excellent — that's near-perfect."</div>
+        <div class="truth">
+          AUC measures rank separation across all thresholds equally — including thresholds
+          you will never deploy at. It says nothing about performance at the threshold you
+          actually use. A model with 0.97 AUC can have mediocre Precision or Recall at your
+          operating threshold. It also ignores calibration: if the probability scores are
+          poorly calibrated, downstream decisions using those probabilities will be wrong
+          even when AUC looks great. AUC is a useful screening tool, not a final verdict.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 10. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>Accuracy is unreliable on imbalanced datasets — it rewards models that ignore the minority class entirely. Always check class distribution before reporting accuracy.</li>
+      <li>Precision = TP/(TP+FP) measures false alarm rate. Recall = TP/(TP+FN) measures miss rate. They trade off against each other as you move the threshold.</li>
+      <li>F1 is the harmonic mean of Precision and Recall — it is low whenever either is low, even if the other is perfect. Use it when neither failure mode can be ignored.</li>
+      <li>AUC measures how well the model ranks positives above negatives across all thresholds. Useful for comparing models, but tells you nothing about performance at any specific threshold.</li>
+      <li>The right metric is determined by the cost asymmetry of the deployment decision — medical screening wants high Recall, fraud detection wants high Precision, spam filtering wants balanced F1.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">Part 2 begins with a question:</strong>
+      Every model in Part 1 — linear regression, logistic regression, decision trees — relies on hand-crafted features. What if instead of engineering features, you could build a model that learns its own feature representation directly from data? That's what neural networks do — and it starts with the simplest one: the Perceptron. One neuron, one decision boundary, and the origin of an idea that eventually became GPT-4.<br><br>
+      <a href="perceptron.html" style="color:var(--accent); font-weight:600;">The Perceptron — Part 2: Neural Networks →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow — Chapter 3</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Aurélien Géron (O'Reilly, 3rd edition)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: confusion matrix, Precision, Recall, F1, PR curves, ROC curves, AUC,
+            the 99%-accuracy-on-MNIST-5-detector example, threshold selection guidance.
+          </span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Pattern Recognition and Machine Learning — §1.5</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Christopher Bishop (Springer, 2006)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: decision theory framing of precision/recall, cost-weighted misclassification,
+            reject options, and the relationship between threshold and expected loss.
+          </span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">CS229 Lecture Notes — Classification and Evaluation</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Andrew Ng &amp; Tengyu Ma, Stanford University</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: logistic regression evaluation framing, threshold interpretation,
+            class imbalance discussion.
+          </span><br>
+          <a href="https://cs229.stanford.edu" style="font-family:var(--font-mono); font-size:0.8rem;">cs229.stanford.edu</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">A model achieves 99% accuracy on a medical test. The disease affects 1% of the population. The model always predicts "no disease." Is this a useful model?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — it detects nothing.</strong> Recall = 0 because every true positive is missed (TP=0, FN=all positives). Precision is undefined (no positive predictions). F1 = 0. The 99% accuracy comes entirely from correctly predicting negatives for the 99% healthy population. This is the canonical class-imbalance failure mode: accuracy rewards the silent model.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">TP=40, FP=10, TN=30, FN=20. Compute Precision, Recall, and F1.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Precision = 0.80, Recall = 0.67, F1 = 0.727.</strong>
+          Precision = 40/(40+10) = 40/50 = 0.80. Recall = 40/(40+20) = 40/60 = 0.667.
+          F1 = 2·0.80·0.667/(0.80+0.667) = 1.067/1.467 = 0.727.
+          Accuracy = (40+30)/100 = 0.70. Note F1 (0.727) is higher than accuracy (0.70) here because the model performs better on positives than negatives.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">You lower the classification threshold from 0.5 to 0.2. What happens to Precision and Recall? Why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Recall increases; Precision decreases.</strong> Lowering the threshold means more samples are classified as positive. You catch more true positives (Recall goes up) but also more false positives (Precision goes down — the model is now less selective). This is the fundamental Precision-Recall trade-off: you cannot improve both simultaneously by moving a single threshold.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">Model A has AUC=0.95. Model B has AUC=0.80. Does this mean Model A is better for a fraud detection deployment?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Not necessarily.</strong> AUC averages performance across all thresholds. Fraud detection deploys at a specific threshold (typically high Precision to avoid blocking customers). Model A could have better overall ranking but worse Precision at the deployment threshold than Model B. Also, AUC ignores calibration: if Model A's probability scores are poorly calibrated, the chosen threshold will not correspond to its intended precision. Always evaluate at the actual operating threshold.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">What does a point on the ROC curve represent?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>A specific (FPR, TPR) pair at one threshold.</strong> For a given threshold value, FPR = FP/(FP+TN) — how many negatives are incorrectly flagged — and TPR = TP/(TP+FN) = Recall — how many positives are correctly found. The ROC curve traces all such pairs as the threshold sweeps from 1 (predict nothing) to 0 (predict everything). The top-left corner (FPR=0, TPR=1) is perfect. The diagonal is a random classifier.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">Why is F1 a harmonic mean rather than an arithmetic mean of Precision and Recall?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The harmonic mean penalizes extreme imbalance between the two values.</strong> Arithmetic mean of 0.9 and 0.1 = 0.5 — looks mediocre. Harmonic mean = 2·0.9·0.1/(0.9+0.1) = 0.18 — correctly signals that one metric is terrible. The harmonic mean is dominated by whichever value is lowest, which matches the intuition: a model that is great at Precision but has 10% Recall is not a "0.5-quality" model — it's failing badly at finding positives.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">A random classifier (coin flip) achieves what AUC? Why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>AUC = 0.5.</strong> A random classifier assigns scores uniformly at random. The probability that a randomly chosen positive scores higher than a randomly chosen negative is exactly 0.5 — pure chance. On the ROC curve, this produces the diagonal line from (0,0) to (1,1). The area under the diagonal is 0.5. Any useful model should have AUC &gt; 0.5; AUC &lt; 0.5 means the model is systematically inverting its predictions (which you can fix by flipping the output).
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">Two spam filters have the same F1. Filter A has Precision=0.99, Recall=0.51. Filter B has Precision=0.72, Recall=0.72. Which would you deploy, and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Filter B for most email use cases.</strong> Filter A has very high Precision — almost no false positives (real email goes to spam rarely) — but lets through nearly half of all spam. Filter B blocks spam more aggressively and misfiles real email more often, but at a manageable rate. For personal email where missing real mail is costly, Filter A is safer. For enterprise bulk inboxes where half your spam leaking through is unacceptable, Filter B wins. This illustrates why F1 alone doesn't decide — you need to know the deployment context and cost structure.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">Can Precision be 1.0 and Recall be 0.0 simultaneously? What model behavior would produce this?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Yes — a model that makes exactly one positive prediction, and gets it right.</strong> If TP=1, FP=0, FN = all remaining positives: Precision = 1/(1+0) = 1.0 and Recall = 1/(1 + many FN) ≈ 0. More generally, a model that fires very rarely but always correctly gets Precision=1.0 while having very low Recall. This is why optimizing Precision alone can be gamed by a model that almost never predicts positive — it achieves perfect Precision while catching essentially nothing.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; padding: 2rem 0 3rem; border-top: 1px solid var(--border); margin-top: 1rem;">
+    <a href="regularization.html" style="color:var(--text-muted); font-size:0.9rem;">← Regularization</a>
+    <a href="perceptron.html" style="color:var(--accent); font-size:0.9rem; font-weight:600;">The Perceptron — Part 2 →</a>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+
+// ─── Synthetic Dataset (50 pos + 50 neg) ──────────────────────────────────────
+// Positive samples: generally higher scores (around 0.55–0.95), with some overlap
+// Negative samples: generally lower scores (around 0.05–0.65), with some overlap
+(function() {
+  // Generate reproducible dataset using a seeded pseudo-random approach
+  const posScores = [
+    0.92, 0.89, 0.87, 0.85, 0.83, 0.81, 0.79, 0.77, 0.76, 0.74,
+    0.73, 0.71, 0.70, 0.68, 0.67, 0.65, 0.64, 0.62, 0.61, 0.59,
+    0.58, 0.56, 0.55, 0.54, 0.52, 0.51, 0.49, 0.48, 0.47, 0.46,
+    0.45, 0.44, 0.43, 0.42, 0.40, 0.39, 0.38, 0.36, 0.35, 0.33,
+    0.32, 0.30, 0.28, 0.27, 0.25, 0.23, 0.21, 0.19, 0.16, 0.12
+  ];
+  const negScores = [
+    0.88, 0.82, 0.78, 0.72, 0.69, 0.66, 0.63, 0.60, 0.57, 0.53,
+    0.50, 0.47, 0.44, 0.41, 0.38, 0.37, 0.36, 0.34, 0.33, 0.31,
+    0.30, 0.29, 0.27, 0.26, 0.24, 0.23, 0.22, 0.20, 0.19, 0.18,
+    0.17, 0.16, 0.15, 0.14, 0.13, 0.12, 0.11, 0.10, 0.09, 0.08,
+    0.08, 0.07, 0.07, 0.06, 0.06, 0.05, 0.05, 0.04, 0.03, 0.02
+  ];
+
+  // Attach to window so both canvases can access
+  window._emDataset = { posScores, negScores };
+})();
+
+function computeMetrics(threshold) {
+  const { posScores, negScores } = window._emDataset;
+  let tp = 0, fn = 0, fp = 0, tn = 0;
+  posScores.forEach(s => s >= threshold ? tp++ : fn++);
+  negScores.forEach(s => s >= threshold ? fp++ : tn++);
+  const precision = tp + fp > 0 ? tp / (tp + fp) : 1.0;
+  const recall    = tp + fn > 0 ? tp / (tp + fn) : 0.0;
+  const f1        = precision + recall > 0 ? 2 * precision * recall / (precision + recall) : 0.0;
+  const accuracy  = (tp + tn) / 100;
+  return { tp, fp, tn, fn, precision, recall, f1, accuracy };
+}
+
+// Pre-compute full ROC curve
+function computeROC() {
+  const points = [];
+  // threshold sweeping from 1.0 down to 0.0 in small steps
+  for (let t = 1.01; t >= -0.01; t -= 0.01) {
+    const { tp, fp, tn, fn } = computeMetrics(Math.max(0, Math.min(1, t)));
+    const tpr = tp + fn > 0 ? tp / (tp + fn) : 0;
+    const fpr = fp + tn > 0 ? fp / (fp + tn) : 0;
+    points.push({ fpr, tpr, t });
+  }
+  // Compute AUC via trapezoidal rule
+  let auc = 0;
+  for (let i = 1; i < points.length; i++) {
+    const dx = points[i].fpr - points[i-1].fpr;
+    if (dx > 0) {
+      auc += dx * (points[i].tpr + points[i-1].tpr) / 2;
+    }
+  }
+  return { points, auc: Math.abs(auc) };
+}
+
+const rocData = computeROC();
+
+// ─── Confusion Matrix Animation ────────────────────────────────────────────────
+class ConfusionMatrixAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+    this.threshold = 0.5;
+    this._render();
+  }
+
+  setThreshold(t) {
+    this.threshold = t;
+    this._render();
+  }
+
+  _render() {
+    const { ctx, canvas, threshold } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Background
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const isDark = bg !== '#ffffff' && bg !== '#f8f5f0' && !bg.startsWith('#f');
+    const textColor       = isDark ? '#e6edf3' : '#1a1a2e';
+    const textMuted       = isDark ? '#8b949e' : '#6b7280';
+    const borderColor     = isDark ? '#30363d' : '#d1c9bc';
+    const accent          = isDark ? '#f0a500' : '#c47d00';
+    const greenColor      = isDark ? '#3fb950' : '#16a34a';
+    const redColor        = isDark ? '#f85149' : '#dc2626';
+    const blueColor       = isDark ? '#58a6ff' : '#1d6fb8';
+    const cardBg          = isDark ? '#161b22' : '#ffffff';
+
+    const metrics = computeMetrics(threshold);
+
+    // ── Layout: top half = ROC, bottom half = confusion matrix ──
+    const rocH = Math.floor(H * 0.55);
+    const cmH  = H - rocH;
+    const pad  = 48;
+
+    // ── ROC CURVE (top panel) ────────────────────────────────────
+    const rocW  = W;
+    const rocPL = 60; // left pad
+    const rocPR = 30; // right pad
+    const rocPT = 24;
+    const rocPB = 38;
+    const plotX = rocPL;
+    const plotY = rocPT;
+    const plotW = rocW - rocPL - rocPR;
+    const plotH = rocH - rocPT - rocPB;
+
+    function rocToCanvas(fpr, tpr) {
+      return {
+        x: plotX + fpr * plotW,
+        y: plotY + (1 - tpr) * plotH
+      };
+    }
+
+    // Axes
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(plotX, plotY);
+    ctx.lineTo(plotX, plotY + plotH);
+    ctx.lineTo(plotX + plotW, plotY + plotH);
+    ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle  = textMuted;
+    ctx.font       = '11px JetBrains Mono, monospace';
+    ctx.textAlign  = 'center';
+    ctx.fillText('False Positive Rate (FPR)', plotX + plotW / 2, plotY + plotH + 28);
+    ctx.save();
+    ctx.translate(14, plotY + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('True Positive Rate (TPR)', 0, 0);
+    ctx.restore();
+
+    // Tick labels
+    ctx.fillStyle = textMuted;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+      const x = plotX + v * plotW;
+      ctx.fillText(v.toFixed(2), x, plotY + plotH + 14);
+    });
+    ctx.textAlign = 'right';
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+      const y = plotY + (1 - v) * plotH;
+      ctx.fillText(v.toFixed(2), plotX - 6, y + 4);
+    });
+
+    // Grid lines (subtle)
+    ctx.strokeStyle = isDark ? 'rgba(48,54,61,0.5)' : 'rgba(209,201,188,0.5)';
+    ctx.lineWidth = 1;
+    [0.25, 0.5, 0.75].forEach(v => {
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(plotX + v * plotW, plotY);
+      ctx.lineTo(plotX + v * plotW, plotY + plotH);
+      ctx.moveTo(plotX, plotY + (1-v) * plotH);
+      ctx.lineTo(plotX + plotW, plotY + (1-v) * plotH);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // Random classifier diagonal
+    ctx.strokeStyle = isDark ? 'rgba(139,148,158,0.35)' : 'rgba(107,114,128,0.35)';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(plotX, plotY + plotH);
+    ctx.lineTo(plotX + plotW, plotY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // AUC fill
+    ctx.beginPath();
+    const firstPt = rocToCanvas(rocData.points[0].fpr, rocData.points[0].tpr);
+    ctx.moveTo(firstPt.x, firstPt.y);
+    rocData.points.forEach(p => {
+      const { x, y } = rocToCanvas(p.fpr, p.tpr);
+      ctx.lineTo(x, y);
+    });
+    ctx.lineTo(plotX + plotW, plotY + plotH); // to (1,0)
+    ctx.lineTo(plotX, plotY + plotH);          // to (0,0)
+    ctx.closePath();
+    ctx.fillStyle = isDark ? 'rgba(240,165,0,0.07)' : 'rgba(196,125,0,0.07)';
+    ctx.fill();
+
+    // ROC curve line
+    ctx.beginPath();
+    rocData.points.forEach((p, i) => {
+      const { x, y } = rocToCanvas(p.fpr, p.tpr);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = accent;
+    ctx.lineWidth   = 2.5;
+    ctx.stroke();
+
+    // Current operating point
+    const curMetrics = computeMetrics(threshold);
+    const curFPR = curMetrics.fp + curMetrics.tn > 0 ? curMetrics.fp / (curMetrics.fp + curMetrics.tn) : 0;
+    const curTPR = curMetrics.tp + curMetrics.fn > 0 ? curMetrics.tp / (curMetrics.tp + curMetrics.fn) : 0;
+    const opPt   = rocToCanvas(curFPR, curTPR);
+
+    ctx.beginPath();
+    ctx.arc(opPt.x, opPt.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle   = '#f5c542';
+    ctx.shadowBlur  = 14;
+    ctx.shadowColor = '#f0a500';
+    ctx.fill();
+    ctx.shadowBlur  = 0;
+    ctx.shadowColor = 'transparent';
+    // Gold ring
+    ctx.beginPath();
+    ctx.arc(opPt.x, opPt.y, 10, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(240,165,0,0.4)';
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+
+    // AUC label
+    ctx.fillStyle  = accent;
+    ctx.font       = 'bold 13px JetBrains Mono, monospace';
+    ctx.textAlign  = 'left';
+    ctx.fillText(`AUC = ${rocData.auc.toFixed(3)}`, plotX + plotW - 130, plotY + 20);
+
+    ctx.fillStyle  = textMuted;
+    ctx.font       = '10px JetBrains Mono, monospace';
+    ctx.fillText('ROC Curve', plotX + 8, plotY + 16);
+
+    // ── CONFUSION MATRIX (bottom panel) ─────────────────────────
+    const cmTop = rocH + 4;
+    const cellSize = Math.min(cmH - 36, 80);
+    const cmLeft   = (W / 2) - cellSize - 4;
+    const cmRight  = (W / 2) + 4;
+    const cmBaseY  = cmTop + (cmH - cellSize * 2 - 28) / 2 + 20;
+
+    // Labels
+    ctx.fillStyle  = textMuted;
+    ctx.font       = '11px JetBrains Mono, monospace';
+    ctx.textAlign  = 'center';
+    ctx.fillText('Predicted Positive', cmLeft + cellSize / 2, cmBaseY - 18);
+    ctx.fillText('Predicted Negative', cmRight + cellSize / 2, cmBaseY - 18);
+
+    ctx.save();
+    ctx.translate(cmLeft - 18, cmBaseY + cellSize / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Actual Positive', 0, 0);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(cmLeft - 18, cmBaseY + cellSize + 4 + cellSize / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Actual Negative', 0, 0);
+    ctx.restore();
+
+    // Cells
+    const cells = [
+      { label: 'TP', count: metrics.tp, color: greenColor,  x: cmLeft,  y: cmBaseY,              alpha: metrics.tp / 50 },
+      { label: 'FN', count: metrics.fn, color: redColor,    x: cmRight, y: cmBaseY,              alpha: metrics.fn / 50 },
+      { label: 'FP', count: metrics.fp, color: redColor,    x: cmLeft,  y: cmBaseY + cellSize + 4, alpha: metrics.fp / 50 },
+      { label: 'TN', count: metrics.tn, color: greenColor,  x: cmRight, y: cmBaseY + cellSize + 4, alpha: metrics.tn / 50 },
+    ];
+
+    cells.forEach(cell => {
+      const alpha = Math.max(0.06, cell.alpha * 0.45);
+      // Convert hex to rgba
+      let r, g, b;
+      if (cell.color === greenColor) {
+        [r,g,b] = isDark ? [63,185,80] : [22,163,74];
+      } else {
+        [r,g,b] = isDark ? [248,81,73] : [220,38,38];
+      }
+      ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+      ctx.beginPath();
+      ctx.roundRect(cell.x, cell.y, cellSize, cellSize, 6);
+      ctx.fill();
+
+      ctx.strokeStyle = `rgba(${r},${g},${b},0.45)`;
+      ctx.lineWidth   = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(cell.x, cell.y, cellSize, cellSize, 6);
+      ctx.stroke();
+
+      ctx.fillStyle  = cell.color;
+      ctx.font       = 'bold 12px JetBrains Mono, monospace';
+      ctx.textAlign  = 'center';
+      ctx.fillText(cell.label, cell.x + cellSize / 2, cell.y + 20);
+
+      ctx.fillStyle  = textColor;
+      ctx.font       = `bold ${cellSize > 70 ? 22 : 18}px JetBrains Mono, monospace`;
+      ctx.textAlign  = 'center';
+      ctx.fillText(cell.count, cell.x + cellSize / 2, cell.y + cellSize / 2 + 8);
+    });
+
+    // Metrics panel (right side of confusion matrix)
+    const mPanelX = W / 2 + cellSize + 20;
+    const mPanelY = cmTop + 8;
+    const mPanelW = W - mPanelX - 16;
+    const mPanelH = cmH - 16;
+
+    // Panel bg
+    ctx.fillStyle   = isDark ? 'rgba(22,27,34,0.8)' : 'rgba(255,255,255,0.9)';
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.roundRect(mPanelX, mPanelY, mPanelW, mPanelH, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    const metricRows = [
+      { name: 'Precision', val: metrics.precision, color: blueColor },
+      { name: 'Recall',    val: metrics.recall,    color: accent },
+      { name: 'F1 Score',  val: metrics.f1,        color: greenColor },
+      { name: 'Accuracy',  val: metrics.accuracy,  color: textMuted },
+    ];
+
+    const rowH = (mPanelH - 24) / metricRows.length;
+    metricRows.forEach((row, i) => {
+      const ry = mPanelY + 14 + i * rowH;
+
+      ctx.fillStyle  = textMuted;
+      ctx.font       = '10px JetBrains Mono, monospace';
+      ctx.textAlign  = 'left';
+      ctx.fillText(row.name, mPanelX + 10, ry + 14);
+
+      // Bar track
+      const barX = mPanelX + 10;
+      const barY = ry + 20;
+      const barW = mPanelW - 20;
+      const barH = 6;
+
+      ctx.fillStyle   = borderColor;
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, barW, barH, 3);
+      ctx.fill();
+
+      // Bar fill
+      const fillW = Math.max(0, Math.min(1, isNaN(row.val) ? 0 : row.val)) * barW;
+      ctx.fillStyle = row.color;
+      if (fillW > 0) {
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, fillW, barH, 3);
+        ctx.fill();
+      }
+
+      // Value
+      ctx.fillStyle  = row.color;
+      ctx.font       = 'bold 13px JetBrains Mono, monospace';
+      ctx.textAlign  = 'right';
+      ctx.fillText(isNaN(row.val) ? 'N/A' : row.val.toFixed(3), mPanelX + mPanelW - 8, ry + 14);
+    });
+  }
+}
+
+// ─── Playground P-R-F1 Curve ──────────────────────────────────────────────────
+class PRCurveAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+    this.threshold = 0.5;
+    this._render();
+  }
+
+  setThreshold(t) {
+    this.threshold = t;
+    this._render();
+  }
+
+  _render() {
+    const { ctx, canvas, threshold } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const isDark = bg !== '#ffffff' && bg !== '#f8f5f0' && !bg.startsWith('#f');
+    const textMuted   = isDark ? '#8b949e' : '#6b7280';
+    const borderColor = isDark ? '#30363d' : '#d1c9bc';
+    const accent      = isDark ? '#f0a500' : '#c47d00';
+    const greenColor  = isDark ? '#3fb950' : '#16a34a';
+    const blueColor   = isDark ? '#58a6ff' : '#1d6fb8';
+    const redColor    = isDark ? '#f85149' : '#dc2626';
+
+    const pad    = { l: 60, r: 30, t: 24, b: 40 };
+    const plotW  = W - pad.l - pad.r;
+    const plotH  = H - pad.t - pad.b;
+
+    // Axes
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t);
+    ctx.lineTo(pad.l, pad.t + plotH);
+    ctx.lineTo(pad.l + plotW, pad.t + plotH);
+    ctx.stroke();
+
+    // Labels
+    ctx.fillStyle  = textMuted;
+    ctx.font       = '11px JetBrains Mono, monospace';
+    ctx.textAlign  = 'center';
+    ctx.fillText('Threshold', pad.l + plotW / 2, H - 8);
+    ctx.save();
+    ctx.translate(14, pad.t + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Metric Value', 0, 0);
+    ctx.restore();
+
+    // Tick labels
+    ctx.fillStyle = textMuted;
+    ctx.font      = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+      ctx.fillText(v.toFixed(2), pad.l + v * plotW, pad.t + plotH + 14);
+    });
+    ctx.textAlign = 'right';
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+      ctx.fillText(v.toFixed(2), pad.l - 6, pad.t + (1-v) * plotH + 4);
+    });
+
+    // Grid lines
+    ctx.strokeStyle = isDark ? 'rgba(48,54,61,0.5)' : 'rgba(209,201,188,0.5)';
+    ctx.setLineDash([3,4]);
+    [0.25, 0.5, 0.75].forEach(v => {
+      ctx.beginPath();
+      ctx.moveTo(pad.l + v * plotW, pad.t);
+      ctx.lineTo(pad.l + v * plotW, pad.t + plotH);
+      ctx.moveTo(pad.l, pad.t + (1-v) * plotH);
+      ctx.lineTo(pad.l + plotW, pad.t + (1-v) * plotH);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // Pre-compute curves across thresholds
+    const steps = 200;
+    const precisionPts = [], recallPts = [], f1Pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const m = computeMetrics(t);
+      const x = pad.l + t * plotW;
+      precisionPts.push({ x, y: pad.t + (1 - m.precision) * plotH });
+      recallPts.push({ x, y: pad.t + (1 - m.recall) * plotH });
+      f1Pts.push({ x, y: pad.t + (1 - m.f1) * plotH });
+    }
+
+    function drawCurve(pts, color, dash = []) {
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 2;
+      ctx.setLineDash(dash);
+      pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    drawCurve(recallPts, accent, []);
+    drawCurve(precisionPts, blueColor, []);
+    drawCurve(f1Pts, greenColor, [5, 3]);
+
+    // Legend
+    const legX = pad.l + 10;
+    const legY = pad.t + 12;
+    [
+      { label: 'Recall',    color: accent },
+      { label: 'Precision', color: blueColor },
+      { label: 'F1',        color: greenColor },
+    ].forEach((item, i) => {
+      const lx = legX + i * 100;
+      ctx.fillStyle   = item.color;
+      ctx.fillRect(lx, legY, 18, 3);
+      ctx.fillStyle  = textMuted;
+      ctx.font       = '10px JetBrains Mono, monospace';
+      ctx.textAlign  = 'left';
+      ctx.fillText(item.label, lx + 22, legY + 4);
+    });
+
+    // Vertical threshold line + operating point dots
+    const threshX = pad.l + threshold * plotW;
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(threshX, pad.t);
+    ctx.lineTo(threshX, pad.t + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const curM = computeMetrics(threshold);
+    [
+      { val: curM.recall,    color: accent },
+      { val: curM.precision, color: blueColor },
+      { val: curM.f1,        color: greenColor },
+    ].forEach(item => {
+      const dotY = pad.t + (1 - item.val) * plotH;
+      ctx.beginPath();
+      ctx.arc(threshX, dotY, 5, 0, Math.PI * 2);
+      ctx.fillStyle = item.color;
+      ctx.fill();
+    });
+  }
+}
+
+// ─── Wire Up Animation (section 4) ────────────────────────────────────────────
+const cmCanvas = document.getElementById('cmCanvas');
+const cmAnim   = new ConfusionMatrixAnimation(cmCanvas);
+
+const threshSlider = document.getElementById('threshSlider');
+const threshValue  = document.getElementById('threshValue');
+const cmCaption    = document.getElementById('cmCaption');
+
+threshSlider.addEventListener('input', () => {
+  const t = parseFloat(threshSlider.value);
+  threshValue.textContent = t.toFixed(2);
+  cmAnim.setThreshold(t);
+  const m = computeMetrics(t);
+  cmCaption.innerHTML =
+    `Precision: <strong style="color:var(--blue)">${m.precision.toFixed(3)}</strong> &nbsp;·&nbsp; ` +
+    `Recall: <strong style="color:var(--accent)">${m.recall.toFixed(3)}</strong> &nbsp;·&nbsp; ` +
+    `F1: <strong style="color:var(--green)">${m.f1.toFixed(3)}</strong> &nbsp;·&nbsp; ` +
+    `Accuracy: <strong style="color:var(--text-muted)">${m.accuracy.toFixed(3)}</strong>`;
+});
+
+// Initialize caption
+(function() {
+  const t = parseFloat(threshSlider.value);
+  const m = computeMetrics(t);
+  cmCaption.innerHTML =
+    `Precision: <strong style="color:var(--blue)">${m.precision.toFixed(3)}</strong> &nbsp;·&nbsp; ` +
+    `Recall: <strong style="color:var(--accent)">${m.recall.toFixed(3)}</strong> &nbsp;·&nbsp; ` +
+    `F1: <strong style="color:var(--green)">${m.f1.toFixed(3)}</strong> &nbsp;·&nbsp; ` +
+    `Accuracy: <strong style="color:var(--text-muted)">${m.accuracy.toFixed(3)}</strong>`;
+})();
+
+// ─── Wire Up Playground (section 7) ───────────────────────────────────────────
+const pgCanvas = document.getElementById('pgCanvas');
+const pgAnim   = new PRCurveAnimation(pgCanvas);
+
+const pgThreshSlider = document.getElementById('pgThreshSlider');
+const pgThreshValue  = document.getElementById('pgThreshValue');
+const pgCaption      = document.getElementById('pgCaption');
+
+pgThreshSlider.addEventListener('input', () => {
+  const t = parseFloat(pgThreshSlider.value);
+  pgThreshValue.textContent = t.toFixed(2);
+  pgAnim.setThreshold(t);
+  const m = computeMetrics(t);
+  pgCaption.innerHTML =
+    `At threshold ${t.toFixed(2)}: ` +
+    `Precision = <strong style="color:var(--blue)">${m.precision.toFixed(3)}</strong>, ` +
+    `Recall = <strong style="color:var(--accent)">${m.recall.toFixed(3)}</strong>, ` +
+    `F1 = <strong style="color:var(--green)">${m.f1.toFixed(3)}</strong>`;
+});
+
+// ─── Quiz ──────────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG   = 'evaluation-metrics';
+const TOTAL_QUESTIONS = 9;
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card       = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx    = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed     = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_QUESTIONS} revealed`;
+}
+
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_QUESTIONS} revealed`;
+
+// ─── Reading progress bar ─────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop  = window.scrollY;
+  const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+  const pct        = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─── Scroll reveal ────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── TOC active dot ───────────────────────────────────────────────────────────
+const sections   = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots    = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─── Re-render canvases on theme change ───────────────────────────────────────
+window.onThemeChange(function() {
+  cmAnim._render();
+  pgAnim._render();
+});
+</script>
+</body>
+</html>
