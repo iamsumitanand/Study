@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backpropagation — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>           <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real World</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span> <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>           <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 2 · Neural Networks</p>
+    <h1>Backpropagation</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The algorithm that teaches every neural network — by running the chain rule in reverse.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.05rem; line-height:1.8;">
+      Every weight in GPT-4 was set by running this algorithm <strong style="color:var(--accent)">trillions of times</strong>. Not a variant of it. Not something inspired by it. This exact algorithm — backpropagation — computed how each of the 1.7 trillion parameters contributed to the model's error, then handed those numbers to gradient descent to fix them. Once you understand backpropagation, you understand how all of modern deep learning actually learns.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>One idea: the chain rule, applied backwards</h2>
+    <p class="lead">
+      The entire idea of backpropagation is the chain rule from calculus, applied backwards through a network. Nothing more. The chain rule says: if A affects B and B affects C, then you can compute how A affects C by multiplying the two local rates of change. Backprop does this for every weight in the network — simultaneously, in a single backward pass.
+    </p>
+    <p>
+      Here is the mental model that makes it stick: imagine a network as a factory assembly line, where the final product is the loss (the error). Each worker (layer) blames the worker before them for how much they contributed to the defect. The blame flows backwards — from the loss, through the output layer, through the hidden layers, all the way to the first weights. At each step, each node multiplies the incoming blame by its own local rate of change, and passes the result upstream.
+    </p>
+    <p>
+      This "messenger carrying blame upstream" is backpropagation. The blame is the gradient of the loss with respect to each weight. The local rate of change is the derivative of each operation. The multiplication is the chain rule. That's the whole algorithm.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">forward pass</strong> computes outputs and stores intermediate values at every node.</li>
+      <li>The <strong style="color:var(--accent)">backward pass</strong> propagates gradients right-to-left, applying the chain rule at each node.</li>
+      <li>The <strong style="color:var(--accent)">local gradient</strong> at each node is just the derivative of that node's operation.</li>
+      <li>The <strong style="color:var(--accent)">upstream gradient</strong> arrives from the node ahead in the backward pass.</li>
+      <li>The <strong style="color:var(--accent)">output gradient</strong> is local × upstream — passed further backward.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Build it from first principles — don't just accept it</h2>
+
+    <p class="lead">
+      Backpropagation works on any computation that can be expressed as a directed acyclic graph (DAG) of differentiable operations. Each node computes a function of its inputs. Gradients flow backwards through the edges. The chain rule is the glue.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      A network has a node whose output is used by two different downstream nodes — a branching point. When gradients flow backwards and both downstream nodes send a gradient back to this node, what should happen to them? Think about what the chain rule says when a variable contributes to a loss through multiple paths.
+    </div>
+
+    <p>
+      The gradients from both paths are <strong style="color:var(--accent)">summed</strong>. This follows directly from the multivariate chain rule: if a variable <code>x</code> affects loss <code>L</code> through two paths, then <code>∂L/∂x = ∂L/∂a · ∂a/∂x + ∂L/∂b · ∂b/∂x</code>. Backprop handles branching and merging naturally — branch points sum incoming gradients, merge points split them. This is why backprop works on arbitrarily complex graphs, not just linear chains.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Early networks trained with sigmoid activations (σ(x) = 1/(1+e⁻ˣ)) famously failed to train deep architectures. The derivative of sigmoid is σ(x)·(1−σ(x)), which has a maximum value of 0.25. What happens when you multiply this repeatedly during backpropagation through 10 layers?
+    </div>
+
+    <p>
+      Each layer multiplies the gradient by at most 0.25. After 10 layers: <code>0.25¹⁰ ≈ 0.000001</code>. The gradient shrinks exponentially as it travels backward — it effectively vanishes. Weights in early layers receive near-zero gradient signals and barely update. This is the <strong style="color:var(--accent)">vanishing gradient problem</strong>: deep networks trained with sigmoid activations couldn't learn because early layers saw no signal. It is the reason ReLU (whose gradient is exactly 1 for positive inputs) became universal in deep networks — it lets gradients pass through unchanged.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      To compute the gradient of a node during the backward pass, you need the derivative of that node's operation evaluated at the input it received. This means you need to know what the input actually was. Where does that information come from?
+    </div>
+
+    <p>
+      From the <strong style="color:var(--accent)">forward pass</strong>. Backprop cannot run without the forward pass having already run and stored its intermediate values. Consider a multiplication node <code>z = x · y</code>: its gradient with respect to <code>x</code> is <code>y</code> — you need the actual value of <code>y</code> that was computed during the forward pass. Modern autodiff systems like PyTorch store these "saved tensors" in the computation graph during the forward pass so the backward pass can retrieve them. This is why training a large network requires memory proportional to the depth — you must cache every intermediate activation.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. The Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch the chain rule in action</h2>
+    <p class="lead">
+      A small computation graph: <code>x₁</code> and <code>x₂</code> flow through a multiply node, then an add node, then a sigmoid, then the loss. The forward pass flows left to right. The backward pass flows right to left — watch the gradient at each node being computed as (local gradient) × (upstream gradient).
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:0.75rem;">
+      Hover a node to see its <code>∂L/∂this</code> and local gradient. Use step-by-step mode to trace the chain rule one node at a time.
+    </p>
+
+    <div class="animation-wrapper grain" style="min-height: 340px;">
+      <canvas id="bpCanvas" width="720" height="320" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="bpCaption">
+        Press <strong>Next Step Forward</strong> to start the forward pass.
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <button class="btn" id="bpFwdBtn">▶ Next Step Forward</button>
+        <button class="btn" id="bpBwdBtn" style="opacity:0.45" disabled>◀ Next Step Backward</button>
+        <button class="btn secondary" id="bpRunBtn">⚡ Run Full</button>
+        <button class="btn secondary" id="bpResetBtn">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Chain rule + a 3-node worked example</h2>
+
+    <p class="lead">
+      The chain rule is the only calculus you need. For a composition <code>L = f(g(w))</code>, the derivative of <code>L</code> with respect to <code>w</code> is:
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Chain Rule (General Backprop Update)</div>
+      <div class="formula">∂L/∂w  =  ∂L/∂z · ∂z/∂w</div>
+      <div class="symbol-table">
+        <span class="sym">∂L/∂w</span>  <span>the gradient we want — how much loss changes when we nudge weight w</span>
+        <span class="sym">∂L/∂z</span>  <span>upstream gradient — how much loss changes when z (the output of this node) changes; arrives from the layer ahead</span>
+        <span class="sym">∂z/∂w</span>  <span>local gradient — derivative of this node's operation with respect to w; computed analytically for each op type</span>
+      </div>
+    </div>
+
+    <p><strong>Full worked example: 2 inputs, 1 hidden unit, 1 output — with exact numbers.</strong></p>
+    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:0.75rem;">
+      Network: <code>x₁=2, x₂=3</code>, weights <code>w₁=0.5, w₂=−1.0, w₃=0.8</code>. Hidden unit uses sigmoid activation. Output is a linear node. Loss = squared error vs target <code>t=1.0</code>.
+    </p>
+
+    <p style="font-weight:600; color:var(--accent); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:0.5rem;">Forward Pass</p>
+    <div class="worked-example">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span class="step-text">Weighted sum into hidden unit:</span>
+        <span class="step-math" style="margin-left:auto;">z₁ = w₁·x₁ + w₂·x₂ = 0.5·2 + (−1.0)·3 = 1 − 3 = −2.0</span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span class="step-text">Sigmoid activation:</span>
+        <span class="step-math" style="margin-left:auto;">a₁ = σ(z₁) = σ(−2.0) = 1/(1+e²) ≈ 0.1192</span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span class="step-text">Output (linear):</span>
+        <span class="step-math" style="margin-left:auto;">ŷ = w₃·a₁ = 0.8 × 0.1192 ≈ 0.0954</span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span class="step-text">Loss (squared error):</span>
+        <span class="step-math" style="margin-left:auto;">L = (ŷ − t)² = (0.0954 − 1.0)² ≈ 0.8194</span>
+      </div>
+    </div>
+
+    <p style="font-weight:600; color:var(--accent); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:0.5rem; margin-top:1.5rem;">Backward Pass</p>
+    <div class="worked-example">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span class="step-text">Gradient of loss w.r.t. output:</span>
+        <span class="step-math" style="margin-left:auto;">∂L/∂ŷ = 2(ŷ − t) = 2(0.0954 − 1.0) ≈ −1.809</span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span class="step-text">Gradient w.r.t. w₃ (chain rule at output):</span>
+        <span class="step-math" style="margin-left:auto;">∂L/∂w₃ = ∂L/∂ŷ · ∂ŷ/∂w₃ = −1.809 × a₁ = −1.809 × 0.1192 ≈ −0.216</span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span class="step-text">Gradient through to a₁ (chain rule at output):</span>
+        <span class="step-math" style="margin-left:auto;">∂L/∂a₁ = ∂L/∂ŷ · w₃ = −1.809 × 0.8 ≈ −1.447</span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span class="step-text">Gradient through sigmoid (local grad = σ·(1−σ)):</span>
+        <span class="step-math" style="margin-left:auto;">∂L/∂z₁ = −1.447 × σ(z₁)(1−σ(z₁)) = −1.447 × 0.1192 × 0.8808 ≈ −0.1519</span>
+      </div>
+      <div class="step">
+        <span class="step-num">5</span>
+        <span class="step-text">Gradient w.r.t. w₁:</span>
+        <span class="step-math" style="margin-left:auto;">∂L/∂w₁ = ∂L/∂z₁ · x₁ = −0.1519 × 2 ≈ −0.3038</span>
+      </div>
+      <div class="step">
+        <span class="step-num">6</span>
+        <span class="step-text">Gradient w.r.t. w₂:</span>
+        <span class="step-math" style="margin-left:auto;">∂L/∂w₂ = ∂L/∂z₁ · x₂ = −0.1519 × 3 ≈ −0.4557</span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">All three gradients computed in one backward pass.</span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          Gradient descent will now update: w₁ += −α·(−0.3038), w₂ += −α·(−0.4557), w₃ += −α·(−0.216). All negative gradients — meaning all weights should increase to push the prediction toward the target 1.0. The math agrees with intuition.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real World -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Theory to Practice</p>
+    <h2>How autodiff libraries implement this</h2>
+    <p class="lead">
+      No one implements backpropagation by hand for modern networks. Instead, frameworks like PyTorch and JAX use <strong style="color:var(--accent)">automatic differentiation (autodiff)</strong> — they build a computation graph dynamically and then differentiate it exactly, using the same chain rule rules, but applied automatically to any code you write.
+    </p>
+    <p>
+      In PyTorch, every tensor operation records itself in a computation graph. When you call <code>loss.backward()</code>, PyTorch traverses this graph in reverse topological order, applying the chain rule at each node. Each operation (add, multiply, sigmoid, ReLU, etc.) has a registered <code>backward()</code> function that computes its local gradient. The upstream gradient arrives as an argument; the function multiplies it by the local gradient and returns the result to be passed further back.
+    </p>
+    <p>
+      JAX takes a different approach: it transforms functions rather than recording graphs. <code>jax.grad(f)</code> returns a new function that, when called with an input, computes the gradient of <code>f</code> at that input. This is "source transformation" autodiff — JAX analyzes the Python function at trace time and generates gradient code. Both approaches compute identical results; they differ only in how they represent and traverse the computation graph.
+    </p>
+    <div class="insight-box" style="font-style:normal;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.4rem;">The computational graph perspective:</strong>
+      In both frameworks, "the network" is not a fixed architecture — it is the computation graph produced by one forward pass. This means graphs can change shape depending on the input (dynamic graphs), enabling architectures like variable-length RNNs and conditional computation. PyTorch's "define-by-run" model builds a new graph on every forward pass, which is why debugging deep learning code in PyTorch feels like debugging ordinary Python.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Interactive Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Explore how inputs affect gradients</h2>
+    <p class="lead">
+      Adjust the two inputs and the three weights below. The forward pass recalculates live, showing you the loss. The backward pass recomputes all gradients. Watch how large input magnitudes amplify gradients, and how the sigmoid's vanishing gradient shrinks signals in the hidden layer.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">x₁ (input 1)</span>
+        <input type="range" id="pgX1" min="-4" max="4" step="0.1" value="2">
+        <span class="control-value" id="pgX1Val">2.0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">x₂ (input 2)</span>
+        <input type="range" id="pgX2" min="-4" max="4" step="0.1" value="3">
+        <span class="control-value" id="pgX2Val">3.0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">w₁ (hidden weight 1)</span>
+        <input type="range" id="pgW1" min="-2" max="2" step="0.05" value="0.5">
+        <span class="control-value" id="pgW1Val">0.50</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">w₂ (hidden weight 2)</span>
+        <input type="range" id="pgW2" min="-2" max="2" step="0.05" value="-1.0">
+        <span class="control-value" id="pgW2Val">-1.00</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">w₃ (output weight)</span>
+        <input type="range" id="pgW3" min="-2" max="2" step="0.05" value="0.8">
+        <span class="control-value" id="pgW3Val">0.80</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">target t</span>
+        <input type="range" id="pgT" min="-2" max="2" step="0.1" value="1.0">
+        <span class="control-value" id="pgTVal">1.0</span>
+      </div>
+
+      <div style="margin-top:1.25rem; background:var(--bg); border-radius:var(--radius); border:1px solid var(--border); padding:1.1rem 1.5rem;">
+        <p style="font-family:var(--font-mono); font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem; text-transform:uppercase; letter-spacing:0.08em;">Live computation</p>
+        <div id="pgOutput" style="font-family:var(--font-mono); font-size:0.88rem; line-height:2.1; color:var(--text);"></div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five causal misconceptions — and why they matter</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't isolated errors. Each one is a consequence of misunderstanding the previous. Trace the chain and all five become impossible to hold simultaneously.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① Backpropagation trains the network.</div>
+        <div class="truth">
+          Backpropagation only computes gradients — it never changes a single weight. Gradient descent (or Adam, RMSProp, etc.) uses those gradients to update weights. Calling backprop "the training algorithm" is like calling a thermometer "the fever reducer." Both are required; they do fundamentally different things.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② Backpropagation propagates errors backward.</div>
+        <div class="truth">
+          It propagates gradients — specifically, the gradient of the loss with respect to each weight. Gradients are local slope measurements, not error signals. The distinction matters: a large gradient doesn't mean a large error, and a small gradient doesn't mean a small error. You can have enormous errors with tiny gradients (the vanishing gradient problem).
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ The forward pass and backward pass use different data.</div>
+        <div class="truth">
+          The backward pass is completely dependent on the forward pass. Every local gradient requires the intermediate activation values computed in the forward pass. This is why backpropagation must store all intermediate values in memory — the backward pass will need them. Training a 100-layer network requires holding 100 activation tensors in GPU memory simultaneously.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ Backprop is specific to neural networks.</div>
+        <div class="truth">
+          Backpropagation is just reverse-mode automatic differentiation applied to a computation graph. Any differentiable computation — physics simulators, rendering engines, differentiable programming in general — can use the same algorithm to compute gradients. Neural networks are the most common application, but the algorithm is general.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ Deeper networks always converge faster because backprop runs more efficiently with more layers.</div>
+        <div class="truth">
+          The opposite is often true. Deeper networks amplify both the vanishing gradient problem (gradients shrink through sigmoid layers) and the exploding gradient problem (gradients grow through layers with large weights). Each added layer multiplies the gradient by another number — if that number is consistently less than 1, gradients vanish; greater than 1, they explode. Techniques like batch normalization, residual connections, and careful weight initialization exist specifically to counteract this.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>Backpropagation computes gradients using the chain rule in reverse through the computation graph. It changes nothing — it only measures.</li>
+      <li>The forward pass must run first and store its intermediate values. The backward pass retrieves those values to compute local gradients.</li>
+      <li>At each node: output gradient = local gradient × upstream gradient. At branching nodes, incoming gradients are summed (multivariate chain rule).</li>
+      <li>Vanishing gradients occur when local gradients are consistently less than 1 (e.g., sigmoid). Each layer multiplies the signal — 10 layers of 0.25 = signal × 10⁻⁶. ReLU solves this with a local gradient of exactly 1 for positive inputs.</li>
+      <li>Modern frameworks (PyTorch autograd, JAX) implement this automatically. You never write backprop by hand — you write the forward pass, and the framework differentiates it.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 10. What's Next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      Backpropagation gives us the gradient of the loss with respect to every weight. Gradient descent says: update each weight by subtracting the gradient scaled by α. But what if the same learning rate α is too large for some weights and too small for others? What if the gradient is noisy and sends the optimizer in the wrong direction every other step?<br><br>
+      That's why SGD is rarely used alone in modern training. The next chapter covers <strong style="color:var(--accent)">Optimizers</strong> — SGD with momentum, RMSProp, and Adam — each one a refinement of how gradients from backprop are used to update weights.
+    </div>
+    <div style="margin-top:1.25rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+      <a href="activation-functions.html" class="btn secondary" style="font-size:0.85rem;">← Activation Functions</a>
+      <a href="optimizers.html" class="btn" style="font-size:0.85rem;">Optimizers →</a>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 11. Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts. Derivations and formulations are taken directly from them, not synthesized from memory.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — Chapter 6 (§6.5 Backpropagation)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: chain rule formulation, forward/backward pass algorithm, computational graph perspective, vanishing/exploding gradients, memory requirements, worked derivation of backprop on MLPs.
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">CS231n Lecture Notes — Backpropagation &amp; Neural Networks</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Andrej Karpathy, Stanford University</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: "messenger carrying blame" intuition, gate-level gradient analysis (multiply/add/max gates), branching/merging gradient rules, practical implementation patterns, numerical gradient checking.
+          </span><br>
+          <a href="https://cs231n.github.io/optimization-2/" style="font-family:var(--font-mono); font-size:0.8rem;">cs231n.github.io</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">PyTorch Autograd Documentation</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">PyTorch Foundation</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: dynamic computation graph description, <code>.backward()</code> traversal, saved tensors, define-by-run semantics.
+          </span><br>
+          <a href="https://pytorch.org/docs/stable/autograd.html" style="font-family:var(--font-mono); font-size:0.8rem;">pytorch.org/docs/stable/autograd.html</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 12. Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>10 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 10 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">A node in a network receives two upstream gradients from two downstream nodes. How should they be combined before being passed further backward?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>They are summed.</strong> This is the multivariate chain rule: if a variable contributes to the loss through multiple paths, its total gradient is the sum of contributions from each path. <code>∂L/∂x = ∂L/∂a · ∂a/∂x + ∂L/∂b · ∂b/∂x</code>. Backprop handles branching nodes naturally by accumulating gradients from all downstream paths before passing the result further backward.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">You replace all sigmoid activations in a deep network with ReLU. Training immediately becomes more stable and gradients reach early layers. Explain why using the local gradient of each activation.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>ReLU's local gradient is 1 for positive inputs, which prevents gradient shrinkage.</strong> Sigmoid's local gradient is σ(1−σ) ≤ 0.25. Multiplying by 0.25 at every layer causes exponential decay (vanishing gradients). ReLU outputs <code>max(0, x)</code>, so its derivative is 1 when x > 0 — the upstream gradient passes through unchanged. Multiplying by 1 repeatedly does not shrink the signal. Early layers receive gradients of similar magnitude to the output layer.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">You call <code>loss.backward()</code> in PyTorch but forgot to call the forward pass first. What happens and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The backward pass requires values from the forward pass to compute local gradients.</strong> Each backward function for an operation (e.g., multiplication) needs the values of its inputs from the forward pass — <code>∂(x·y)/∂x = y</code> requires y. PyTorch stores these as "saved tensors" during the forward pass. Without running the forward pass, there is no computation graph to traverse and no saved activations to retrieve. In practice, PyTorch will raise an error.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">A multiply gate has inputs <code>x = 3</code> and <code>y = −2</code>. The upstream gradient arriving from the next layer is <code>∂L/∂z = 4</code>. What is <code>∂L/∂x</code> and <code>∂L/∂y</code>?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>∂L/∂x = −8, ∂L/∂y = 12.</strong> For z = x·y: local gradient of z with respect to x is y, and with respect to y is x. Applying the chain rule: <code>∂L/∂x = ∂L/∂z · ∂z/∂x = 4 · y = 4 · (−2) = −8</code>. <code>∂L/∂y = ∂L/∂z · ∂z/∂y = 4 · x = 4 · 3 = 12</code>. The multiply gate acts as a "gradient switcher" — each input's gradient is the other input scaled by the upstream gradient.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">You're training a 20-layer network and notice the loss stops decreasing after epoch 2, even though it's not overfit. The gradients for layers 1–5 are all extremely close to zero. What is happening and what are two ways to fix it?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Vanishing gradients.</strong> The gradient signal shrinks as it propagates back through many layers. Two fixes: <strong>1. Replace sigmoid/tanh with ReLU</strong> — ReLU's local gradient is 1 for positive inputs, so it doesn't shrink the signal. <strong>2. Add residual connections (skip connections)</strong> — as in ResNets, they create shortcut paths that allow gradients to flow directly from the loss to early layers, bypassing the multiplicative attenuation of intermediate layers.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">Why does training a deep network require GPU memory proportional to its depth, even if you only care about the output layer?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The backward pass needs all intermediate activations from the forward pass.</strong> To compute the local gradient at layer k, you need the activation values that were input to layer k during the forward pass. With 100 layers, you must store 100 activation tensors simultaneously — one per layer — so the backward pass can retrieve them. This is called "activation memory." Gradient checkpointing is a technique that recomputes activations during the backward pass (at extra compute cost) to reduce peak memory.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">An add gate has inputs <code>a = 5</code> and <code>b = −3</code>, and upstream gradient <code>∂L/∂z = 2</code>. What are <code>∂L/∂a</code> and <code>∂L/∂b</code>?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Both equal 2.</strong> For z = a + b: <code>∂z/∂a = 1</code> and <code>∂z/∂b = 1</code>. So <code>∂L/∂a = ∂L/∂z · 1 = 2</code> and <code>∂L/∂b = ∂L/∂z · 1 = 2</code>. An add gate distributes the upstream gradient equally to both inputs — it acts as a "gradient distributor." This is distinct from a multiply gate, which routes each input's gradient through the other input's value.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">Is backpropagation specific to neural networks? Name one other domain where it is routinely used.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — backpropagation is general reverse-mode autodiff applied to any differentiable computation graph.</strong> One example: differentiable rendering in computer graphics. Given a rendered image and a target image, you can backpropagate through the rendering equations to compute how to change 3D geometry, lighting, or material properties to match the target. Physics simulation is another — researchers backpropagate through physics simulators to optimize control policies or material parameters.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">You double the weights in a network. Everything else is identical. What effect does this have on the gradients computed by backpropagation, and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Gradients can grow — potentially causing exploding gradients.</strong> Consider a linear layer: its local gradient with respect to inputs involves the weight matrix. If weights are doubled, local gradients at each layer are roughly doubled. Through 10 layers, gradients scale by 2¹⁰ = 1024. This is the exploding gradient problem, the mirror image of vanishing gradients. Weight initialization strategies (Xavier/Glorot, He) are designed to keep gradients at roughly unit scale across layers during the backward pass.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="9">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">10</span>
+          <span class="q-text">PyTorch builds a new computation graph on every forward pass ("define-by-run"). JAX traces functions to generate gradient code. Both claim to implement backpropagation. Are they running the same algorithm?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Yes — both implement reverse-mode automatic differentiation, which is exactly backpropagation.</strong> They differ in implementation, not in the mathematical algorithm. PyTorch records operations dynamically in a tape (eager mode), then traverses it in reverse. JAX traces the function symbolically and generates differentiated code via source transformation. Both compute identical gradients for identical inputs — the chain rule applied in reverse through the computation graph. The implementation differences affect debugging experience, performance characteristics, and support for dynamic control flow, not the algorithm itself.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─── BackpropAnimation ────────────────────────────────────────────────────────
+// Inline as required: a computation graph showing forward + backward passes
+// on: x1, x2 → multiply → add (with bias=1) → sigmoid → loss
+
+class BackpropAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+
+    // Fixed values for the demo graph
+    this.x1 = 2.0;
+    this.x2 = 3.0;
+    this.b  = 1.0;  // bias added to multiply output
+
+    // Forward pass computed values
+    this.fwdValues  = null;
+    this.fwdStep    = -1;  // -1 = nothing shown yet, 0..4 = steps
+    this.bwdStep    = -1;  // -1 = not started, 0..4 = steps
+
+    // Node positions (relative to canvas, set in layout)
+    this._initLayout();
+    this._render();
+  }
+
+  _initLayout() {
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+    const cy = H / 2;
+
+    // Nodes: x1, x2, mul, add, sig, loss
+    this.nodes = {
+      x1:  { x: 60,          y: cy - 45, label: 'x₁',      type: 'input' },
+      x2:  { x: 60,          y: cy + 45, label: 'x₂',      type: 'input' },
+      mul: { x: 220,         y: cy,      label: '×',        type: 'op',   op: 'multiply' },
+      add: { x: 360,         y: cy,      label: '+',        type: 'op',   op: 'add' },
+      sig: { x: 490,         y: cy,      label: 'σ',        type: 'op',   op: 'sigmoid' },
+      los: { x: 630,         y: cy,      label: 'L',        type: 'loss' },
+    };
+
+    // Bias node
+    this.nodes.bias = { x: 360, y: cy - 75, label: 'b=1', type: 'input' };
+
+    // Edges [from, to]
+    this.edges = [
+      { from: 'x1',  to: 'mul' },
+      { from: 'x2',  to: 'mul' },
+      { from: 'mul', to: 'add' },
+      { from: 'bias','to': 'add' },
+      { from: 'add', to: 'sig' },
+      { from: 'sig', to: 'los' },
+    ];
+  }
+
+  _fwd() {
+    const x1 = this.x1, x2 = this.x2, b = this.b;
+    const mul  = x1 * x2;
+    const add  = mul + b;
+    const sig  = 1 / (1 + Math.exp(-add));
+    const loss = Math.pow(sig - 1.0, 2);  // MSE vs target 1.0
+    return { x1, x2, b, mul, add, sig, loss };
+  }
+
+  _bwd(fwd) {
+    // Gradients via chain rule
+    const dL_dsig = 2 * (fwd.sig - 1.0);             // ∂L/∂sig
+    const dL_dadd = dL_dsig * fwd.sig * (1 - fwd.sig); // through sigmoid
+    const dL_dmul = dL_dadd;                            // add gate: grad passes through
+    const dL_db   = dL_dadd;                            // add gate: bias gradient
+    const dL_dx1  = dL_dmul * fwd.x2;                  // multiply gate
+    const dL_dx2  = dL_dmul * fwd.x1;                  // multiply gate
+    return { dL_dsig, dL_dadd, dL_dmul, dL_db, dL_dx1, dL_dx2 };
+  }
+
+  _canvasBg() {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue('--canvas-bg').trim() || '#161b22';
+  }
+  _color(name) {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue('--' + name).trim();
+  }
+
+  _render() {
+    const ctx    = this.ctx;
+    const W      = this.canvas.width;
+    const H      = this.canvas.height;
+    const nodes  = this.nodes;
+    const fwd    = this._fwd();
+    const bwd    = this._bwd(fwd);
+
+    // Background
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = this._canvasBg();
+    ctx.fillRect(0, 0, W, H);
+
+    // Step state
+    const fs = this.fwdStep;
+    const bs = this.bwdStep;
+
+    // Assign forward values per step
+    const fwdNodeValues = {
+      x1:  fs >= 0 ? this.x1.toFixed(1) : null,
+      x2:  fs >= 0 ? this.x2.toFixed(1) : null,
+      bias:fs >= 0 ? this.b.toFixed(1)  : null,
+      mul: fs >= 1 ? fwd.mul.toFixed(3) : null,
+      add: fs >= 2 ? fwd.add.toFixed(3) : null,
+      sig: fs >= 3 ? fwd.sig.toFixed(4) : null,
+      los: fs >= 4 ? fwd.loss.toFixed(4): null,
+    };
+
+    // Assign backward gradient labels per step
+    // bwd step 0: dL/dsig (at loss/sig edge)
+    // bwd step 1: dL/dadd (at sig/add edge)
+    // bwd step 2: dL/dmul (at add/mul edge), dL/db (at add/bias edge)
+    // bwd step 3: dL/dx1 and dL/dx2
+    const gradLabels = {};
+    if (bs >= 0) gradLabels['sig→los'] = '∂L/∂σ=' + bwd.dL_dsig.toFixed(3);
+    if (bs >= 1) gradLabels['add→sig'] = '∂L/∂z₂=' + bwd.dL_dadd.toFixed(4);
+    if (bs >= 2) {
+      gradLabels['mul→add']  = '∂L/∂z₁=' + bwd.dL_dmul.toFixed(4);
+      gradLabels['bias→add'] = '∂L/∂b='  + bwd.dL_db.toFixed(4);
+    }
+    if (bs >= 3) {
+      gradLabels['x1→mul']  = '∂L/∂x₁=' + bwd.dL_dx1.toFixed(4);
+      gradLabels['x2→mul']  = '∂L/∂x₂=' + bwd.dL_dx2.toFixed(4);
+    }
+
+    // Draw edges
+    this.edges.forEach(e => {
+      const n1 = nodes[e.from], n2 = nodes[e.to];
+      if (!n1 || !n2) return;
+      const key = e.from + '→' + e.to;
+      const hasGrad = gradLabels[key] !== undefined;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(n1.x, n1.y);
+      ctx.lineTo(n2.x, n2.y);
+      ctx.strokeStyle = hasGrad
+        ? (this._color('accent') || '#f0a500')
+        : (this._color('border') || '#30363d');
+      ctx.lineWidth = hasGrad ? 2.5 : 1.5;
+      ctx.stroke();
+      ctx.restore();
+
+      // Gradient label above edge (backward direction)
+      if (hasGrad) {
+        const mx = (n1.x + n2.x) / 2;
+        const my = (n1.y + n2.y) / 2;
+        ctx.save();
+        ctx.font = 'bold 10px JetBrains Mono, monospace';
+        ctx.fillStyle = this._color('red') || '#f85149';
+        ctx.textAlign = 'center';
+        ctx.fillText(gradLabels[key], mx, my - 14);
+        ctx.restore();
+      }
+
+      // Forward value on edge (midpoint, below)
+      // Show values flowing along edges during forward pass
+    });
+
+    // Draw nodes
+    Object.entries(nodes).forEach(([id, node]) => {
+      const isInput = node.type === 'input';
+      const isLoss  = node.type === 'loss';
+      const r = isInput ? 22 : 30;
+
+      // Node circle
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+
+      if (isInput) {
+        ctx.fillStyle = this._color('bg-hover') || '#1c2128';
+        ctx.strokeStyle = this._color('border') || '#30363d';
+      } else if (isLoss) {
+        ctx.fillStyle = 'color-mix(in srgb, ' + (this._color('red')||'#f85149') + ' 12%, ' + (this._canvasBg()) + ')';
+        ctx.strokeStyle = this._color('red') || '#f85149';
+      } else {
+        ctx.fillStyle = 'color-mix(in srgb, ' + (this._color('accent')||'#f0a500') + ' 8%, ' + (this._canvasBg()) + ')';
+        ctx.strokeStyle = this._color('accent') || '#f0a500';
+      }
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Node label
+      ctx.save();
+      ctx.font = 'bold 14px Lora, Georgia, serif';
+      ctx.fillStyle = isInput
+        ? (this._color('text-muted') || '#8b949e')
+        : isLoss
+          ? (this._color('red') || '#f85149')
+          : (this._color('accent') || '#f0a500');
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(node.label, node.x, node.y);
+      ctx.restore();
+
+      // Forward pass value below node
+      const val = fwdNodeValues[id];
+      if (val !== null && val !== undefined) {
+        ctx.save();
+        ctx.font = '11px JetBrains Mono, monospace';
+        ctx.fillStyle = this._color('blue') || '#58a6ff';
+        ctx.textAlign = 'center';
+        ctx.fillText(val, node.x, node.y + r + 14);
+        ctx.restore();
+      }
+    });
+
+    // Bottom status bar
+    ctx.save();
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.fillStyle = this._color('text-muted') || '#8b949e';
+    ctx.textAlign = 'center';
+    let statusText = 'Forward: x₁=' + fwd.x1 + ', x₂=' + fwd.x2 + ' | mul=' + fwd.mul.toFixed(2) + ' | add=' + fwd.add.toFixed(2) + ' | σ=' + fwd.sig.toFixed(4) + ' | L=' + fwd.loss.toFixed(4);
+    ctx.fillText(statusText, W / 2, H - 8);
+    ctx.restore();
+  }
+
+  stepForward() {
+    if (this.fwdStep < 4) {
+      this.fwdStep++;
+      this.bwdStep = -1;
+    }
+    this._render();
+    this._updateCaption();
+  }
+
+  stepBackward() {
+    if (this.fwdStep < 4) return;
+    if (this.bwdStep < 3) {
+      this.bwdStep++;
+    }
+    this._render();
+    this._updateCaption();
+  }
+
+  runFull(onDone) {
+    this.fwdStep = 4;
+    this.bwdStep = 3;
+    this._render();
+    this._updateCaption();
+    if (onDone) onDone();
+  }
+
+  reset() {
+    this.fwdStep = -1;
+    this.bwdStep = -1;
+    this._render();
+    this._updateCaption();
+  }
+
+  _updateCaption() {
+    const fwd  = this._fwd();
+    const bwd  = this._bwd(fwd);
+    const cap  = document.getElementById('bpCaption');
+    if (!cap) return;
+
+    const fs = this.fwdStep, bs = this.bwdStep;
+
+    if (fs === -1) {
+      cap.innerHTML = 'Press <strong>Next Step Forward</strong> to start the forward pass.';
+    } else if (fs === 0) {
+      cap.innerHTML = '<strong style="color:var(--blue)">Forward step 1/5:</strong> Inputs loaded. x₁ = ' + fwd.x1 + ', x₂ = ' + fwd.x2 + ', bias b = 1.0.';
+    } else if (fs === 1) {
+      cap.innerHTML = '<strong style="color:var(--blue)">Forward step 2/5:</strong> Multiply node: z_mul = x₁ × x₂ = ' + fwd.x1 + ' × ' + fwd.x2 + ' = <strong style="color:var(--blue)">' + fwd.mul.toFixed(2) + '</strong>.';
+    } else if (fs === 2) {
+      cap.innerHTML = '<strong style="color:var(--blue)">Forward step 3/5:</strong> Add node: z_add = z_mul + b = ' + fwd.mul.toFixed(2) + ' + 1 = <strong style="color:var(--blue)">' + fwd.add.toFixed(2) + '</strong>.';
+    } else if (fs === 3) {
+      cap.innerHTML = '<strong style="color:var(--blue)">Forward step 4/5:</strong> Sigmoid: σ(z_add) = σ(' + fwd.add.toFixed(2) + ') = <strong style="color:var(--blue)">' + fwd.sig.toFixed(4) + '</strong>.';
+    } else if (fs === 4 && bs === -1) {
+      cap.innerHTML = '<strong style="color:var(--blue)">Forward step 5/5:</strong> Loss = (σ − 1)² = (' + fwd.sig.toFixed(4) + ' − 1)² = <strong style="color:var(--accent)">' + fwd.loss.toFixed(4) + '</strong>. Now press <strong>Next Step Backward</strong>.';
+    } else if (fs === 4 && bs === 0) {
+      cap.innerHTML = '<strong style="color:var(--red)">Backward step 1/4:</strong> ∂L/∂σ = 2(σ−1) = 2×(' + fwd.sig.toFixed(4) + '−1) = <strong style="color:var(--red)">' + bwd.dL_dsig.toFixed(4) + '</strong>. Gradient arrives at sigmoid node.';
+    } else if (fs === 4 && bs === 1) {
+      cap.innerHTML = '<strong style="color:var(--red)">Backward step 2/4:</strong> Through sigmoid: ∂L/∂z_add = ∂L/∂σ × σ(1−σ) = ' + bwd.dL_dsig.toFixed(4) + ' × ' + (fwd.sig*(1-fwd.sig)).toFixed(4) + ' = <strong style="color:var(--red)">' + bwd.dL_dadd.toFixed(4) + '</strong>.';
+    } else if (fs === 4 && bs === 2) {
+      cap.innerHTML = '<strong style="color:var(--red)">Backward step 3/4:</strong> Add gate distributes equally: ∂L/∂z_mul = ∂L/∂b = <strong style="color:var(--red)">' + bwd.dL_dmul.toFixed(4) + '</strong>. Add gate is a gradient distributor.';
+    } else if (fs === 4 && bs === 3) {
+      cap.innerHTML = '<strong style="color:var(--red)">Backward step 4/4:</strong> Multiply gate: ∂L/∂x₁ = ∂L/∂z_mul × x₂ = ' + bwd.dL_dmul.toFixed(4) + '×' + fwd.x2 + ' = <strong style="color:var(--red)">' + bwd.dL_dx1.toFixed(4) + '</strong>. ∂L/∂x₂ = <strong style="color:var(--red)">' + bwd.dL_dx2.toFixed(4) + '</strong>. Chain rule complete.';
+    }
+  }
+}
+
+// ─── Wire animation ───────────────────────────────────────────────────────────
+const bpCanvas = document.getElementById('bpCanvas');
+const bpAnim   = new BackpropAnimation(bpCanvas);
+
+const bpFwdBtn   = document.getElementById('bpFwdBtn');
+const bpBwdBtn   = document.getElementById('bpBwdBtn');
+const bpRunBtn   = document.getElementById('bpRunBtn');
+const bpResetBtn = document.getElementById('bpResetBtn');
+
+function updateBtnState() {
+  const fwdDone = bpAnim.fwdStep >= 4;
+  bpBwdBtn.disabled = !fwdDone;
+  bpBwdBtn.style.opacity = fwdDone ? '1' : '0.45';
+}
+
+bpFwdBtn.addEventListener('click', () => {
+  bpAnim.stepForward();
+  updateBtnState();
+});
+
+bpBwdBtn.addEventListener('click', () => {
+  bpAnim.stepBackward();
+  updateBtnState();
+});
+
+bpRunBtn.addEventListener('click', () => {
+  bpAnim.runFull();
+  updateBtnState();
+});
+
+bpResetBtn.addEventListener('click', () => {
+  bpAnim.reset();
+  updateBtnState();
+});
+
+// ─── Interactive Playground ────────────────────────────────────────────────────
+function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+
+function updatePlayground() {
+  const x1 = parseFloat(document.getElementById('pgX1').value);
+  const x2 = parseFloat(document.getElementById('pgX2').value);
+  const w1 = parseFloat(document.getElementById('pgW1').value);
+  const w2 = parseFloat(document.getElementById('pgW2').value);
+  const w3 = parseFloat(document.getElementById('pgW3').value);
+  const t  = parseFloat(document.getElementById('pgT').value);
+
+  document.getElementById('pgX1Val').textContent = x1.toFixed(1);
+  document.getElementById('pgX2Val').textContent = x2.toFixed(1);
+  document.getElementById('pgW1Val').textContent = w1.toFixed(2);
+  document.getElementById('pgW2Val').textContent = w2.toFixed(2);
+  document.getElementById('pgW3Val').textContent = w3.toFixed(2);
+  document.getElementById('pgTVal').textContent  = t.toFixed(1);
+
+  // Forward pass
+  const z1   = w1 * x1 + w2 * x2;
+  const a1   = sigmoid(z1);
+  const yhat = w3 * a1;
+  const loss = Math.pow(yhat - t, 2);
+
+  // Backward pass
+  const dL_dyhat = 2 * (yhat - t);
+  const dL_dw3   = dL_dyhat * a1;
+  const dL_da1   = dL_dyhat * w3;
+  const sigGrad  = a1 * (1 - a1);
+  const dL_dz1   = dL_da1 * sigGrad;
+  const dL_dw1   = dL_dz1 * x1;
+  const dL_dw2   = dL_dz1 * x2;
+
+  function fmt(n)  { return n.toFixed(5); }
+  function fmtP(n) {
+    const abs = Math.abs(n);
+    let warn = '';
+    if (abs < 0.0001 && abs > 0) warn = ' <span style="color:var(--text-muted);font-size:0.8em;">(⚠ near-zero — vanishing)</span>';
+    if (abs > 10)                 warn = ' <span style="color:var(--red);font-size:0.8em;">(⚠ large — may explode)</span>';
+    return '<span style="color:var(--blue)">' + fmt(n) + '</span>' + warn;
+  }
+  function fmtG(n) {
+    return '<span style="color:var(--red)">' + fmt(n) + '</span>';
+  }
+
+  document.getElementById('pgOutput').innerHTML = [
+    '<span style="color:var(--text-muted)">— Forward pass —</span>',
+    'z₁ = w₁·x₁ + w₂·x₂  =  ' + fmtP(z1),
+    'a₁ = σ(z₁)           =  ' + fmtP(a1) + '  <span style="color:var(--text-muted);font-size:0.85em;">[σ local grad = ' + fmt(sigGrad) + ']</span>',
+    'ŷ  = w₃·a₁           =  ' + fmtP(yhat),
+    'L  = (ŷ − t)²        =  ' + fmtP(loss),
+    '',
+    '<span style="color:var(--text-muted)">— Backward pass (gradients) —</span>',
+    '∂L/∂ŷ  = 2(ŷ−t)      =  ' + fmtG(dL_dyhat),
+    '∂L/∂w₃ = ∂L/∂ŷ · a₁  =  ' + fmtG(dL_dw3),
+    '∂L/∂a₁ = ∂L/∂ŷ · w₃  =  ' + fmtG(dL_da1),
+    '∂L/∂z₁ = ∂L/∂a₁ · σ′ =  ' + fmtG(dL_dz1),
+    '∂L/∂w₁ = ∂L/∂z₁ · x₁ =  ' + fmtG(dL_dw1),
+    '∂L/∂w₂ = ∂L/∂z₁ · x₂ =  ' + fmtG(dL_dw2),
+  ].join('<br>');
+}
+
+['pgX1','pgX2','pgW1','pgW2','pgW3','pgT'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updatePlayground);
+});
+updatePlayground();
+
+// ─── Quiz ──────────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG   = 'backpropagation';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed          = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card        = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx    = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed     = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+
+// ─── Reading progress bar ──────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct       = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─── Scroll reveal ─────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── TOC active dot ────────────────────────────────────────────────────────────
+const sections   = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots    = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─── Re-render canvas on theme change ─────────────────────────────────────────
+window.onThemeChange(function () {
+  bpAnim._render();
+});
+</script>
+</body>
+</html>

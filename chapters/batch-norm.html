@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch Normalization — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>           <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">In Practice</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span> <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>           <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 2 · Neural Networks</p>
+    <h1>Batch Normalization</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The technique that made training 100-layer networks practical.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-style:normal; font-size:1.05rem; line-height:1.8;">
+      <strong style="color:var(--accent)">Internal Covariate Shift: the problem that made 100-layer networks impossible to train before 2015.</strong><br><br>
+      Before Batch Normalization, deep networks were notoriously unstable. Each layer's inputs shifted in distribution every time the layer below it updated its weights. Training had to crawl with tiny learning rates. Careful weight initialization was fragile. Networks with more than about 20 layers simply wouldn't converge reliably. Then Ioffe and Szegedy published one paper — and training deep networks became almost embarrassingly easy.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Why a stable input distribution speeds up learning</h2>
+    <p class="lead">
+      Imagine training a neural network where each layer must simultaneously learn its own transformation
+      <em>and</em> adapt to the moving target of its inputs — because the layer below is also updating.
+      Batch Normalization breaks this coupling. It standardizes each layer's inputs, giving every layer a
+      stable surface to learn on, regardless of what happened below.
+    </p>
+    <p>
+      The core observation is simple: if you normalize the inputs to a neural network, training speeds up.
+      That principle was already known. Batch Normalization extends it to the <em>internal activations</em>
+      of a deep network — to every layer, not just the first.
+    </p>
+    <p>
+      For a mini-batch of m examples flowing through a particular layer, BN computes the mean and variance
+      of the pre-activation values across the batch, then normalizes them to have zero mean and unit variance.
+      The result: the inputs to each layer's activation function are always centered and scaled to a
+      predictable range — no matter how the weights in earlier layers are evolving.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">covariate shift problem</strong> — the distribution of inputs to each layer changes throughout training as earlier-layer parameters change. BN pins this distribution.</li>
+      <li>A <strong style="color:var(--accent)">stable distribution</strong> means larger learning rates are safe, reducing training time dramatically.</li>
+      <li><strong style="color:var(--accent)">Initialization sensitivity</strong> drops because BN corrects for poorly-scaled initial weights automatically.</li>
+      <li>BN introduces a subtle <strong style="color:var(--accent)">regularization effect</strong> — each sample's normalization depends on other samples in the batch, adding noise that acts like dropout.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three questions worth thinking through</h2>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      After normalizing to zero mean and unit variance, every neuron's output has the same scale.
+      Why might this actually hurt the network? What representational power does normalization destroy —
+      and how does BN recover it?
+    </div>
+
+    <p>
+      Normalization removes the mean and variance that the layer may have learned intentionally.
+      If a sigmoid layer learned to saturate (stay near 1 for most inputs), normalizing destroys that.
+      To recover this power, BN adds two learnable parameters per feature: <strong style="color:var(--accent)">γ (scale)</strong>
+      and <strong style="color:var(--accent)">β (shift)</strong>. After normalization, it applies
+      <code>y = γ·x̂ + β</code>. If the network needs the original distribution back, it can learn γ = σ
+      and β = μ and undo the normalization entirely. The key insight: BN constrains the initial form of
+      the distribution (zero mean, unit variance) while still allowing the network to learn any distribution
+      it needs. It's a parameterized normalization.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      During training, BN normalizes using the mean and variance of the current mini-batch.
+      Why can't it do the same thing at inference time? What changes, and what does BN use instead?
+    </div>
+
+    <p>
+      At inference, you might be predicting on a single example — there's no batch to compute statistics over.
+      Even if you did batch inference, the statistics would change for every batch, making outputs
+      non-deterministic. So during training, BN also accumulates <strong style="color:var(--accent)">running
+      estimates</strong> of the population mean and variance using a moving average. At inference, these
+      fixed statistics are used instead of per-batch statistics. This means BN behaves differently in
+      training mode vs. inference mode — a crucial distinction that every ML framework (PyTorch, TensorFlow)
+      implements as <code>model.train()</code> vs. <code>model.eval()</code>. Forgetting to switch modes
+      is a classic bug that produces suspiciously good training metrics and terrible real-world performance.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      BN is often described as a regularizer — yet it was designed to stabilize training, not prevent
+      overfitting. What property of BN produces a regularization effect as a byproduct?
+    </div>
+
+    <p>
+      When BN normalizes a sample, it uses the mean and variance computed from the <em>entire mini-batch</em>,
+      not just that sample. This means each example's normalized value depends on which other examples happen
+      to be in the same batch. Every time the network sees the same training example, it gets a slightly
+      different normalized representation — because the batch composition changes. This stochasticity
+      acts like a noise injection, similar in spirit to dropout. The effect is strong enough that when using
+      BN, dropout is often unnecessary. Ioffe and Szegedy's original paper notes this as a secondary benefit
+      but it becomes primary in practice: BN lets you reduce or eliminate other regularization.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch normalization happen step by step</h2>
+    <p class="lead">
+      The left panel shows the distribution of pre-activation values for one layer across a mini-batch.
+      The right panel shows four mini-batches: each has a different raw distribution, but after BN they
+      all align. Step through to see <em>exactly</em> what BN does — and what it does differently in
+      training vs. inference mode.
+    </p>
+
+    <div class="animation-wrapper grain" id="bnAnimWrapper">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; align-items:start;">
+        <div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); margin-bottom:0.5rem;">Single layer — one mini-batch</div>
+          <canvas id="bnLeftCanvas" width="320" height="240" style="max-width:100%; display:block; border-radius:4px;"></canvas>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); margin-bottom:0.5rem;">4 mini-batches — before &amp; after BN</div>
+          <canvas id="bnRightCanvas" width="320" height="240" style="max-width:100%; display:block; border-radius:4px;"></canvas>
+        </div>
+      </div>
+      <div class="animation-caption" id="bnCaption">
+        Press [Normalize Step by Step] to begin · μ_batch = —  σ²_batch = —  x̂ = —
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <button class="btn" id="bnStepBtn">Normalize Step by Step</button>
+        <button class="btn secondary" id="bnResetBtn">↺ Reset</button>
+        <button class="btn secondary" id="bnModeBtn">Training Mode</button>
+      </div>
+      <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem; font-style:italic;">
+        Step 1: Slide distribution to mean=0 · Step 2: Scale to std=1 · Step 3: Apply γ/β affine transform
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>BN forward pass — four steps</h2>
+
+    <p class="lead">
+      Batch Normalization is applied to a feature across a mini-batch of m examples.
+      For each feature dimension independently: compute the batch mean, compute the batch variance,
+      normalize, then apply the learnable affine transform.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Batch Normalization Forward Pass</div>
+      <div class="formula">μ_B  =  (1/m) · Σᵢ xᵢ</div>
+      <div class="formula" style="margin-top:0.5rem;">σ²_B  =  (1/m) · Σᵢ (xᵢ − μ_B)²</div>
+      <div class="formula" style="margin-top:0.5rem;">x̂ᵢ  =  (xᵢ − μ_B) / √(σ²_B + ε)</div>
+      <div class="formula" style="margin-top:0.5rem;">yᵢ  =  γ · x̂ᵢ  +  β</div>
+      <div class="symbol-table" style="margin-top:1rem;">
+        <span class="sym">m</span>         <span>mini-batch size — number of examples</span>
+        <span class="sym">μ_B</span>       <span>batch mean — average pre-activation value across the batch</span>
+        <span class="sym">σ²_B</span>      <span>batch variance — spread of the pre-activation values</span>
+        <span class="sym">ε</span>         <span>small constant (e.g. 1e-5) for numerical stability — prevents division by zero</span>
+        <span class="sym">x̂ᵢ</span>       <span>normalized value — zero mean, unit variance (before affine transform)</span>
+        <span class="sym">γ, β</span>      <span>learnable scale and shift — recovered representational power, trained by backprop</span>
+        <span class="sym">yᵢ</span>        <span>BN output — normalized then rescaled; this feeds into the activation function</span>
+      </div>
+    </div>
+
+    <p><strong>Worked example: 4-sample mini-batch through one BN layer.</strong></p>
+    <p style="font-size:0.92rem; color:var(--text-muted);">
+      Pre-activation inputs: x = [2, 4, 6, 8]. Learnable parameters initialized to γ = 1, β = 0.
+    </p>
+
+    <div class="worked-example">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span>
+          <span class="step-text">Compute batch mean: </span>
+          <span class="step-math">μ_B = (2 + 4 + 6 + 8) / 4 = 20 / 4 = 5.0</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span>
+          <span class="step-text">Compute batch variance: </span>
+          <span class="step-math">σ²_B = [(2−5)² + (4−5)² + (6−5)² + (8−5)²] / 4</span>
+        </span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.2rem; align-items:flex-start;">
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text-muted); padding-left:2.5rem;">= [9 + 1 + 1 + 9] / 4 = 20 / 4 = 5.0</span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span>
+          <span class="step-text">Normalize each input (ε ≈ 0): </span>
+          <span class="step-math">x̂ = (x − 5.0) / √5.0 = (x − 5.0) / 2.236</span>
+        </span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.2rem; align-items:flex-start;">
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--blue); padding-left:2.5rem;">x̂ = [−1.342,  −0.447,  +0.447,  +1.342]</span>
+        <span style="font-family:var(--font-mono); font-size:0.82rem; color:var(--text-muted); padding-left:2.5rem;">mean(x̂) = 0.0 · std(x̂) = 1.0 ✓</span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span>
+          <span class="step-text">Apply affine transform (γ=1, β=0 at init): </span>
+          <span class="step-math">y = 1 · x̂ + 0 = x̂</span>
+        </span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">
+          With γ=2, β=1: y = 2·x̂ + 1 = [−1.684, +0.106, +1.894, +3.684]
+        </span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          The affine transform restores representational power. A network that needs outputs near [2,4,6,8]
+          can learn γ ≈ 2.236 and β ≈ 5 — recovering the original distribution exactly.
+          BN constrains only the initial form; it doesn't lock the network into zero mean forever.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">In Practice</p>
+    <h2>ResNets, Transformers, and when BN breaks down</h2>
+    <p class="lead">
+      Batch Normalization powered the deep learning revolution in computer vision — enabling
+      architectures like ResNet (152 layers) that were simply not trainable before.
+      But it has known failure modes, and modern architectures often replace it.
+    </p>
+
+    <p>
+      <strong style="color:var(--white)">ResNets (He et al., 2015).</strong> Batch Normalization is placed
+      after every convolutional layer and before the activation function. The combination of BN + skip
+      connections made 50-, 101-, and 152-layer networks train stably and converge faster than shallower
+      VGG-style networks. BN is why modern CNNs don't need careful hand-tuning of learning rates and
+      initializations — it provides a kind of automatic gradient highway.
+    </p>
+
+    <p>
+      <strong style="color:var(--white)">Transformers use Layer Normalization, not Batch Normalization.</strong>
+      The critical difference: LayerNorm normalizes across the <em>feature dimension</em> for each
+      individual example independently — not across the batch. This means LayerNorm works correctly
+      with a batch size of 1. For language modeling this matters enormously: sequences have variable
+      lengths, and inference is often done on single sentences. BatchNorm's statistics become noisy
+      (and meaningless) at very small batch sizes. LayerNorm's statistics are computed entirely within
+      a single example, so they are always well-defined regardless of batch size.
+    </p>
+
+    <div class="insight-box" style="font-style:normal;">
+      <strong style="color:var(--accent)">BatchNorm vs LayerNorm — the key distinction:</strong><br><br>
+      BatchNorm normalizes across the <strong>batch dimension</strong> (all examples, one feature at a time).
+      It breaks with batch size = 1 and behaves differently between training and inference.<br><br>
+      LayerNorm normalizes across the <strong>feature dimension</strong> (all features of one example at a time).
+      It works identically at any batch size, and training/inference behavior is the same.
+      This is why every modern transformer — GPT, BERT, LLaMA — uses LayerNorm.
+    </div>
+
+    <p>
+      <strong style="color:var(--white)">When BN hurts:</strong> Recurrent networks (RNNs, LSTMs) suffer
+      from BN because sequence lengths vary — the batch statistics at each time step depend on which
+      sequences happen to be the same length in the batch. GroupNorm and InstanceNorm were developed
+      specifically to handle cases where batch statistics are unreliable.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Feel how batch size changes the normalization quality</h2>
+    <p class="lead">
+      The reliability of BN statistics depends on batch size. With very small batches, the per-batch
+      mean and variance are noisy estimates of the true distribution — and BN degrades badly.
+      This is why the community moved to LayerNorm for transformers.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Batch size (m)</span>
+        <input type="range" id="batchSizeSlider" min="2" max="64" step="2" value="16">
+        <span class="control-value" id="batchSizeValue">16</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">True mean (μ)</span>
+        <input type="range" id="trueMeanSlider" min="-5" max="5" step="0.5" value="3">
+        <span class="control-value" id="trueMeanValue">3.0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">True std (σ)</span>
+        <input type="range" id="trueStdSlider" min="0.5" max="5" step="0.25" value="2">
+        <span class="control-value" id="trueStdValue">2.0</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="pgSampleBtn">▶ New Sample</button>
+        <button class="btn secondary" id="pgResetBtn">↺ Reset</button>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="pgCanvas" width="680" height="260" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="pgCaption">
+          Sample a batch and see how close the estimated statistics are to the true ones.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Myths -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs about Batch Normalization</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      BN is one of the most misunderstood techniques in deep learning. These five misconceptions
+      are particularly persistent — and all trace back to not reading the original paper carefully.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① BN forces every layer's output to have mean=0 and std=1.</div>
+        <div class="truth">
+          Only after the normalization step. The affine transform y = γ·x̂ + β immediately undoes this.
+          The network can learn any mean and variance it needs via γ and β. Saying "BN normalizes
+          activations to zero mean" is only half the story — the second half is that it then immediately
+          rescales them with learnable parameters.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② BN works the same way at training time and inference time.</div>
+        <div class="truth">
+          It uses fundamentally different statistics. During training, BN uses the mean and variance
+          of the current mini-batch. During inference, it uses running estimates (moving averages) of
+          the population mean and variance accumulated during training. Forgetting to call
+          <code>model.eval()</code> in PyTorch — or <code>model(training=False)</code> in Keras —
+          is a classic silent bug: the model computes batch statistics on whatever test data comes in,
+          which are wrong, and the outputs become subtly incorrect.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ BN eliminates the need for careful weight initialization.</div>
+        <div class="truth">
+          BN greatly reduces initialization sensitivity — but does not eliminate it. Very poor initialization
+          (e.g., all-zero weights, or extremely large variance) can still cause issues, particularly in
+          the first forward pass before BN has any gradient signal to work with. BN also does not help
+          with <em>symmetry breaking</em> — if all neurons in a layer are initialized identically,
+          BN normalizes them to the same values, perpetuating the symmetry problem.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ Batch size doesn't matter for BN — it just normalizes whatever it gets.</div>
+        <div class="truth">
+          Batch size is critical. With batch size = 1, BN computes mean and variance from a single example,
+          which is meaningless. Even small batches (2–4) produce extremely noisy estimates. This is the
+          primary reason transformers use LayerNorm: language model training often involves batch sizes of 1
+          for inference, and very small effective batch sizes per sequence at training time.
+          GroupNorm and InstanceNorm were designed specifically to work at small batch sizes.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ BN was introduced to fix the vanishing gradient problem.</div>
+        <div class="truth">
+          BN was explicitly designed to fix <em>internal covariate shift</em> — the instability of
+          each layer's input distribution caused by changing weights in earlier layers. Vanishing gradients
+          were a separate, earlier problem addressed by better activation functions (ReLU), skip connections,
+          and initialization schemes like Xavier/He. BN does help gradients flow more cleanly as a
+          byproduct, but conflating the two problems leads to confusion about when each fix applies.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>BN normalizes pre-activations to zero mean and unit variance <em>per feature per mini-batch</em>, then applies a learnable affine transform γ·x̂ + β to recover representational power.</li>
+      <li>γ and β are not fixed — they are trained by backpropagation. The network can learn to completely undo the normalization if needed; BN just constrains the starting point.</li>
+      <li>Training mode uses per-batch statistics; inference mode uses running averages accumulated during training. Forgetting to switch modes is a classic silent bug.</li>
+      <li>BN degrades at small batch sizes because per-batch statistics become noisy. LayerNorm (used in transformers) normalizes across the feature dimension per example — no batch dependency.</li>
+      <li>BN's regularization effect comes from the stochasticity of batch statistics — each example is normalized relative to different batch-mates each epoch, injecting noise that reduces overfitting.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">Part 3 begins here: Convolutional Neural Networks.</strong>
+      Everything so far — gradient descent, backpropagation, activations, weight initialization,
+      batch normalization — was the engine. Now comes the architecture.<br><br>
+      CNNs are the reason deep learning took over computer vision in 2012 and never looked back.
+      The key insight: don't treat an image as a flat vector of pixels. Exploit the spatial structure.
+      Convolve small learnable filters across the image to detect edges, then textures, then shapes,
+      then objects. The same filter works everywhere in the image — a property called weight sharing
+      that makes CNN training tractable where a fully-connected approach would fail.<br><br>
+      That's the next chapter. <a href="cnn.html">Part 3 — Convolutional Neural Networks →</a>
+    </div>
+    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:1rem;">
+      ← Previous: <a href="weight-init.html">Weight Initialization</a> &nbsp;|&nbsp;
+      Next: <a href="cnn.html">Convolutional Neural Networks</a> →
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these primary sources.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Sergey Ioffe &amp; Christian Szegedy (Google, ICML 2015)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            The original paper. Source for: internal covariate shift definition, the BN forward-pass algorithm,
+            training vs. inference distinction, running statistics, γ/β parameters, regularization effect,
+            ResNet results, and recommendations on learning rate and initialization.
+          </span><br>
+          <a href="https://arxiv.org/abs/1502.03167" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1502.03167</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — Chapter 8 (Optimization)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: normalization as an optimization technique, covariate shift framing,
+            BN as implicit regularizer, and placement of BN relative to activation functions.
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Layer Normalization</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Jimmy Ba, Jamie Ryan Kiros &amp; Geoffrey Hinton (2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Source for: LayerNorm definition, the batch-dimension vs. feature-dimension normalization distinction,
+            and why LayerNorm is preferred for recurrent and transformer architectures.
+          </span><br>
+          <a href="https://arxiv.org/abs/1607.06450" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1607.06450</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">After BN normalizes a layer's inputs to zero mean and unit variance, it immediately applies y = γ·x̂ + β. What is the point of this affine transform if we just carefully normalized the inputs?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>To restore representational power.</strong> Normalization removes the mean and variance that the network may have learned intentionally. The affine transform lets the network learn any mean and variance it needs — if the optimal distribution happens to be the original one, it can learn γ = σ_original and β = μ_original to undo the normalization. BN doesn't constrain what distribution the network uses; it only constrains the form before the affine transform. γ and β are trained by backpropagation just like weights.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">You train a model with BN and it achieves 95% validation accuracy. You deploy it, but predictions are subtly wrong. Training and deployment code look identical. What is the most likely cause?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The model is running in training mode instead of inference mode.</strong> In training mode, BN computes statistics from the current input batch. At inference on production data, those batch statistics are computed over whatever requests happen to arrive together — which differ from the training distribution. The fix: call <code>model.eval()</code> in PyTorch (or equivalent) before inference. This switches BN to use the running mean and variance accumulated during training, which are stable population estimates.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">Mini-batch inputs to a BN layer: x = [1, 3, 5, 7]. Compute μ_B, σ²_B, and the normalized values x̂.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>μ_B = 4.0 · σ²_B = 5.0 · x̂ = [−1.342, −0.447, +0.447, +1.342].</strong><br>
+          μ_B = (1+3+5+7)/4 = 16/4 = 4.0.<br>
+          σ²_B = [(1−4)² + (3−4)² + (5−4)² + (7−4)²] / 4 = [9+1+1+9]/4 = 20/4 = 5.0.<br>
+          √σ²_B = √5 ≈ 2.236.<br>
+          x̂ = [(1−4)/2.236, (3−4)/2.236, (5−4)/2.236, (7−4)/2.236] = [−1.342, −0.447, +0.447, +1.342].
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">Transformers use LayerNorm, not BatchNorm. What is the single most important reason for this choice?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>BatchNorm fails at batch size = 1, which is standard at inference time for language models.</strong> BatchNorm normalizes across the batch dimension — with one example, you compute mean and variance of a single number, which is undefined or meaningless. LayerNorm normalizes across the feature dimension within a single example, so it works identically regardless of batch size. Since language model inference is typically done one token sequence at a time, and sequence lengths vary, LayerNorm is the only practical choice.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">BN is described as a regularizer even though it was designed for training stability. What property of BN produces a regularization effect?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Each example is normalized relative to its batch-mates, which changes every epoch.</strong> The normalized value of a training example depends on the mean and variance of the other samples in the same mini-batch. Since batch composition changes each epoch, the same example receives slightly different normalized representations each time. This acts as a noise injection — similar to dropout — that prevents the network from memorizing exact patterns and improves generalization. Ioffe and Szegedy note this allows reducing or eliminating dropout in many architectures.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">BN is typically placed between a linear transformation and an activation function (e.g., Conv → BN → ReLU). Why this order and not Conv → ReLU → BN?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Normalizing before the activation makes the normalization act on the full, symmetric pre-activation distribution.</strong> Before ReLU, the values can be positive or negative, so mean and variance are well-defined and meaningful to normalize. After ReLU, all negative values are zeroed — the distribution is truncated and asymmetric. Normalizing a truncated distribution is less meaningful and can actually hurt because the clipped negatives distort the estimated variance. The original paper places BN on the pre-activation values explicitly for this reason.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">You initialize γ = 0 and β = 0 for all BN layers. What happens on the first forward pass, and why is this a problem?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Every layer outputs exactly zero — the network cannot learn anything.</strong> With γ = 0, the BN output y = γ·x̂ + β = 0·x̂ + 0 = 0 for every input. All activations collapse to zero, gradients vanish, and training stalls immediately. The standard initialization is γ = 1, β = 0 — this makes BN an identity transform initially (output = normalized input), allowing gradients to flow and training to begin normally. γ and β then drift from these starting points as needed.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">A network uses BN throughout. You decide to also add dropout with p=0.5. Is this a good idea? Why or why not?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Usually not — BN's regularization effect already provides implicit dropout-like noise, and combining them often hurts performance.</strong> BN adds stochasticity through batch-dependent normalization statistics. Adding dropout on top adds another source of random noise that interacts poorly: when neurons are randomly zeroed by dropout, the remaining neurons' activations change scale, but BN re-normalizes them — effectively undoing part of what dropout is trying to do. Several empirical studies (including the original ResNet paper) found that BN + no dropout outperforms BN + dropout in image classification.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">Why does BN allow using a significantly higher learning rate than training without it?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>BN keeps gradient magnitudes in a stable range, eliminating the catastrophic gradient explosion or vanishing that would occur with large learning rates in unnormalized networks.</strong> Without BN, a large learning rate in a deep network causes the loss landscape's curvature to vary wildly across layers — some layers need tiny steps, others need large ones, but one learning rate applies everywhere. BN normalizes each layer's input distribution, making the effective learning surface for each layer more uniform. This means a larger global learning rate can be safely applied everywhere simultaneously. Ioffe and Szegedy report that BN allows learning rates 5–10× higher than they otherwise could have used.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  BatchNormAnimation — inline, self-contained
+// ═══════════════════════════════════════════════════════════════
+
+class BatchNormAnimation {
+  constructor(leftCanvas, rightCanvas, captionEl) {
+    this.leftCanvas  = leftCanvas;
+    this.rightCanvas = rightCanvas;
+    this.captionEl   = captionEl;
+    this.lCtx = leftCanvas.getContext('2d');
+    this.rCtx = rightCanvas.getContext('2d');
+
+    // Animation state: 0 = raw, 1 = centered (step1), 2 = scaled (step2), 3 = affine (step3)
+    this.step = 0;
+    this.isTraining = true;
+
+    // Fixed γ and β for demo
+    this.gamma = 1.5;
+    this.beta  = 1.0;
+
+    // Raw distribution: mean=5, std=3
+    this.rawMean = 5;
+    this.rawStd  = 3;
+
+    // 4 mini-batches with different raw distributions
+    this.batches = [
+      { mean: 5.0, std: 3.0, color: '#f0a500' },
+      { mean: 2.5, std: 2.0, color: '#58a6ff' },
+      { mean: 7.0, std: 1.5, color: '#3fb950' },
+      { mean: 4.0, std: 3.5, color: '#f85149' },
+    ];
+
+    // Animating lerp progress [0..1]
+    this._animT = 1;
+    this._prevState = null;
+    this._targetState = null;
+    this._animFrame = null;
+
+    this._render();
+  }
+
+  _getCanvasBg() {
+    return getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+  }
+
+  // Compute display mean/std for left panel based on step + animT
+  _leftStats() {
+    const t = easeInOut(Math.min(this._animT, 1));
+    const rawM = this.rawMean, rawS = this.rawStd;
+
+    if (this.step === 0) return { mean: rawM, std: rawS };
+    if (this.step === 1) {
+      // sliding to mean=0
+      return { mean: lerp(rawM, 0, t), std: rawS };
+    }
+    if (this.step === 2) {
+      // scaling to std=1
+      return { mean: 0, std: lerp(rawS, 1, t) };
+    }
+    if (this.step === 3) {
+      // affine: mean → beta, std → gamma
+      return { mean: lerp(0, this.beta, t), std: lerp(1, this.gamma, t) };
+    }
+    return { mean: rawM, std: rawS };
+  }
+
+  _drawHistogram(ctx, canvas, mean, std, color, label, isNormalized) {
+    const W = canvas.width, H = canvas.height;
+    const bg = this._getCanvasBg();
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const pad = { top: 24, bottom: 36, left: 30, right: 14 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+
+    // x-axis range centered on mean ±4*std, but clamp to reasonable
+    const xMin = Math.min(-4, mean - 4 * std);
+    const xMax = Math.max(4,  mean + 4 * std);
+
+    const xToCanvas = x => pad.left + ((x - xMin) / (xMax - xMin)) * plotW;
+    const yToCanvas = y => pad.top + plotH - y * plotH;
+
+    // Gaussian PDF values
+    const bins = 80;
+    const bw = (xMax - xMin) / bins;
+    let maxPdf = 0;
+    const vals = [];
+    for (let i = 0; i <= bins; i++) {
+      const x = xMin + i * bw;
+      const pdf = Math.exp(-0.5 * ((x - mean) / std) ** 2) / (std * Math.sqrt(2 * Math.PI));
+      vals.push({ x, pdf });
+      if (pdf > maxPdf) maxPdf = pdf;
+    }
+
+    // Fill area under curve
+    ctx.beginPath();
+    ctx.moveTo(xToCanvas(vals[0].x), yToCanvas(0));
+    vals.forEach(v => ctx.lineTo(xToCanvas(v.x), yToCanvas(v.pdf / maxPdf * 0.85)));
+    ctx.lineTo(xToCanvas(vals[vals.length - 1].x), yToCanvas(0));
+    ctx.closePath();
+    ctx.fillStyle = color + '30';
+    ctx.fill();
+
+    // Stroke curve
+    ctx.beginPath();
+    vals.forEach((v, i) => {
+      const cx = xToCanvas(v.x), cy = yToCanvas(v.pdf / maxPdf * 0.85);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Mean line
+    const mx = xToCanvas(mean);
+    ctx.beginPath();
+    ctx.moveTo(mx, pad.top + 2);
+    ctx.lineTo(mx, pad.top + plotH);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Zero line marker (reference)
+    if (!isNormalized) {
+      const zx = xToCanvas(0);
+      if (zx >= pad.left && zx <= W - pad.right) {
+        ctx.beginPath();
+        ctx.moveTo(zx, pad.top);
+        ctx.lineTo(zx, pad.top + plotH);
+        ctx.strokeStyle = '#30363d';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // x-axis
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top + plotH);
+    ctx.lineTo(W - pad.right, pad.top + plotH);
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Axis ticks
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    const tickVals = [-3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    tickVals.forEach(tv => {
+      const tx = xToCanvas(tv);
+      if (tx >= pad.left && tx <= W - pad.right) {
+        ctx.fillText(tv, tx, pad.top + plotH + 14);
+        ctx.beginPath();
+        ctx.moveTo(tx, pad.top + plotH);
+        ctx.lineTo(tx, pad.top + plotH + 4);
+        ctx.strokeStyle = '#30363d';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    });
+
+    // Label
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, pad.left + 2, pad.top + 14);
+  }
+
+  _drawRightPanel() {
+    const canvas = this.rightCanvas;
+    const ctx = this.rCtx;
+    const W = canvas.width, H = canvas.height;
+    const bg = this._getCanvasBg();
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const t = easeInOut(Math.min(this._animT, 1));
+    const pad = { top: 22, bottom: 30, left: 24, right: 10 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+
+    const xMin = -4, xMax = 10;
+    const xToCanvas = x => pad.left + ((x - xMin) / (xMax - xMin)) * plotW;
+    const yToCanvas = y => pad.top + plotH - y * plotH;
+
+    // Title
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    const modeLabel = this.isTraining ? 'TRAINING MODE' : 'INFERENCE MODE';
+    ctx.fillText(modeLabel, pad.left, pad.top - 4);
+
+    // For each batch, draw its curve — raw or normalized based on step
+    this.batches.forEach(batch => {
+      const rawM = batch.mean, rawS = batch.std;
+      let displayM, displayS;
+
+      if (this.step === 0) {
+        displayM = rawM; displayS = rawS;
+      } else if (this.step === 1) {
+        // training: normalize toward 0; inference: use running mean
+        if (this.isTraining) {
+          displayM = lerp(rawM, 0, t);
+        } else {
+          // running mean is average of all batch means
+          const runningMean = this.batches.reduce((s, b) => s + b.mean, 0) / this.batches.length;
+          displayM = lerp(rawM, rawM - runningMean, t);
+        }
+        displayS = rawS;
+      } else if (this.step === 2) {
+        displayM = 0; displayS = lerp(rawS, 1, t);
+      } else {
+        displayM = lerp(0, this.beta, t);
+        displayS = lerp(1, this.gamma, t);
+      }
+
+      const bins = 80;
+      const bw = (xMax - xMin) / bins;
+      let maxPdf = 0;
+      const vals = [];
+      for (let i = 0; i <= bins; i++) {
+        const x = xMin + i * bw;
+        const pdf = Math.exp(-0.5 * ((x - displayM) / displayS) ** 2) / (displayS * Math.sqrt(2 * Math.PI));
+        vals.push({ x, pdf });
+        if (pdf > maxPdf) maxPdf = pdf;
+      }
+      if (maxPdf === 0) return;
+
+      ctx.beginPath();
+      ctx.moveTo(xToCanvas(vals[0].x), yToCanvas(0));
+      vals.forEach(v => ctx.lineTo(xToCanvas(v.x), yToCanvas(v.pdf / maxPdf * 0.78)));
+      ctx.lineTo(xToCanvas(vals[vals.length - 1].x), yToCanvas(0));
+      ctx.closePath();
+      ctx.fillStyle = batch.color + '22';
+      ctx.fill();
+
+      ctx.beginPath();
+      vals.forEach((v, i) => {
+        const cx = xToCanvas(v.x), cy = yToCanvas(v.pdf / maxPdf * 0.78);
+        i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+      });
+      ctx.strokeStyle = batch.color;
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+    });
+
+    // x-axis
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top + plotH);
+    ctx.lineTo(W - pad.right, pad.top + plotH);
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Zero reference
+    const zx = xToCanvas(0);
+    ctx.beginPath();
+    ctx.moveTo(zx, pad.top);
+    ctx.lineTo(zx, pad.top + plotH);
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Ticks
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    [-2, 0, 2, 4, 6, 8].forEach(tv => {
+      const tx = xToCanvas(tv);
+      if (tx >= pad.left && tx <= W - pad.right) {
+        ctx.fillText(tv, tx, pad.top + plotH + 14);
+        ctx.beginPath();
+        ctx.moveTo(tx, pad.top + plotH);
+        ctx.lineTo(tx, pad.top + plotH + 4);
+        ctx.strokeStyle = '#30363d';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    });
+
+    // Legend dots
+    const legendX = pad.left + plotW - 80;
+    const legendY = pad.top + 10;
+    this.batches.forEach((b, i) => {
+      ctx.beginPath();
+      ctx.arc(legendX, legendY + i * 16, 4, 0, Math.PI * 2);
+      ctx.fillStyle = b.color;
+      ctx.fill();
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '9px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`batch ${i + 1}`, legendX + 8, legendY + i * 16 + 3);
+    });
+  }
+
+  _updateCaption() {
+    const { mean, std } = this._leftStats();
+    const mu = mean.toFixed(2);
+    const s2 = (std * std).toFixed(2);
+    const rawSample = ((1 - mean) / std).toFixed(3); // normalized value for x=1
+
+    const labels = [
+      `Raw distribution · μ_batch = ${this.rawMean.toFixed(2)}  σ²_batch = ${(this.rawStd ** 2).toFixed(2)}  x̂ example = —`,
+      `Step 1: Centering · μ_batch = ${mu}  (sliding toward 0)`,
+      `Step 2: Scaling · σ²_batch = ${s2}  std → 1.0`,
+      `Step 3: Affine transform · γ=${this.gamma.toFixed(1)}  β=${this.beta.toFixed(1)}  →  y = γ·x̂ + β`,
+    ];
+    this.captionEl.textContent = labels[this.step] || labels[0];
+  }
+
+  _animate() {
+    if (this._animFrame) return;
+    const startTime = performance.now();
+    const dur = 800;
+
+    const frame = (now) => {
+      this._animT = Math.min((now - startTime) / dur, 1);
+      this._render();
+      if (this._animT < 1) {
+        this._animFrame = requestAnimationFrame(frame);
+      } else {
+        this._animT = 1;
+        this._animFrame = null;
+        this._render();
+      }
+    };
+    this._animFrame = requestAnimationFrame(frame);
+  }
+
+  nextStep() {
+    if (this._animFrame) return; // wait for current anim to finish
+    this.step = (this.step + 1) % 4;
+    this._animT = 0;
+    this._animate();
+    this._updateCaption();
+  }
+
+  reset() {
+    if (this._animFrame) {
+      cancelAnimationFrame(this._animFrame);
+      this._animFrame = null;
+    }
+    this.step = 0;
+    this._animT = 1;
+    this._render();
+    this._updateCaption();
+  }
+
+  toggleMode() {
+    this.isTraining = !this.isTraining;
+    this._render();
+    this._updateCaption();
+    return this.isTraining;
+  }
+
+  _render() {
+    const { mean, std } = this._leftStats();
+    const stepLabels = ['Raw Input', 'Step 1: Centered', 'Step 2: Unit Variance', 'Step 3: Affine'];
+    this._drawHistogram(
+      this.lCtx, this.leftCanvas,
+      mean, std,
+      '#f0a500',
+      stepLabels[this.step],
+      this.step > 0
+    );
+    this._drawRightPanel();
+    this._updateCaption();
+  }
+}
+
+// ── Playground: batch size effect ─────────────────────────────
+
+class BatchSizePlayground {
+  constructor(canvas, captionEl) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.captionEl = captionEl;
+    this.batchSize = 16;
+    this.trueMean = 3;
+    this.trueStd = 2;
+    this._render();
+  }
+
+  _getCanvasBg() {
+    return getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+  }
+
+  sample() {
+    // Sample batchSize values from N(trueMean, trueStd)
+    const samples = [];
+    for (let i = 0; i < this.batchSize; i++) {
+      // Box-Muller
+      const u1 = Math.random(), u2 = Math.random();
+      const z = Math.sqrt(-2 * Math.log(u1 + 1e-10)) * Math.cos(2 * Math.PI * u2);
+      samples.push(this.trueMean + this.trueStd * z);
+    }
+    const estMean = samples.reduce((s, x) => s + x, 0) / samples.length;
+    const estVar  = samples.reduce((s, x) => s + (x - estMean) ** 2, 0) / samples.length;
+    this._samples   = samples;
+    this._estMean   = estMean;
+    this._estStd    = Math.sqrt(estVar);
+    this._render();
+  }
+
+  reset() {
+    this._samples = null;
+    this._estMean = null;
+    this._estStd  = null;
+    this._render();
+  }
+
+  _render() {
+    const canvas = this.canvas;
+    const ctx = this.ctx;
+    const W = canvas.width, H = canvas.height;
+    const bg = this._getCanvasBg();
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const pad = { top: 28, bottom: 40, left: 36, right: 20 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+
+    const xMin = this.trueMean - 4 * this.trueStd;
+    const xMax = this.trueMean + 4 * this.trueStd;
+    const xToCanvas = x => pad.left + ((x - xMin) / (xMax - xMin)) * plotW;
+    const yToCanvas = y => pad.top + plotH - y * plotH;
+
+    // True distribution (orange)
+    const bins = 100;
+    const bw = (xMax - xMin) / bins;
+    let trueMaxPdf = 0;
+    const trueVals = [];
+    for (let i = 0; i <= bins; i++) {
+      const x = xMin + i * bw;
+      const pdf = Math.exp(-0.5 * ((x - this.trueMean) / this.trueStd) ** 2) / (this.trueStd * Math.sqrt(2 * Math.PI));
+      trueVals.push({ x, pdf });
+      if (pdf > trueMaxPdf) trueMaxPdf = pdf;
+    }
+
+    ctx.beginPath();
+    trueVals.forEach((v, i) => {
+      const cx = xToCanvas(v.x), cy = yToCanvas(v.pdf / trueMaxPdf * 0.82);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    });
+    ctx.strokeStyle = '#f0a500';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Estimated distribution (blue, if sampled)
+    if (this._estMean !== null) {
+      const estVals = [];
+      for (let i = 0; i <= bins; i++) {
+        const x = xMin + i * bw;
+        const pdf = Math.exp(-0.5 * ((x - this._estMean) / (this._estStd || 0.01)) ** 2) / ((this._estStd || 0.01) * Math.sqrt(2 * Math.PI));
+        estVals.push({ x, pdf });
+      }
+
+      ctx.beginPath();
+      estVals.forEach((v, i) => {
+        const cx = xToCanvas(v.x), cy = yToCanvas(v.pdf / trueMaxPdf * 0.82);
+        i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+      });
+      ctx.strokeStyle = '#58a6ff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Sample dots
+      this._samples.forEach(s => {
+        const sx = xToCanvas(s);
+        if (sx < pad.left || sx > W - pad.right) return;
+        ctx.beginPath();
+        ctx.arc(sx, pad.top + plotH + 6, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#58a6ff55';
+        ctx.fill();
+      });
+    }
+
+    // Axes
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top + plotH);
+    ctx.lineTo(W - pad.right, pad.top + plotH);
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Ticks
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    for (let tv = Math.ceil(xMin); tv <= Math.floor(xMax); tv++) {
+      const tx = xToCanvas(tv);
+      if (tx >= pad.left && tx <= W - pad.right) {
+        ctx.fillText(tv, tx, pad.top + plotH + 16);
+        ctx.beginPath();
+        ctx.moveTo(tx, pad.top + plotH);
+        ctx.lineTo(tx, pad.top + plotH + 4);
+        ctx.strokeStyle = '#30363d';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // Legend
+    const lx = pad.left + 6;
+    const ly = pad.top + 12;
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 22, ly);
+    ctx.strokeStyle = '#f0a500'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#8b949e'; ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'left'; ctx.fillText(`true μ=${this.trueMean.toFixed(1)} σ=${this.trueStd.toFixed(1)}`, lx + 26, ly + 4);
+
+    if (this._estMean !== null) {
+      ctx.beginPath(); ctx.moveTo(lx, ly + 16); ctx.lineTo(lx + 22, ly + 16);
+      ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]); ctx.stroke(); ctx.setLineDash([]);
+      const errM = Math.abs(this._estMean - this.trueMean).toFixed(3);
+      const errS = Math.abs(this._estStd - this.trueStd).toFixed(3);
+      ctx.fillStyle = '#8b949e'; ctx.font = '10px JetBrains Mono, monospace';
+      ctx.fillText(`est  μ=${this._estMean.toFixed(2)} σ=${this._estStd.toFixed(2)}`, lx + 26, ly + 20);
+
+      // Update caption
+      const quality = this.batchSize >= 32 ? 'Good estimate' : this.batchSize >= 8 ? 'Noisy estimate' : 'Very noisy — BN degrades here';
+      this.captionEl.textContent = `m=${this.batchSize} · |μ error|=${errM}  |σ error|=${errS} · ${quality}`;
+    } else {
+      ctx.fillStyle = '#8b949e'; ctx.font = '10px JetBrains Mono, monospace';
+      ctx.fillText('Press [New Sample] to draw a batch and estimate statistics.', W / 2, pad.top + plotH / 2);
+      ctx.textAlign = 'left';
+      this.captionEl.textContent = 'Sample a batch and see how close the estimated statistics are to the true ones.';
+    }
+  }
+}
+
+// ── Wire up BN animation ───────────────────────────────────────
+const bnLeftCanvas  = document.getElementById('bnLeftCanvas');
+const bnRightCanvas = document.getElementById('bnRightCanvas');
+const bnCaption     = document.getElementById('bnCaption');
+const bnAnim = new BatchNormAnimation(bnLeftCanvas, bnRightCanvas, bnCaption);
+
+document.getElementById('bnStepBtn').addEventListener('click', () => bnAnim.nextStep());
+document.getElementById('bnResetBtn').addEventListener('click', () => bnAnim.reset());
+document.getElementById('bnModeBtn').addEventListener('click', () => {
+  const isTraining = bnAnim.toggleMode();
+  document.getElementById('bnModeBtn').textContent = isTraining ? 'Training Mode' : 'Inference Mode';
+});
+
+// ── Wire up playground ─────────────────────────────────────────
+const pgCanvas  = document.getElementById('pgCanvas');
+const pgCaption = document.getElementById('pgCaption');
+const pgAnim = new BatchSizePlayground(pgCanvas, pgCaption);
+
+const batchSizeSlider = document.getElementById('batchSizeSlider');
+const batchSizeValue  = document.getElementById('batchSizeValue');
+const trueMeanSlider  = document.getElementById('trueMeanSlider');
+const trueMeanValue   = document.getElementById('trueMeanValue');
+const trueStdSlider   = document.getElementById('trueStdSlider');
+const trueStdValue    = document.getElementById('trueStdValue');
+
+batchSizeSlider.addEventListener('input', () => {
+  const v = parseInt(batchSizeSlider.value, 10);
+  batchSizeValue.textContent = v;
+  pgAnim.batchSize = v;
+  pgAnim.reset();
+});
+
+trueMeanSlider.addEventListener('input', () => {
+  const v = parseFloat(trueMeanSlider.value);
+  trueMeanValue.textContent = v.toFixed(1);
+  pgAnim.trueMean = v;
+  pgAnim.reset();
+});
+
+trueStdSlider.addEventListener('input', () => {
+  const v = parseFloat(trueStdSlider.value);
+  trueStdValue.textContent = v.toFixed(1);
+  pgAnim.trueStd = v;
+  pgAnim.reset();
+});
+
+document.getElementById('pgSampleBtn').addEventListener('click', () => pgAnim.sample());
+document.getElementById('pgResetBtn').addEventListener('click',  () => pgAnim.reset());
+
+// ── Quiz ───────────────────────────────────────────────────────
+const CHAPTER_SLUG = 'batch-norm';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / 9 revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / 9 revealed`;
+
+// ── Reading progress bar ───────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ── Scroll reveal ──────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ── TOC active dot ─────────────────────────────────────────────
+const sections  = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots   = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ── Theme change — redraw canvases ─────────────────────────────
+window.onThemeChange(function () {
+  bnAnim._render();
+  pgAnim._render();
+});
+</script>
+<script src="../motivation.js"></script>
+</body>
+</html>

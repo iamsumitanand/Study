@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logistic Regression — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>           <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span> <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>           <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb">
+      <a href="../index.html">← Back to curriculum</a>
+    </div>
+    <p class="section-label">Part 1 · Basic Machine Learning</p>
+    <h1>Logistic Regression</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The algorithm that turns a line into a probability — and a probability into a decision.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-style:normal; font-size:1.05rem; line-height:1.8;">
+      Linear regression can predict a house price or a temperature. But what happens when you ask it: <strong style="color:var(--accent)">is this email spam?</strong> It will happily output 1.7. Or −0.4. Numbers that mean nothing as a yes/no answer — and nothing as a probability either. The core problem is that linear models produce <em>unbounded</em> outputs, but yes/no questions need outputs pinned between 0 and 1. <strong style="color:var(--accent)">Logistic regression</strong> solves exactly this: it wraps a linear model inside a function that squashes any real number into a probability, then draws a sharp decision boundary. It's the foundational algorithm for binary classification — and the direct conceptual parent of the output layer of every neural network.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>The sigmoid: a probability squasher</h2>
+    <p class="lead">
+      The sigmoid function takes any real number — from −∞ to +∞ — and maps it to a value strictly between 0 and 1. Feed it a very large positive number and you get something near 1. Feed it a very large negative number and you get something near 0. Feed it zero and you get exactly 0.5. It is, in the most literal sense, a <em>probability squasher</em>.
+    </p>
+    <p>
+      Here is what makes this useful for classification. Your linear model computes a raw score: <code>z = w₁x₁ + w₂x₂ + … + b</code>. That score can be anything. But once you pass it through the sigmoid — written σ(z) — the output becomes a well-behaved probability. σ(z) &gt; 0.5 means the model leans toward class 1. σ(z) &lt; 0.5 means it leans toward class 0. The decision boundary is exactly where z = 0.
+    </p>
+    <p>
+      The sigmoid is smooth everywhere. Its gradient is never zero away from the extremes. This is critical: it means gradient descent can always find a direction to improve. A hard threshold (output 0 below 0.5, output 1 above) has zero gradient everywhere — gradient descent would be useless. The sigmoid is the continuous, differentiable approximation that makes learning possible.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">linear score z</strong> can be any real number — positive means "looks like class 1," negative means "looks like class 0."</li>
+      <li>The <strong style="color:var(--accent)">sigmoid σ(z)</strong> converts z into a probability between 0 and 1.</li>
+      <li>The <strong style="color:var(--accent)">decision boundary</strong> is the line (or hyperplane) where σ(z) = 0.5, i.e., where z = 0.</li>
+      <li>The <strong style="color:var(--accent)">loss function</strong> (cross-entropy) penalizes confident wrong predictions enormously — far more than linear loss would.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three questions most explanations skip</h2>
+
+    <p class="lead">
+      Logistic regression is often presented as a recipe: take linear model, apply sigmoid, minimize cross-entropy. But the real understanding comes from asking <em>why</em> each ingredient is necessary — and what goes wrong without it.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why can't you just apply a threshold to linear regression? Output 1 if the prediction exceeds 0.5, output 0 otherwise? It's simpler. What specifically goes wrong?
+    </div>
+
+    <p>
+      Two things go wrong. First, the output is no longer differentiable — it jumps from 0 to 1 with a gradient of zero everywhere except the threshold, making gradient descent blind. The model would have no signal about how to improve. Second, even if you somehow trained it, the <em>probabilities</em> are meaningless. Linear regression can output 1.7 for a point that should be class 1, and −0.2 for one that should be class 0. After thresholding these are both technically "correct" predictions, but the model has no incentive to push the outputs toward actual probabilities. You lose calibration: the number 0.7 should mean "70% chance of class 1." A thresholded linear model gives you no such guarantee.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Cross-entropy loss penalizes a prediction of 0.01 for a true-label-1 example far more severely than a prediction of 0.49. Mean squared error would give them similar penalties. Why does this asymmetry matter?
+    </div>
+
+    <p>
+      Because wrong and <em>confident</em> is catastrophically worse than wrong and <em>uncertain</em>. If your spam filter outputs 0.49 for a spam email, it's borderline — understandable. If it outputs 0.01, it is actively asserting "I am 99% certain this is not spam." That is a serious failure of a different kind. Cross-entropy's log penalty grows to infinity as the predicted probability approaches 0 for a true-positive case. The model is punished without limit for confident mistakes. This is exactly the right behavior for probabilistic classifiers: hedging uncertainty is always safe; false certainty is not.
+    </p>
+    <p>
+      Mathematically: for a true label y = 1, the loss is −log(ŷ). If ŷ = 0.99, loss ≈ 0.01. If ŷ = 0.5, loss ≈ 0.69. If ŷ = 0.01, loss ≈ 4.6. The penalty grows exponentially as the model becomes confidently wrong. MSE would give losses of 0.0001, 0.25, and 0.9801 respectively — a much gentler and informationally weaker signal.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      "Logistic regression" contains the word "regression" yet it is used for <em>classification</em>. This confuses almost everyone. What is actually being "regressed" here?
+    </div>
+
+    <p>
+      The probability. Logistic regression is, literally, regression on a probability. The model regresses the linear score z to the probability P(y=1 | x) via the sigmoid function. The name predates the modern use of "classification" as a distinct task category — the technique was developed in statistics in the 1950s where "regression" meant fitting a curve to data. The <em>logistic</em> in the name refers to the logistic function, which is an older name for the sigmoid. So the name is historically accurate: it is a regression that uses the logistic function. The output just happens to be a probability, which makes it ideal for classification.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. The Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch the decision boundary find the classes</h2>
+    <p class="lead">
+      Two classes of points — blue circles and red circles — scattered in 2D space. The vertical line is the <strong style="color:var(--accent)">decision boundary</strong> (where σ(z) = 0.5). The inset panel in the corner shows the sigmoid curve with the current threshold. Watch the boundary animate as gradient descent minimizes cross-entropy loss, and the sigmoid inset update in real time.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Solid points are correctly classified. Hollow/faded points are currently misclassified. Adjust the learning rate and press <strong>Run</strong>.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="lrCanvas" width="720" height="340" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="lrCaption">
+        Decision boundary animates via gradient descent · Inset: sigmoid curve with threshold
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">Learning rate (α)</span>
+        <input type="range" id="lrSlider" min="0.05" max="2.0" step="0.05" value="0.5">
+        <span class="control-value" id="lrValue">0.50</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="runBtn">▶ Run</button>
+        <button class="btn secondary" id="resetBtn">↺ Reset</button>
+        <span style="font-size:0.85rem; color:var(--text-muted); margin-left:0.5rem;" id="lrLossDisplay"></span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Three formulas — and what they mean</h2>
+
+    <p class="lead">
+      Every logistic regression derivation uses the same three building blocks: the sigmoid, the log-likelihood, and the gradient update. Understand each one in isolation first, then watch them lock together.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">The Sigmoid Function</div>
+      <div class="formula">σ(z)  =  1 / (1 + e^{−z})</div>
+      <div class="symbol-table">
+        <span class="sym">z</span>       <span>the linear score: z = w·x + b — can be any real number</span>
+        <span class="sym">σ(z)</span>    <span>the predicted probability P(y=1 | x) — always in (0, 1)</span>
+        <span class="sym">e^{−z}</span>  <span>grows large when z is very negative, driving σ(z) → 0</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Log-Likelihood (Cross-Entropy Loss)</div>
+      <div class="formula">L  =  −(1/n) · Σ [ y · log(σ(z)) + (1−y) · log(1−σ(z)) ]</div>
+      <div class="symbol-table">
+        <span class="sym">y</span>       <span>true label for this example: 0 or 1</span>
+        <span class="sym">σ(z)</span>    <span>model's predicted probability</span>
+        <span class="sym">y=1</span>     <span>only the first term survives: penalize −log(σ(z)), grows ∞ as σ(z)→0</span>
+        <span class="sym">y=0</span>     <span>only the second term survives: penalize −log(1−σ(z)), grows ∞ as σ(z)→1</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Gradient Update (one weight w_j)</div>
+      <div class="formula">w_j  :=  w_j  −  α · (1/n) · Σ (σ(z_i) − y_i) · x_{ij}</div>
+      <div class="symbol-table">
+        <span class="sym">σ(z_i) − y_i</span>  <span>prediction error on example i — exactly as in linear regression</span>
+        <span class="sym">x_{ij}</span>         <span>the j-th feature of example i — how much this feature contributed to the error</span>
+        <span class="sym">α</span>              <span>learning rate — how far to step each update</span>
+      </div>
+    </div>
+
+    <p>
+      The gradient update form is remarkable: it is <em>identical in structure</em> to linear regression's update rule. The sigmoid disappears in the gradient — it was absorbed during differentiation of the log-likelihood. This is not a coincidence: the cross-entropy loss was chosen <em>precisely because</em> its gradient with respect to the sigmoid has this clean form. The sigmoid and the log-loss are conjugate pairs.
+    </p>
+
+    <p><strong>Four steps — spam/not-spam with real numbers:</strong></p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.75rem;">
+        <span class="step-num" style="color:var(--text-muted);"></span>
+        <span style="font-size:0.82rem; font-family:var(--font-mono); color:var(--text-muted);">
+          Setup: classify emails as spam (y=1) or not (y=0). Features: x₁ = word count / 100, x₂ = exclamation count. Initial w = [0.5, 0.3], b = −0.2, α = 0.5. Example email: 3 exclamations, 250 words → x = [2.5, 3.0], true label y = 1 (spam).
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">1</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          <strong style="color:var(--accent)">Compute linear score z</strong>&nbsp;&nbsp;
+          <span class="step-math">z = 0.5 × 2.5 + 0.3 × 3.0 + (−0.2) = 1.25 + 0.90 − 0.20 = 1.95</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          <strong style="color:var(--accent)">Apply sigmoid</strong>&nbsp;&nbsp;
+          <span class="step-math">σ(1.95) = 1 / (1 + e^{−1.95}) ≈ 1 / (1 + 0.142) ≈ 0.875</span>
+          &nbsp;<span style="color:var(--text-muted)">→ model says 87.5% chance spam</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          <strong style="color:var(--accent)">Compute loss</strong>&nbsp;&nbsp;
+          <span class="step-math">L = −log(0.875) ≈ 0.134</span>
+          &nbsp;<span style="color:var(--text-muted)">→ small, prediction was confident and correct</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          <strong style="color:var(--accent)">Update weights</strong>&nbsp;&nbsp;
+          <span class="step-math">error = σ(z) − y = 0.875 − 1.0 = −0.125</span><br>
+          <span style="display:inline-block; padding-left:1.5rem;" class="step-math">Δw₁ = −0.5 × (−0.125) × 2.5 = +0.156 &nbsp;→&nbsp; w₁ = 0.656</span><br>
+          <span style="display:inline-block; padding-left:1.5rem;" class="step-math">Δw₂ = −0.5 × (−0.125) × 3.0 = +0.188 &nbsp;→&nbsp; w₂ = 0.488</span>
+        </span>
+      </div>
+      <div class="step" style="margin-top:0; flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">Both weights increased — they will push z even higher for high-exclamation, long emails.</span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          The update direction is identical to linear regression: error × feature. The sigmoid already did its job in step 2.
+          The gradient of cross-entropy through sigmoid simplifies to (σ(z) − y) · x — the sigmoid cancels out in the derivative.
+          This clean form is the mathematical reason logistic regression is trainable.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real Problem Bridge -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Toy to Real</p>
+    <h2>Email spam detection: from 2 features to 10,000</h2>
+    <p class="lead">
+      The toy example above used two features. Real spam detection uses 10,000 or more — one per word in the vocabulary (a "bag of words" model). Each feature is the count of how many times that word appears in the email.
+    </p>
+    <p>
+      The structure of logistic regression doesn't change. The linear score is still z = w·x + b — now w is a 10,000-dimensional vector. The sigmoid still squashes z to a probability. Cross-entropy is still the loss. Gradient descent still runs the same update rule.
+    </p>
+    <p>
+      What does change: the decision boundary. In 2D it was a line. In 10,000D it is a <em>hyperplane</em> — a flat 9,999-dimensional surface cutting through feature space. Every point on one side is classified as spam; every point on the other side is not-spam. Logistic regression is still a <strong style="color:var(--accent)">linear classifier</strong> — its decision boundary is always a flat surface, regardless of dimensionality.
+    </p>
+    <div class="insight-box" style="font-style:normal;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">Why linear classification still works at 10,000 dimensions</strong>
+      At first glance it seems too simple — a hyperplane deciding spam vs. not-spam? But consider: in 10,000 dimensions, the word "viagra" has its own axis, "congratulations" has its own axis, "invoice" has its own axis. The hyperplane can weight each word independently. The combination of thousands of independently-weighted signals creates a surprisingly powerful separator. Logistic regression with bag-of-words features was the state of the art for spam detection well into the 2010s, and still outperforms neural networks on small datasets due to its simplicity and resistance to overfitting.
+    </div>
+    <p>
+      The key limitation: logistic regression cannot learn interactions between features. It cannot discover "free + winner" is spammier than either word alone (unless you manually add a "free_winner" feature). That's what neural networks learn to do — and exactly why the next chapter introduces decision trees, which can split on feature interactions explicitly.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Move the decision boundary by hand</h2>
+    <p class="lead">
+      Adjust the weight and bias to see how the sigmoid probability and decision boundary shift.
+      A high weight makes the sigmoid steep — a sharp, confident transition.
+      A weight near zero makes it flat — the model is uncertain about everything.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Weight w</span>
+        <input type="range" id="pgWeight" min="-5" max="5" step="0.1" value="2.0">
+        <span class="control-value" id="pgWeightVal">2.0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Bias b</span>
+        <input type="range" id="pgBias" min="-5" max="5" step="0.1" value="0.0">
+        <span class="control-value" id="pgBiasVal">0.0</span>
+      </div>
+      <div class="control-row">
+        <span style="font-size:0.88rem; color:var(--text-muted);">
+          Decision boundary at x = <span id="pgBoundary" style="color:var(--accent); font-family:var(--font-mono);">0.00</span>
+          &nbsp;·&nbsp; σ(0) = <span id="pgSigAt0" style="color:var(--blue); font-family:var(--font-mono);">0.500</span>
+        </span>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="pgCanvas" width="720" height="260" style="max-width:100%;"></canvas>
+        <div class="animation-caption">
+          Sigmoid curve — the S-shaped probability function. Decision threshold at σ(z) = 0.5 (where z = 0).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs — and the chain that connects them</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't five random mistakes. Each one flows from the previous. Follow the chain and they all become impossible to forget.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① Logistic regression outputs the predicted class label.</div>
+        <div class="truth">
+          It outputs a <em>probability</em> — a number between 0 and 1. The class label is obtained by applying a threshold (default: 0.5), but the model itself never produces a hard 0 or 1. This distinction matters enormously: you can tune the threshold based on the cost of false positives vs. false negatives, which a hard-label model makes impossible.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② So the 0.5 threshold is always the right one to use.</div>
+        <div class="truth">
+          Only if false positives and false negatives have equal cost. In medical diagnosis, missing a cancer (false negative) is far more costly than a false alarm (false positive) — use a lower threshold like 0.2. In spam detection, filtering a legitimate email (false positive) may be more annoying than letting spam through — use 0.7. The optimal threshold is a business decision, not a mathematical one.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Then surely logistic regression can't handle nonlinear class boundaries.</div>
+        <div class="truth">
+          The model's decision boundary in the <em>original feature space</em> is always linear. But you can <em>engineer</em> nonlinear features — x², x·y, log(x), sin(x) — and pass them in as inputs. Logistic regression will draw a linear boundary in this transformed space, which corresponds to a curved boundary in the original space. Neural networks learn these feature transformations automatically; logistic regression requires you to choose them manually.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ So neural networks have made logistic regression obsolete.</div>
+        <div class="truth">
+          Logistic regression is the <em>output layer</em> of every neural network trained for binary classification. The final layer applies a sigmoid to the learned representation and minimizes cross-entropy — that is literally logistic regression applied to neural features. Understanding logistic regression is understanding what the network is doing in its final step. More practically: on tabular data, logistic regression is fast, interpretable, and often competitive with neural networks.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ At least cross-entropy and log-loss are different things worth distinguishing.</div>
+        <div class="truth">
+          They are the same thing for binary classification, just named from different traditions. "Log-loss" comes from Kaggle/ML engineering culture and refers to the average cross-entropy per example. "Cross-entropy loss" comes from information theory. "Negative log-likelihood" comes from statistics. All three compute −[y·log(ŷ) + (1−y)·log(1−ŷ)]. The conceptual chain (① → ⑤) ends here: hard labels → thresholds → nonlinearity → neural nets → loss functions. They form one coherent story.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>The sigmoid σ(z) = 1/(1+e^{−z}) squashes any real number to (0,1). It is the bridge between linear scores and probabilities. The decision boundary is always where z = 0.</li>
+      <li>Cross-entropy loss = −[y·log(ŷ) + (1−y)·log(1−ŷ)]. It penalizes confident wrong predictions with unbounded severity. Mean squared error would give far weaker learning signal for classification.</li>
+      <li>The gradient update reduces to (σ(z) − y)·x — identical in form to linear regression. The sigmoid and log-loss are mathematically conjugate: the sigmoid cancels out when you differentiate the loss.</li>
+      <li>Logistic regression is a <em>linear</em> classifier. Its decision boundary is always a hyperplane. It cannot learn feature interactions without manual feature engineering — that's what neural networks and decision trees do.</li>
+      <li>The output layer of every binary classification neural network is logistic regression. The model learns a good feature representation; logistic regression draws the final boundary. It is not obsolete — it is foundational.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One limitation this chapter reveals:</strong>
+      Logistic regression draws a flat decision boundary — always a hyperplane. Real-world data is often not linearly separable. You need a model that can ask "is x₁ large AND x₂ small?" — a conditional split, not a weighted sum. A model that can recursively partition the feature space into regions, each making its own local prediction. That's a decision tree. And a forest of decision trees — each trained on a random subset of the data and features — is one of the most powerful practical ML algorithms in existence for tabular data.<br><br>
+      That's the next chapter: <a href="decision-trees.html">Decision Trees &amp; Random Forests →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Dive into Deep Learning — §4.1 Softmax Regression</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Zhang, Lipton, Li, Smola (2023)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: cross-entropy loss derivation, maximum likelihood interpretation, gradient of softmax/sigmoid,
+            decision boundary as argmax of linear scores, connection to information theory.
+          </span><br>
+          <a href="https://d2l.ai/chapter_linear-classification/softmax-regression.html" style="font-family:var(--font-mono); font-size:0.8rem;">d2l.ai</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">CS231n — Linear Classification</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Li, Karpathy et al., Stanford University</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: score function f(x,W,b) = Wx+b, softmax as probabilistic interpretation,
+            cross-entropy loss as negative log-likelihood, contrast with SVM hinge loss,
+            calibrated probability outputs.
+          </span><br>
+          <a href="https://cs231n.github.io/linear-classify/" style="font-family:var(--font-mono); font-size:0.8rem;">cs231n.github.io</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- 10. Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>10 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 10 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">What does σ(0) equal, and what does that tell you about the decision boundary?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>σ(0) = 0.5.</strong> Plugging z = 0 into 1/(1+e^{−z}) gives 1/(1+1) = 0.5. The decision boundary is exactly the set of points where the linear score z = w·x + b equals zero. On one side, z &gt; 0 and the model outputs probability &gt; 0.5 (predicts class 1). On the other side, z &lt; 0 and the model predicts class 0. The decision boundary is the hyperplane z = 0 — a line in 2D, a plane in 3D, a hyperplane in higher dimensions.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">Your model predicts 0.02 for a true-label-1 example. Calculate the cross-entropy loss and explain why it is so high.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Loss = −log(0.02) ≈ 3.91.</strong> The formula for y=1 is −log(ŷ). log(0.02) ≈ −3.91, so the loss is 3.91. This is extremely high because the model is confidently wrong — it assigned only 2% probability to the correct class. Cross-entropy's log penalty grows without bound as the prediction approaches 0 for a true positive, precisely to punish confident mistakes. Compare: if the model had predicted 0.5, loss = −log(0.5) ≈ 0.69. Confident errors cost orders of magnitude more than uncertain ones.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">The gradient update for logistic regression looks like (σ(z_i) − y_i) · x_ij. Why is the sigmoid not present in this expression, even though the model uses a sigmoid?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The sigmoid cancels algebraically when you differentiate cross-entropy.</strong> When you take ∂L/∂w_j through the chain rule — differentiating the log-likelihood through the sigmoid — the derivative of the sigmoid (σ(z)(1−σ(z))) appears in the numerator, and the same term appears from the log in the denominator. They cancel exactly, leaving just (σ(z) − y) · x. This clean cancellation is why the sigmoid and cross-entropy are called a "conjugate pair" — they were designed to work together. Using sigmoid with MSE, for example, does not produce this clean gradient.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">You're building a cancer detection classifier. The dataset has 95% negative samples and 5% positive (cancer) cases. Why is accuracy a bad metric, and what would you use instead?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>A model that predicts "no cancer" for every patient achieves 95% accuracy while completely failing at its job.</strong> With a 95/5 split, accuracy rewards the trivial "always negative" strategy. Better metrics: <strong>AUC-ROC</strong> (measures discrimination across all thresholds), <strong>precision-recall AUC</strong> (better for rare positives), or direct reporting of sensitivity (true positive rate) and specificity (true negative rate). For this application you'd also deliberately set the classification threshold well below 0.5 — missing a cancer is far more costly than a false alarm, so you'd accept many false positives to avoid false negatives.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">A friend says "logistic regression is just linear regression with a sigmoid on top." Is this accurate? What does it miss?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Partially accurate, but misses the loss function — which is the crucial difference.</strong> The model architecture is: linear score → sigmoid → probability. That part is correct. But if you keep linear regression's MSE loss, you get a non-convex loss surface with many bad local minima, and poor probability calibration. Logistic regression replaces MSE with cross-entropy (negative log-likelihood), which: (1) makes the optimization convex — gradient descent is guaranteed to find the global minimum, (2) produces proper probability calibration, and (3) gives the clean gradient that makes training stable. The sigmoid + cross-entropy combination is what makes logistic regression work as a classifier, not just as a modified regressor.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">You train logistic regression on a 2D dataset where the classes form two concentric circles (inner circle = class 0, outer ring = class 1). The model fails completely. Why, and what's the simplest fix?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Because a linear decision boundary (line in 2D) cannot separate concentric circles — the boundary would need to be circular.</strong> Logistic regression is a linear classifier: its decision boundary is always z = w₁x₁ + w₂x₂ + b = 0, which is a straight line. Any linear boundary will split one circle in half, not separate the inner from the outer. <strong>Simplest fix:</strong> add the feature r² = x₁² + x₂². In this augmented 3D feature space (x₁, x₂, r²), the classes become linearly separable — the boundary is a plane at r² = constant, which corresponds to a circle in the original space. This is feature engineering for nonlinear classification.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">What is the connection between maximum likelihood estimation and minimizing cross-entropy loss in logistic regression?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>They are exactly equivalent — minimizing cross-entropy is maximizing the log-likelihood of the training data.</strong> Under the model's probability P(y=1|x) = σ(w·x+b), the likelihood of observing the training labels is the product of P(y_i|x_i) across all examples. Taking the log converts the product to a sum: log P(y_i=1|x_i) = log σ(z_i) when y_i=1, and log(1−σ(z_i)) when y_i=0. Negating this sum (to turn maximization into minimization) gives exactly the cross-entropy loss formula. Maximum likelihood is the statistical story; cross-entropy is the optimization story. They're the same thing.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">What happens to the sigmoid curve and the decision boundary when you increase the magnitude of the weight vector w (while keeping its direction the same)?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The decision boundary stays in the same place, but the sigmoid transition becomes sharper — the model becomes more confident everywhere.</strong> The decision boundary is where w·x + b = 0. Scaling w by a constant k gives kw·x + kb = 0, which is the same set of points. But the sigmoid σ(kz) has steeper slope at the boundary — it transitions from near-0 to near-1 over a smaller region. At very large k, σ(kz) approaches a step function: essentially 0 on one side, 1 on the other. This is what happens when logistic regression is trained on linearly separable data without regularization — the weights diverge to infinity as the model tries to make its predictions more and more certain.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">How is softmax regression (multiclass logistic regression) related to binary logistic regression? What specifically generalizes?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Softmax generalizes the sigmoid from 2 classes to K classes by computing a normalized probability distribution over all K outcomes.</strong> In binary logistic regression: σ(z) = e^z / (e^z + e^0) — probability of class 1 vs. class 0. Softmax extends this: P(class k) = e^{z_k} / Σ_j e^{z_j}. With K=2, softmax reduces to the sigmoid (the binary case is a special case). The loss is still cross-entropy: −log(ŷ_{true class}). The gradient is still (predicted probability − true label) · x for each class. As CS231n notes: "The Softmax classifier provides calibrated probability estimates for each class" — same probabilistic interpretation, generalized to multiple classes.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="9">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">10</span>
+          <span class="q-text">You train logistic regression and get 92% training accuracy and 91% test accuracy. A neural network gets 99% training and 91% test accuracy. Which model would you prefer in production, and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Logistic regression — same test performance, dramatically simpler.</strong> Both models achieve the same test accuracy (91%), which is what matters in production. The neural network has overfit to the training data (99% vs. 91% gap). Logistic regression has matched its training accuracy on test data — excellent generalization. For production, logistic regression wins on: interpretability (you can examine each weight and see what drives predictions), inference speed (one dot product + sigmoid vs. many layers), debuggability, and robustness to distribution shift. The neural network's extra training accuracy bought nothing useful. Always prefer the simpler model when test performance is equal.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+
+// ─── Logistic Regression Animation (section 4) ─────────────────────────────
+
+class LogisticRegressionAnimation {
+  constructor(canvas, opts = {}) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+    this.lr     = opts.learningRate ?? 0.5;
+    this.running    = false;
+    this._frameId   = null;
+    this._stepTimer = null;
+
+    // Generate fixed dataset of 30 points — 15 per class
+    this._seed = 42;
+    this.points = this._generatePoints();
+
+    // Model parameters: w (single weight on x-axis), b (bias)
+    // We do 1D logistic regression — boundary is a vertical line x = -b/w
+    this.w = opts.initW ?? -0.5;
+    this.b = opts.initB ??  0.2;
+    this.initW = this.w;
+    this.initB = this.b;
+
+    this.loss    = this._computeLoss();
+    this.stepNum = 0;
+
+    this._render();
+  }
+
+  // Simple seeded pseudo-random for reproducible points
+  _rng() {
+    this._seed = (this._seed * 1664525 + 1013904223) & 0xffffffff;
+    return ((this._seed >>> 0) / 0xffffffff);
+  }
+
+  _generatePoints() {
+    const pts = [];
+    // Class 0 (red): clustered on the left, x in [-2, 0.5]
+    for (let i = 0; i < 15; i++) {
+      const x = -2.0 + this._rng() * 2.0;
+      const y = -1.5 + this._rng() * 3.0;
+      pts.push({ x, y, label: 0 });
+    }
+    // Class 1 (blue): clustered on the right, x in [-0.5, 2]
+    for (let i = 0; i < 15; i++) {
+      const x = -0.5 + this._rng() * 2.5;
+      const y = -1.5 + this._rng() * 3.0;
+      pts.push({ x, y, label: 1 });
+    }
+    return pts;
+  }
+
+  _sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+
+  _computeLoss() {
+    let loss = 0;
+    for (const p of this.points) {
+      const z    = this.w * p.x + this.b;
+      const pred = this._sigmoid(z);
+      const eps  = 1e-9;
+      loss += -(p.label * Math.log(pred + eps) + (1 - p.label) * Math.log(1 - pred + eps));
+    }
+    return loss / this.points.length;
+  }
+
+  setLearningRate(lr) { this.lr = lr; }
+
+  reset() {
+    this.running = false;
+    cancelAnimationFrame(this._frameId);
+    this._frameId = null;
+    clearTimeout(this._stepTimer);
+    this._stepTimer = null;
+    this.w = this.initW;
+    this.b = this.initB;
+    this.loss = this._computeLoss();
+    this.stepNum = 0;
+    this._render();
+  }
+
+  run() {
+    if (this.running) return;
+    this.running = true;
+    this._scheduleStep();
+  }
+
+  _doGradientStep() {
+    let dw = 0, db = 0;
+    for (const p of this.points) {
+      const z    = this.w * p.x + this.b;
+      const pred = this._sigmoid(z);
+      const err  = pred - p.label;
+      dw += err * p.x;
+      db += err;
+    }
+    const n = this.points.length;
+    this.w -= this.lr * dw / n;
+    this.b -= this.lr * db / n;
+  }
+
+  _scheduleStep() {
+    if (!this.running) return;
+
+    const oldLoss = this.loss;
+    const oldW    = this.w;
+    const oldB    = this.b;
+
+    this._doGradientStep();
+    const newW = this.w;
+    const newB = this.b;
+    this.loss = this._computeLoss();
+    this.stepNum++;
+
+    // Stop conditions
+    const lossChange = Math.abs(oldLoss - this.loss);
+    if (lossChange < 0.0001 || this.stepNum > 200) {
+      this.running = false;
+      this._render();
+      return;
+    }
+
+    // Animate the boundary sliding
+    const startW = oldW, startB = oldB;
+    const endW   = newW, endB   = newB;
+    const start  = performance.now();
+    const dur    = 300;
+
+    const frame = (now) => {
+      if (!this.running) return;
+      const t  = Math.min((now - start) / dur, 1);
+      const et = easeInOut(t);
+      this.w   = lerp(startW, endW, et);
+      this.b   = lerp(startB, endB, et);
+      this._render();
+      if (t < 1) {
+        this._frameId = requestAnimationFrame(frame);
+      } else {
+        this.w = endW;
+        this.b = endB;
+        this._render();
+        this._stepTimer = setTimeout(() => this._scheduleStep(), 120);
+      }
+    };
+    this._frameId = requestAnimationFrame(frame);
+  }
+
+  _render() {
+    const { ctx, canvas, w, b, points } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Background
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Layout: main scatter = left 540px, sigmoid inset = right 160px
+    const mainW  = 530;
+    const padL   = 40;
+    const padT   = 30;
+    const padB   = 40;
+    const mainH  = H - padT - padB;
+
+    // Data range: x in [-2.5, 2.5], y in [-2, 2]
+    const xMin = -2.7, xMax = 2.7, yMin = -2.0, yMax = 2.0;
+
+    const toCanvasX = (xv) => padL + ((xv - xMin) / (xMax - xMin)) * mainW;
+    const toCanvasY = (yv) => padT + (1 - (yv - yMin) / (yMax - yMin)) * mainH;
+
+    // Axes
+    const ax0 = toCanvasX(0);
+    const ay0 = toCanvasY(0);
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, ay0); ctx.lineTo(padL + mainW, ay0);
+    ctx.moveTo(ax0, padT); ctx.lineTo(ax0, padT + mainH);
+    ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('x₁ (feature)', padL + mainW / 2, H - 8);
+    ctx.textAlign = 'right';
+    ctx.fillText('x₂', padL - 6, padT + mainH / 2);
+
+    // Decision boundary: x = -b/w
+    const bndX = -b / (w !== 0 ? w : 1e-9);
+    const bndCx = toCanvasX(bndX);
+
+    // Shade the two half-planes
+    const clr0 = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#f85149';
+    const clr1 = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim() || '#58a6ff';
+
+    // Class 1 region (right of boundary) — blue tint
+    if (bndCx < padL + mainW) {
+      const rx = Math.max(bndCx, padL);
+      ctx.fillStyle = 'rgba(88,166,255,0.05)';
+      ctx.fillRect(rx, padT, padL + mainW - rx, mainH);
+    }
+    // Class 0 region (left of boundary) — red tint
+    if (bndCx > padL) {
+      const rx = Math.min(bndCx, padL + mainW);
+      ctx.fillStyle = 'rgba(248,81,73,0.05)';
+      ctx.fillRect(padL, padT, rx - padL, mainH);
+    }
+
+    // Decision boundary line
+    if (bndCx >= padL && bndCx <= padL + mainW) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(bndCx, padT);
+      ctx.lineTo(bndCx, padT + mainH);
+      ctx.strokeStyle = '#f0a500';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      ctx.fillStyle = '#f0a500';
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('boundary', bndCx, padT - 8);
+    }
+
+    // Draw points
+    for (const p of points) {
+      const cx  = toCanvasX(p.x);
+      const cy  = toCanvasY(p.y);
+      const z   = w * p.x + b;
+      const prd = this._sigmoid(z);
+      const predicted = prd >= 0.5 ? 1 : 0;
+      const correct   = predicted === p.label;
+
+      const color = p.label === 0 ? clr0 : clr1;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+
+      if (correct) {
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.9;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else {
+        // Misclassified: hollow and dim
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 2]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1.0;
+      }
+    }
+
+    // Loss display
+    const lossNow = this._computeLoss();
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`step ${this.stepNum}  loss = ${lossNow.toFixed(4)}  boundary x = ${bndX.toFixed(3)}`, padL, H - 8);
+
+    // Legend
+    ctx.textAlign = 'left';
+    ctx.fillStyle = clr0;
+    ctx.font = '11px Inter, sans-serif';
+    ctx.fillText('● class 0', padL, padT + 14);
+    ctx.fillStyle = clr1;
+    ctx.fillText('● class 1', padL + 80, padT + 14);
+    ctx.fillStyle = '#8b949e';
+    ctx.fillText('○ misclassified', padL + 160, padT + 14);
+
+    // ── Sigmoid inset (top-right corner) ───────────────────────
+    const insetX = mainW + padL + 20;
+    const insetW = W - insetX - 15;
+    const insetH = 130;
+    const insetY = padT + 10;
+
+    // Inset background
+    ctx.fillStyle = bg === '#ffffff' ? '#f0ebe3' : '#1c2128';
+    ctx.beginPath();
+    ctx.roundRect(insetX, insetY, insetW, insetH, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Inset label
+    ctx.fillStyle = '#f0a500';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('σ(z)', insetX + insetW / 2, insetY + 12);
+
+    // Sigmoid curve in inset — z range [-5, 5]
+    const izMin = -5, izMax = 5;
+    const ipadL = insetX + 14, ipadR = insetX + insetW - 10;
+    const ipadT = insetY + 18, ipadB = insetY + insetH - 16;
+    const iW    = ipadR - ipadL;
+    const iH    = ipadB - ipadT;
+
+    const toIx = (z)  => ipadL + ((z - izMin) / (izMax - izMin)) * iW;
+    const toIy = (sv) => ipadT + (1 - sv) * iH;
+
+    // Axis lines in inset
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(ipadL, toIy(0.5)); ctx.lineTo(ipadR, toIy(0.5)); // 0.5 line
+    ctx.moveTo(toIx(0), ipadT);   ctx.lineTo(toIx(0), ipadB);   // z=0 line
+    ctx.stroke();
+
+    // Sigmoid S-curve
+    ctx.beginPath();
+    ctx.strokeStyle = '#58a6ff';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i <= 100; i++) {
+      const z  = izMin + (i / 100) * (izMax - izMin);
+      const sv = this._sigmoid(z);
+      const ix = toIx(z);
+      const iy = toIy(sv);
+      i === 0 ? ctx.moveTo(ix, iy) : ctx.lineTo(ix, iy);
+    }
+    ctx.stroke();
+
+    // Mark the current boundary position on the sigmoid inset
+    // At the boundary, z = 0 always (that's the definition), σ(0) = 0.5
+    const markerZ  = 0;
+    const markerSv = 0.5;
+    const mx = toIx(markerZ);
+    const my = toIy(markerSv);
+    ctx.beginPath();
+    ctx.arc(mx, my, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#f0a500';
+    ctx.fill();
+
+    // Show what σ(z) is at boundary
+    ctx.fillStyle = '#f0a500';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('σ(0)=0.5', mx, my + 13);
+
+    // Axis tick labels
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '8px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('−5', ipadL, ipadB + 10);
+    ctx.fillText('0',  toIx(0), ipadB + 10);
+    ctx.fillText('+5', ipadR, ipadB + 10);
+    ctx.textAlign = 'right';
+    ctx.fillText('1', ipadL - 2, toIy(1) + 3);
+    ctx.fillText('0', ipadL - 2, toIy(0) + 3);
+
+    // ── Sigmoid inset bottom: show current sigmoid slope info ──
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`w=${w.toFixed(2)}  b=${b.toFixed(2)}`, insetX + insetW / 2, insetY + insetH - 4);
+  }
+}
+
+// Instantiate main animation
+const lrCanvas = document.getElementById('lrCanvas');
+const lrAnim   = new LogisticRegressionAnimation(lrCanvas, { learningRate: 0.5 });
+
+const lrSlider = document.getElementById('lrSlider');
+const lrValue  = document.getElementById('lrValue');
+lrSlider.addEventListener('input', () => {
+  const v = parseFloat(lrSlider.value);
+  lrValue.textContent = v.toFixed(2);
+  lrAnim.setLearningRate(v);
+  lrAnim.reset();
+});
+
+document.getElementById('runBtn').addEventListener('click',   () => lrAnim.run());
+document.getElementById('resetBtn').addEventListener('click', () => lrAnim.reset());
+
+// ─── Playground: sigmoid curve explorer ────────────────────────────────────
+
+function renderPlayground() {
+  const canvas  = document.getElementById('pgCanvas');
+  const ctx     = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const w = parseFloat(document.getElementById('pgWeight').value);
+  const b = parseFloat(document.getElementById('pgBias').value);
+
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const pad = 45;
+  const iW  = W - 2 * pad;
+  const iH  = H - 2 * pad;
+
+  const zMin = -8, zMax = 8;
+  const toX = (z)  => pad + ((z - zMin) / (zMax - zMin)) * iW;
+  const toY = (sv) => pad + (1 - sv) * iH;
+
+  // Grid lines
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 0.75;
+  [0, 0.25, 0.5, 0.75, 1.0].forEach(sv => {
+    ctx.beginPath();
+    ctx.moveTo(pad, toY(sv));
+    ctx.lineTo(pad + iW, toY(sv));
+    ctx.stroke();
+  });
+  [-6,-4,-2,0,2,4,6].forEach(z => {
+    ctx.beginPath();
+    ctx.moveTo(toX(z), pad);
+    ctx.lineTo(toX(z), pad + iH);
+    ctx.stroke();
+  });
+
+  // Axes
+  ctx.strokeStyle = '#8b949e';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pad, pad + iH); ctx.lineTo(pad + iW, pad + iH); // x-axis bottom
+  ctx.moveTo(pad, pad);      ctx.lineTo(pad, pad + iH);       // y-axis
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '12px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Linear score  z = w·x + b', pad + iW / 2, H - 8);
+  ctx.save();
+  ctx.translate(14, pad + iH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('σ(z) — Probability', 0, 0);
+  ctx.restore();
+
+  // Tick labels
+  ctx.font = '10px JetBrains Mono, monospace';
+  ctx.textAlign = 'right';
+  [0, 0.25, 0.5, 0.75, 1.0].forEach(sv => {
+    ctx.fillText(sv.toFixed(2), pad - 6, toY(sv) + 4);
+  });
+  ctx.textAlign = 'center';
+  [-6,-4,-2,0,2,4,6].forEach(z => {
+    ctx.fillText(z, toX(z), pad + iH + 16);
+  });
+
+  // Decision threshold line at σ = 0.5
+  ctx.strokeStyle = '#f0a500';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(pad, toY(0.5)); ctx.lineTo(pad + iW, toY(0.5));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#f0a500';
+  ctx.font = '11px JetBrains Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('threshold 0.5', pad + iW + 4 - 90, toY(0.5) - 5);
+
+  // Sigmoid curve σ(w·x + b) — we're plotting σ(z) where z = w*x_input + b
+  // x-axis IS z, so sigmoid is σ(z)
+  ctx.beginPath();
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 2.5;
+  for (let i = 0; i <= 300; i++) {
+    const zv  = zMin + (i / 300) * (zMax - zMin);
+    const sv  = 1 / (1 + Math.exp(-zv));
+    const cx  = toX(zv);
+    const cy  = toY(sv);
+    i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+  }
+  ctx.stroke();
+
+  // Mark decision boundary (z = −b/w, but on the z-axis it's just z=0 since z=wx+b)
+  // Show boundary point at z = 0 (where σ = 0.5)
+  const boundaryZ  = 0;
+  const boundarySv = 0.5;
+  const bx = toX(boundaryZ);
+  const by = toY(boundarySv);
+
+  ctx.beginPath();
+  ctx.arc(bx, by, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#f0a500';
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = '#f0a500';
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+
+  // Also mark the midpoint of the sigmoid (slope = w/4 at z=0)
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '11px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  const slopeAtMid = Math.abs(w) / 4;
+  ctx.fillText(`slope at boundary ≈ |w|/4 = ${slopeAtMid.toFixed(2)}`, pad + iW / 2, pad + 16);
+
+  // Update the boundary display
+  const realBoundary = (w !== 0) ? (-b / w) : 0;
+  document.getElementById('pgBoundary').textContent = realBoundary.toFixed(2);
+  document.getElementById('pgSigAt0').textContent   = '0.500';
+}
+
+const pgWeight = document.getElementById('pgWeight');
+const pgBias   = document.getElementById('pgBias');
+const pgWeightVal = document.getElementById('pgWeightVal');
+const pgBiasVal   = document.getElementById('pgBiasVal');
+
+pgWeight.addEventListener('input', () => {
+  pgWeightVal.textContent = parseFloat(pgWeight.value).toFixed(1);
+  renderPlayground();
+});
+pgBias.addEventListener('input', () => {
+  pgBiasVal.textContent = parseFloat(pgBias.value).toFixed(1);
+  renderPlayground();
+});
+renderPlayground();
+
+// ─── Quiz ────────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG = 'logistic-regression';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+
+// ─── Reading progress bar ─────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─── Scroll reveal ────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── TOC active dot ───────────────────────────────────────────────────────
+const sections   = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots    = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─── Re-render canvases on theme change ───────────────────────────────────
+window.onThemeChange(function () {
+  lrAnim._render();
+  renderPlayground();
+});
+
+</script>
+</body>
+</html>

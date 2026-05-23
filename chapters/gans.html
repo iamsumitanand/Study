@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GANs — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>          <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real World</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span><span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>          <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 4 · Generative AI</p>
+    <h1>GANs</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      Two neural networks locked in an adversarial game — each sharpening the other.
+    </p>
+    <div style="display:flex; gap:1.5rem; margin-top:1rem; font-size:0.85rem; font-family:var(--font-mono);">
+      <a href="autoencoders.html" style="color:var(--text-muted);">← Autoencoders</a>
+      <a href="diffusion-models.html" style="color:var(--text-muted);">Diffusion Models →</a>
+    </div>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.08rem; line-height:1.85;">
+      A counterfeiter and a detective locked in an arms race — each getting better <em>only because the other exists</em>. The counterfeiter studies every rejection to forge more convincing fakes. The detective studies every successful forgery to sharpen their eye. Neither improves in isolation. That's a <strong style="color:var(--accent)">GAN</strong>.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>A two-player game where both players are neural networks</h2>
+    <p class="lead">
+      A Generative Adversarial Network is, at its core, a minimax game between two networks — the <strong style="color:var(--accent)">Generator</strong> and the <strong style="color:var(--blue)">Discriminator</strong> — trained simultaneously against each other.
+    </p>
+    <p>
+      The Generator takes random noise as input and produces synthetic data — images, audio, text. It has never seen the real data directly. Its only signal is the Discriminator's verdict: <em>real</em> or <em>fake</em>.
+    </p>
+    <p>
+      The Discriminator sees a mix of real samples and Generator-produced fakes. Its job is binary classification: assign high probability to real data, low probability to fakes.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">Generator</strong> wants to fool the Discriminator — push D(G(z)) toward 1 (looks real).</li>
+      <li>The <strong style="color:var(--blue)">Discriminator</strong> wants to resist — keep D(x) near 1 for real, D(G(z)) near 0 for fakes.</li>
+      <li>The <strong style="color:var(--green)">Nash equilibrium</strong> is the theoretical end state: G produces samples indistinguishable from real data, and D is forced to output 0.5 everywhere — pure uncertainty.</li>
+      <li>In practice the game never perfectly converges, but the pressure from both sides is what drives G toward <em>realism</em>.</li>
+    </ul>
+    <p>
+      The key insight from the original Goodfellow et al. (2014) paper: you don't need to explicitly define what a "good" generated image looks like. You just need a Discriminator willing to enforce the standard — and let the Generator's adversarial pressure do the rest.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three hard problems that took the field years to solve</h2>
+
+    <p class="lead">
+      GANs are deceptively simple to describe and notoriously difficult to train. Three failure modes dominate the literature — each with a distinct cause and a different fix.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      The original GAN loss for the Generator is: minimize E[log(1 − D(G(z)))]. Early in training, D easily rejects G's crude fakes — D(G(z)) ≈ 0, so log(1 − D(G(z))) ≈ log(1) ≈ 0. What happens to the gradient signal for G in this situation?
+    </div>
+
+    <p>
+      The gradient vanishes. When D(G(z)) is close to 0, the function log(1 − D(G(z))) is nearly flat — its gradient with respect to G's parameters is essentially zero. G receives no useful training signal precisely when it needs it most (at the start, when its outputs are worst). The standard fix — proposed in the original paper — is to instead <em>maximize</em> E[log D(G(z))], which has strong gradients when D(G(z)) is near 0. This "non-saturating" loss is what most implementations actually use, though the theoretical minimax formulation is still written as the min-max objective.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Suppose the Generator discovers that one particular output — say, a blurry image of a single face — consistently fools the Discriminator with probability 0.8. What does gradient descent encourage the Generator to do next?
+    </div>
+
+    <p>
+      It keeps producing that same face. And more of it. And only it. This is <strong style="color:var(--accent)">mode collapse</strong> — the Generator converges to a single mode (or small set of modes) of the data distribution, ignoring the rest. The Generator is optimizing its objective perfectly; the problem is the objective doesn't penalize lack of diversity. The Discriminator eventually catches on and rejects that face, but by then G has already overfit to a different small cluster. The two networks chase each other in circles. Fixes include minibatch discrimination (letting D see batches rather than individual samples), Wasserstein loss, and progressive growing.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Diffusion models now generate more photorealistic and diverse images than most GANs. GANs had a 7-year head start (2014–2021). Why did GANs dominate image generation for so long before being displaced?
+    </div>
+
+    <p>
+      Two reasons. First, inference speed: a trained GAN generates an image in a single forward pass through G — microseconds. Diffusion models require hundreds of denoising steps at inference, making them far slower to sample from. Second, training data efficiency: GANs can produce sharp, high-resolution images with relatively small datasets. StyleGAN2 was trained on ~70k images for faces; equivalent diffusion models need far larger corpora. GANs also had a compounding advantage — each new architecture (DCGAN → WGAN → ProGAN → StyleGAN) built on working prior art. Diffusion models needed theoretical breakthroughs (score matching, DDPM, DDIM) before becoming competitive. The inflection point was 2021–2022, when DALL-E 2 and Stable Diffusion demonstrated that diffusion's quality and diversity advantages outweighed its speed cost, especially for text-conditional generation.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch the adversarial training loop</h2>
+    <p class="lead">
+      Left panel: the Generator produces samples (blue dots). Right panel: the Discriminator draws a decision boundary separating real (gold) from fake (blue). Watch each training step shift both sides.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Use <strong>Next Step</strong> to step through the training loop manually, or <strong>Run Training</strong> to animate convergence. Loss curves below show G and D losses converging toward log(2) ≈ 0.693.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="ganCanvas" width="720" height="340" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="ganCaption">
+        Step 1: Generator produces random noise samples (blue dots)
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <button class="btn" id="ganNextBtn">▶ Next Step</button>
+        <button class="btn" id="ganRunBtn" style="margin-left:0.5rem;">⟳ Run Training</button>
+        <button class="btn secondary" id="ganResetBtn" style="margin-left:0.5rem;">↺ Reset</button>
+        <button class="btn secondary" id="ganLossBtn" style="margin-left:0.5rem;">◈ Show Loss</button>
+      </div>
+      <div id="ganLossPanel" style="display:none; margin-top:1rem;">
+        <canvas id="ganLossCanvas" width="720" height="200" style="max-width:100%; border-radius:4px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>The minimax objective</h2>
+
+    <p class="lead">
+      The GAN objective is a two-player minimax game. D wants to maximize it; G wants to minimize it. Both gradients exist — they're just used in opposite directions.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">GAN Minimax Objective</div>
+      <div class="formula">min<sub>G</sub> max<sub>D</sub>  𝔼[log D(x)]  +  𝔼[log(1 − D(G(z)))]</div>
+      <div class="symbol-table">
+        <span class="sym">x</span>       <span>a real sample drawn from the true data distribution p<sub>data</sub></span>
+        <span class="sym">z</span>       <span>random noise drawn from a simple prior (e.g., Gaussian) — G's input</span>
+        <span class="sym">G(z)</span>    <span>a fake sample produced by the Generator from noise z</span>
+        <span class="sym">D(x)</span>    <span>Discriminator's probability estimate that x is real (wants this near 1 for real data)</span>
+        <span class="sym">D(G(z))</span> <span>Discriminator's estimate that G's fake is real (D wants near 0; G wants near 1)</span>
+      </div>
+    </div>
+
+    <p>
+      <strong>Reading the objective.</strong> The first term, E[log D(x)], is maximized when D correctly assigns high probability to real samples — this only involves D. The second term, E[log(1 − D(G(z)))], is where the competition lives: D maximizes it by assigning low D(G(z)) to fakes; G minimizes it by producing fakes that push D(G(z)) toward 1. Both networks differentiate through this shared term but pull in opposite directions.
+    </p>
+
+    <p><strong>Four-step worked example — two real, two fake samples:</strong></p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.75rem;">
+        <span class="step-num" style="color:var(--text-muted);"></span>
+        <span style="font-weight:600; font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);">Setup: 2 real samples, 2 fakes. Current D outputs: D(x₁)=0.9, D(x₂)=0.85, D(G(z₁))=0.3, D(G(z₂))=0.4</span>
+      </div>
+      <div class="step">
+        <span class="step-num">1</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          <strong style="color:var(--blue)">D loss (real term):</strong>&nbsp;
+          <span class="step-math">−(log 0.9 + log 0.85) / 2  =  −(−0.105 − 0.163) / 2  =  0.134</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          <strong style="color:var(--blue)">D loss (fake term):</strong>&nbsp;
+          <span class="step-math">−(log(1−0.3) + log(1−0.4)) / 2  =  −(log 0.7 + log 0.6) / 2  =  0.267</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          <strong style="color:var(--accent)">G loss (non-saturating):</strong>&nbsp;
+          <span class="step-math">−(log D(G(z₁)) + log D(G(z₂))) / 2  =  −(log 0.3 + log 0.4) / 2  =  0.977</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span style="font-family:var(--font-mono); font-size:0.88rem; color:var(--text);">
+          <strong style="color:var(--green)">Equilibrium signal:</strong>&nbsp;
+          <span class="step-math">At Nash eq., D(G(z)) → 0.5, so G loss → −log(0.5) = log(2) ≈ 0.693. Both losses converge here.</span>
+        </span>
+      </div>
+      <div class="step" style="margin-top:0; flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">Training loop: D steps first (1–2 gradient updates), then G steps once. Repeat.</span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          Updating D more frequently than G prevents G from improving faster than D can detect — a key stability trick from the original paper.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real World -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Theory to Practice</p>
+    <h2>What GANs actually built</h2>
+    <p class="lead">
+      The minimax objective above is from 2014. By 2021, the same idea had produced some of the most remarkable generative systems ever built.
+    </p>
+
+    <p>
+      <strong style="color:var(--white)">StyleGAN (NVIDIA, 2019–2021).</strong> The architecture that made photorealistic synthetic faces mainstream. StyleGAN introduced a style-based generator where noise is mapped to an intermediate latent space W, and styles are injected at each resolution level via adaptive instance normalization. The result: controllable disentanglement of high-level attributes (pose, identity) from fine details (freckles, hair texture). The site <em>thispersondoesnotexist.com</em> runs StyleGAN2 — every face is fully synthetic, none is a real person.
+    </p>
+
+    <p>
+      <strong style="color:var(--white)">CycleGAN (Berkeley, 2017).</strong> Unpaired image-to-image translation — translating between domains (horses ↔ zebras, photos ↔ paintings) without any paired training data. Uses two generators and two discriminators with a cycle-consistency loss: if you translate a horse to a zebra and back, you should recover the original horse. Enabled use cases where paired datasets don't exist (medical imaging domains, historical photo colorization).
+    </p>
+
+    <p>
+      <strong style="color:var(--white)">Data augmentation for rare events.</strong> In domains where real data is scarce — rare disease pathology, satellite imagery of unusual weather, industrial defect detection — GANs generate synthetic training data to augment real datasets. This is now standard practice in medical imaging research, where a GAN trained on a few hundred MRI scans can synthesize thousands of plausible variants for downstream classifiers.
+    </p>
+
+    <div class="insight-box">
+      <strong style="color:var(--accent)">The core transferable pattern:</strong> anywhere you have a quality signal but lack the ability to define it analytically, an adversarial discriminator can learn that signal empirically. GANs made "I know it when I see it" into a differentiable training objective.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Feel the training dynamics</h2>
+    <p class="lead">
+      Adjust the relative learning rates of G and D and watch how the balance shifts. When D learns too fast, G gets no useful gradient. When G learns too fast, D can never keep up and mode collapse becomes likely.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Generator LR</span>
+        <input type="range" id="pgGenLR" min="0.001" max="0.05" step="0.001" value="0.01">
+        <span class="control-value" id="pgGenLRVal">0.010</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Discriminator LR</span>
+        <input type="range" id="pgDiscLR" min="0.001" max="0.05" step="0.001" value="0.01">
+        <span class="control-value" id="pgDiscLRVal">0.010</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">D steps per G step</span>
+        <input type="range" id="pgKSteps" min="1" max="5" step="1" value="1">
+        <span class="control-value" id="pgKStepsVal">1</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="pgRunBtn">▶ Run</button>
+        <button class="btn secondary" id="pgResetBtn">↺ Reset</button>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="pgCanvas" width="720" height="260" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="pgCaption">
+          Balanced LRs: smooth convergence. D LR >> G LR: G gradient vanishes. G LR >> D LR: mode collapse risk.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five causal misconceptions about GANs</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't random mistakes — they form a causal chain. Each one follows plausibly from the last.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① The Generator learns by seeing real data and copying it.</div>
+        <div class="truth">
+          The Generator never sees real data directly. Its only training signal is the Discriminator's verdict on its outputs. G learns entirely through adversarial feedback — gradient from D's classification loss, backpropagated through D and into G. This is why GANs can generalize beyond mere copying: G must internalize the distribution, not memorize specific samples.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② So the Discriminator is just a loss function for the Generator.</div>
+        <div class="truth">
+          The Discriminator is itself a neural network being trained simultaneously. It's not a fixed oracle — it evolves with G. A better G forces D to become more discriminating; a better D forces G to become more convincing. The adversarial dynamic requires both networks to be trained, not just G. Freezing D turns the objective into an ordinary supervised loss, losing the game-theoretic pressure entirely.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Then GANs always converge to the Nash equilibrium where D outputs 0.5.</div>
+        <div class="truth">
+          The Nash equilibrium is a theoretical guarantee under the <em>non-parametric</em> assumption of infinite-capacity networks. Real GANs use finite networks trained with gradient descent, which has no convergence guarantee in non-convex, non-concave games. In practice, training frequently oscillates, mode-collapses, or diverges. The equilibrium is a useful north star, not a practical promise. Most research in GAN training (WGAN, spectral normalization, gradient penalty) is specifically about coaxing real training closer to equilibrium.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ Mode collapse happens because the Generator is undertrained relative to the Discriminator.</div>
+        <div class="truth">
+          Mode collapse is more subtle than a capacity or training ratio imbalance. It can occur even with perfectly balanced training because the Generator's optimization landscape has local minima where a small set of outputs reliably fools D. G exploits these optima greedily. The root cause is that the JS divergence (implicit in the original GAN loss) provides no gradient signal for missing modes — it's maximally penalized for fakes D rejects, but not for real modes G ignores. Wasserstein GAN fixes this by using a metric (Earth Mover's Distance) that rewards covering the full support of the real distribution.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ Diffusion models replaced GANs because they're fundamentally a better framework for generation.</div>
+        <div class="truth">
+          GANs still outperform diffusion models in several important dimensions: single-pass inference speed (no iterative denoising), training data efficiency, and fine-grained latent space control (StyleGAN's W space is remarkably well-structured). Diffusion models won on diversity, text-conditional fidelity, and training stability. The displacement was task-specific: for open-vocabulary text-to-image generation, diffusion models are clearly superior. For video generation, low-latency synthesis, and domain-specific applications with limited data, GANs remain highly competitive.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Six things to lock in</h2>
+    <ul class="summary-list">
+      <li>GAN = two networks (Generator + Discriminator) trained simultaneously via a minimax objective. G never sees real data; D never sees G's internals.</li>
+      <li>The Generator maps noise z → fake sample G(z). The Discriminator maps any sample → probability of being real. The adversarial signal flows from D back into G.</li>
+      <li>Nash equilibrium (theoretical): G perfectly models p<sub>data</sub>, D outputs 0.5 everywhere. In practice, gradient descent in this non-convex game doesn't guarantee convergence.</li>
+      <li>Vanishing gradients early in training: original log(1 − D(G(z))) loss saturates. Fix: train G to maximize log D(G(z)) instead (non-saturating loss).</li>
+      <li>Mode collapse: G fixates on a subset of modes that reliably fool D. Root cause is JS divergence's blindness to missing modes. Fix: Wasserstein loss, minibatch discrimination.</li>
+      <li>GANs dominated image generation 2014–2021. Diffusion models surpassed them in diversity and text-conditioning, but GANs retain speed, data-efficiency, and structured latent-space advantages.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves open:</strong>
+      GANs generate by learning to fool a discriminator. Diffusion models generate by learning to reverse a noise process — no adversary, no fragile game dynamics. How does adding noise progressively and then learning to remove it produce images that are more diverse and stable than adversarial training?<br><br>
+      That's the next chapter: <strong>Diffusion Models</strong>. Same goal — sampling from p<sub>data</sub> — completely different machinery.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these primary sources.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Generative Adversarial Nets (Goodfellow et al., 2014)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">NeurIPS 2014. The original GAN paper.</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: minimax objective, training procedure, Nash equilibrium analysis, non-saturating loss alternative, theoretical optimality proof under infinite capacity assumption.
+          </span><br>
+          <a href="https://arxiv.org/abs/1406.2661" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1406.2661</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Wasserstein GAN (Arjovsky et al., 2017)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">ICML 2017.</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: mode collapse root cause analysis, JS divergence limitations, Wasserstein (Earth Mover's) distance as alternative, training stability improvements.
+          </span><br>
+          <a href="https://arxiv.org/abs/1701.07875" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1701.07875</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">A Style-Based Generator Architecture for GANs (Karras et al., NVIDIA 2019)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">CVPR 2019. StyleGAN.</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: W latent space, adaptive instance normalization, style injection, photorealistic face generation, disentanglement properties.
+          </span><br>
+          <a href="https://arxiv.org/abs/1812.04948" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1812.04948</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Unpaired Image-to-Image Translation using Cycle-Consistent Adversarial Networks (Zhu et al., 2017)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">ICCV 2017. CycleGAN.</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: unpaired translation, cycle-consistency loss, domain translation applications.
+          </span><br>
+          <a href="https://arxiv.org/abs/1703.10593" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1703.10593</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 10. Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">The Generator's loss is increasing but the Discriminator's accuracy is also increasing. What is happening, and is it a problem?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>This is normal early training behavior — and it's not immediately a problem.</strong> As D improves at distinguishing real from fake, G's loss rises because D rejects G's outputs more confidently. This is the adversarial signal working as intended: D's improvement creates harder targets for G, forcing G to produce better fakes. It becomes a problem only if D improves so rapidly that G's gradient vanishes (D(G(z)) → 0, causing log saturation). The fix in that case is the non-saturating loss — maximize log D(G(z)) rather than minimize log(1 − D(G(z))).
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">At Nash equilibrium, what value does D(x) output for every input x — both real and fake? Why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>D(x) = 0.5 everywhere.</strong> At equilibrium, G perfectly models p<sub>data</sub>, so fake and real samples are drawn from identical distributions. No classifier can do better than random guessing on identically distributed data — any output other than 0.5 would be exploitable by one player. The Goodfellow 2014 paper proves this formally: the optimal discriminator given a fixed G is D*(x) = p<sub>data</sub>(x) / (p<sub>data</sub>(x) + p<sub>G</sub>(x)), which equals 0.5 when p<sub>G</sub> = p<sub>data</sub>.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">You train a GAN on handwritten digits (0–9). After training, the Generator only ever produces 3s and 7s — very convincingly. Name the failure mode and its root cause.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Mode collapse.</strong> The Generator has converged to two modes (3 and 7) of the true data distribution while ignoring the other eight. Root cause: the JS divergence implicit in the original GAN loss gives zero gradient signal for modes the Generator never attempts to produce. Once G discovers that 3s and 7s reliably fool D, gradient descent has no incentive to also produce 1s and 9s — they're simply absent from G's loss landscape. Fix: Wasserstein GAN measures Earth Mover's Distance, which penalizes missing modes, or minibatch discrimination which lets D detect statistical absence of diversity.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">CycleGAN translates images between two domains (e.g., horses → zebras) without paired training data. What prevents it from simply mapping every horse image to the same zebra?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The cycle-consistency loss.</strong> CycleGAN trains two generators: G (horse → zebra) and F (zebra → horse). The cycle loss requires F(G(x)) ≈ x — translating a horse to a zebra and back should recover the original horse. This forces G to preserve the horse's structure (pose, background, shape) rather than collapse all inputs to a single convincing zebra. Without cycle-consistency, G could ignore the input entirely and produce any plausible zebra, since there's no paired ground truth to compare against. The cycle acts as a structural regularizer.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">Why is it typically recommended to update D multiple times (k steps) for every single G update?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>To maintain a strong, informative gradient signal for G.</strong> If G updates as fast as D, G can outpace D's ability to detect fakes — D provides an unreliable signal, and G receives misleading gradients. Keeping D slightly ahead ensures it remains a reliable quality critic. The original Goodfellow paper recommends k = 1 as a practical compromise (more D updates per G update is theoretically better, but expensive). WGAN-GP typically uses k = 5 (5 D steps per G step). The key insight: D's job is to provide a meaningful training signal; if D is worse than G, that signal degenerates.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">StyleGAN can generate photorealistic faces with precise attribute control (age, gender, expression). What architectural choice enables this fine-grained control?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The intermediate latent space W and style injection via AdaIN.</strong> Instead of feeding noise z directly to the generator, StyleGAN maps z to an intermediate W space via a mapping network (8 fully-connected layers). Vectors in W control "styles" — they're injected at each resolution layer via Adaptive Instance Normalization (AdaIN), which scales and shifts feature maps. Because W is learned rather than fixed (like z's Gaussian prior), it naturally disentangles: moving in one direction of W changes pose, another changes age, another changes hair — without entanglement. This is why W is used for most GAN inversion and editing tasks.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">A researcher argues that a GAN with a perfect Discriminator would be the ideal setup for training G. Is this correct?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — a perfect D destroys G's training signal.</strong> If D perfectly classifies every real and fake sample from the start, D(G(z)) ≈ 0 for all G outputs. The original GAN loss log(1 − D(G(z))) ≈ log(1) ≈ 0, and its gradient with respect to G's parameters ≈ 0. G learns nothing. A good D should be <em>slightly better</em> than G — discriminating enough to signal G's failures, but not so perfectly accurate that the gradient vanishes. This is precisely why alternating updates with balanced learning rates matter: the adversary needs to be a credible but not unbeatable opponent.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">You use a GAN to generate synthetic X-ray images for a rare disease classifier because you only have 200 real examples. What key risk should you evaluate before using synthetic data for training?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Training bias from mode collapse and distribution shift.</strong> If the GAN has mode-collapsed on the 200 real examples — producing only the most common presentation of the disease — synthetic samples will undersample rare variants. A classifier trained on this data will be biased toward the frequent presentation and miss atypical cases, potentially more dangerous than having less data. You should: (1) visually inspect generated samples for diversity, (2) compute FID/IS scores, (3) evaluate the downstream classifier on a held-out <em>real</em> test set — not synthetic — as the ground truth. Synthetic augmentation should supplement, not replace, evaluation on real data.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">Diffusion models now dominate text-to-image generation. Name two specific tasks where GANs are still the better engineering choice, and explain why for each.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>1. Real-time / low-latency generation.</strong> GANs generate in a single forward pass — nanoseconds to milliseconds. Diffusion models require 20–1000 denoising steps at inference, making interactive applications (game asset generation, real-time video effects, streaming synthesis) impractical with diffusion. Distilled diffusion (consistency models, LCM) partially closes this gap, but GANs remain faster.<br><br>
+          <strong>2. Limited data domains.</strong> StyleGAN2 produces high-quality faces from ~70k images. Diffusion models for comparable quality typically require millions of training samples. For domain-specific generation with small datasets (medical imaging, industrial defects, specialized art styles), GANs' sample efficiency makes them the practical choice.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+// GANAnimation — inline, self-contained
+// ═══════════════════════════════════════════════════════════
+
+class GANAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.step = 0;
+    this.maxStep = 5;
+    this.running = false;
+    this._timerId = null;
+
+    // Fixed real data cluster (gold dots)
+    this.realDots = [
+      { x: 0.62, y: 0.38 }, { x: 0.68, y: 0.42 }, { x: 0.71, y: 0.35 },
+      { x: 0.65, y: 0.50 }, { x: 0.75, y: 0.45 }, { x: 0.58, y: 0.44 },
+      { x: 0.70, y: 0.58 }, { x: 0.80, y: 0.40 }, { x: 0.66, y: 0.30 },
+      { x: 0.55, y: 0.55 }, { x: 0.78, y: 0.52 }, { x: 0.60, y: 0.48 },
+    ];
+
+    // Fake dots: positions evolve across steps toward real cluster
+    this.fakeStates = [
+      // Step 0–1: random noise
+      [
+        { x: 0.15, y: 0.20 }, { x: 0.28, y: 0.70 }, { x: 0.08, y: 0.55 },
+        { x: 0.22, y: 0.35 }, { x: 0.30, y: 0.15 }, { x: 0.10, y: 0.80 },
+        { x: 0.35, y: 0.60 }, { x: 0.18, y: 0.45 }, { x: 0.40, y: 0.25 },
+        { x: 0.05, y: 0.35 }, { x: 0.32, y: 0.78 }, { x: 0.25, y: 0.50 },
+      ],
+      // Step 2: generator starts moving toward real cluster
+      [
+        { x: 0.30, y: 0.30 }, { x: 0.42, y: 0.55 }, { x: 0.25, y: 0.45 },
+        { x: 0.38, y: 0.38 }, { x: 0.45, y: 0.28 }, { x: 0.20, y: 0.62 },
+        { x: 0.48, y: 0.50 }, { x: 0.32, y: 0.42 }, { x: 0.50, y: 0.35 },
+        { x: 0.22, y: 0.40 }, { x: 0.44, y: 0.65 }, { x: 0.36, y: 0.55 },
+      ],
+      // Step 3: closer
+      [
+        { x: 0.50, y: 0.35 }, { x: 0.55, y: 0.48 }, { x: 0.45, y: 0.42 },
+        { x: 0.52, y: 0.40 }, { x: 0.58, y: 0.32 }, { x: 0.42, y: 0.55 },
+        { x: 0.60, y: 0.50 }, { x: 0.48, y: 0.38 }, { x: 0.62, y: 0.44 },
+        { x: 0.40, y: 0.45 }, { x: 0.57, y: 0.58 }, { x: 0.53, y: 0.52 },
+      ],
+      // Step 4: overlapping with real cluster
+      [
+        { x: 0.60, y: 0.38 }, { x: 0.66, y: 0.45 }, { x: 0.55, y: 0.42 },
+        { x: 0.63, y: 0.40 }, { x: 0.69, y: 0.35 }, { x: 0.57, y: 0.50 },
+        { x: 0.72, y: 0.48 }, { x: 0.61, y: 0.36 }, { x: 0.74, y: 0.43 },
+        { x: 0.56, y: 0.46 }, { x: 0.67, y: 0.54 }, { x: 0.64, y: 0.52 },
+      ],
+    ];
+
+    // Boundary line evolves across steps
+    // Each boundary: { x1frac, y1frac, x2frac, y2frac } in right panel coords
+    this.boundaries = [
+      { x1: 0.1,  y1: 0.2,  x2: 0.9,  y2: 0.8  },  // step 1: raw boundary
+      { x1: 0.35, y1: 0.1,  x2: 0.35, y2: 0.9  },  // step 2: vertical, easy separation
+      { x1: 0.30, y1: 0.80, x2: 0.80, y2: 0.20 },  // step 3: diagonal tracking
+      { x1: 0.50, y1: 0.85, x2: 0.85, y2: 0.15 },  // step 4: closing in
+      { x1: 0.55, y1: 0.85, x2: 0.92, y2: 0.10 },  // step 5: overlapping - harder boundary
+    ];
+
+    // G and D losses across steps
+    this.gLossHistory = [];
+    this.dLossHistory = [];
+
+    this._render();
+  }
+
+  get fakeDots() {
+    const i = Math.min(this.step, this.fakeStates.length - 1);
+    return this.fakeStates[i];
+  }
+
+  get boundary() {
+    const i = Math.min(this.step, this.boundaries.length - 1);
+    return this.boundaries[i];
+  }
+
+  _computeLosses() {
+    // Simulate realistic G and D losses converging toward log(2) ≈ 0.693
+    const target = Math.log(2);
+    const steps = [0, 1, 2, 3, 4, 5];
+    const gLosses = [1.85, 1.52, 1.20, 0.95, 0.78, 0.70];
+    const dLosses = [0.25, 0.38, 0.48, 0.56, 0.63, 0.68];
+    return { gLosses, dLosses, steps };
+  }
+
+  reset() {
+    clearTimeout(this._timerId);
+    this._timerId = null;
+    this.running = false;
+    this.step = 0;
+    this.gLossHistory = [];
+    this.dLossHistory = [];
+    this._render();
+    this._updateCaption();
+    this._renderLoss();
+  }
+
+  nextStep() {
+    if (this.step < this.maxStep) {
+      this.step++;
+      this._recordLoss();
+      this._render();
+      this._updateCaption();
+      this._renderLoss();
+    }
+  }
+
+  _recordLoss() {
+    const { gLosses, dLosses } = this._computeLosses();
+    const i = Math.min(this.step, gLosses.length - 1);
+    this.gLossHistory.push({ step: this.step, g: gLosses[i], d: dLosses[i] });
+  }
+
+  runTraining() {
+    if (this.running) return;
+    this.running = true;
+    const tick = () => {
+      if (!this.running) return;
+      if (this.step >= this.maxStep) { this.running = false; return; }
+      this.step++;
+      this._recordLoss();
+      this._render();
+      this._updateCaption();
+      this._renderLoss();
+      this._timerId = setTimeout(tick, 900);
+    };
+    this._timerId = setTimeout(tick, 400);
+  }
+
+  _updateCaption() {
+    const captions = [
+      'Step 0: Initial state — Generator has no information about the real distribution',
+      'Step 1: Generator produces random noise samples (blue dots) — clearly fake',
+      'Step 2: Discriminator draws a boundary, correctly separating real (gold) from fake (blue)',
+      'Step 3: Generator shifts its samples toward the real cluster to fool the Discriminator',
+      'Step 4: Discriminator boundary updates to compensate — tracks the moving fakes',
+      'Step 5: Convergence — fake distribution overlaps real; Discriminator approaches 50/50',
+    ];
+    const el = document.getElementById('ganCaption');
+    if (el) el.textContent = captions[Math.min(this.step, captions.length - 1)];
+  }
+
+  _render() {
+    const { canvas, ctx } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+    const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const panelW = (W - 60) / 2;
+    const panelH = H - 60;
+    const padT = 40;
+    const padL = 20;
+    const midX = W / 2;
+
+    // ── Left panel: Generator ─────────────────────────────
+    const lX = padL;
+    const lY = padT;
+
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(lX, lY, panelW, panelH);
+
+    ctx.fillStyle = '#f0a500';
+    ctx.font = 'bold 12px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('GENERATOR', lX + panelW / 2, lY - 10);
+
+    ctx.fillStyle = textMuted;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillText('z ~ N(0,1)  →  G(z)', lX + panelW / 2, lY + 16);
+
+    // Draw fake dots
+    const fakes = this.fakeDots;
+    fakes.forEach(d => {
+      const px = lX + d.x * panelW;
+      const py = lY + d.y * panelH;
+      ctx.beginPath();
+      ctx.arc(px, py, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#58a6ff';
+      ctx.shadowBlur = this.step >= 4 ? 6 : 0;
+      ctx.shadowColor = '#58a6ff';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+    });
+
+    ctx.fillStyle = textMuted;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('● fake samples', lX + panelW / 2, lY + panelH + 18);
+
+    // ── Divider + step counter ───────────────────────────
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(midX, padT);
+    ctx.lineTo(midX, padT + panelH);
+    ctx.stroke();
+
+    ctx.fillStyle = '#f0a500';
+    ctx.font = 'bold 11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`step ${this.step} / ${this.maxStep}`, midX, padT + panelH / 2 - 6);
+    ctx.fillStyle = textMuted;
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText('training loop', midX, padT + panelH / 2 + 10);
+
+    // Arrows between panels
+    const arrowY = padT + panelH * 0.35;
+    this._drawSmallArrow(ctx, midX - 22, arrowY, midX - 6, arrowY, '#f0a500');
+
+    const arrowY2 = padT + panelH * 0.65;
+    this._drawSmallArrow(ctx, midX + 6, arrowY2, midX - 22, arrowY2, '#3fb950');
+
+    ctx.fillStyle = '#f0a500';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('fakes →', midX, arrowY - 7);
+
+    ctx.fillStyle = '#3fb950';
+    ctx.fillText('← gradient', midX, arrowY2 - 7);
+
+    // ── Right panel: Discriminator ─────────────────────────
+    const rX = midX + padL;
+    const rY = padT;
+
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rX, rY, panelW, panelH);
+
+    ctx.fillStyle = '#3fb950';
+    ctx.font = 'bold 12px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('DISCRIMINATOR', rX + panelW / 2, rY - 10);
+
+    ctx.fillStyle = textMuted;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillText('D(x) → P(real)', rX + panelW / 2, rY + 16);
+
+    // Draw decision boundary if step > 0
+    if (this.step >= 1) {
+      const b = this.boundary;
+      const bx1 = rX + b.x1 * panelW;
+      const by1 = rY + b.y1 * panelH;
+      const bx2 = rX + b.x2 * panelW;
+      const by2 = rY + b.y2 * panelH;
+
+      ctx.save();
+      ctx.strokeStyle = this.step >= 4 ? 'rgba(63,185,80,0.5)' : 'rgba(63,185,80,0.75)';
+      ctx.lineWidth = this.step >= 4 ? 1.5 : 2;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(bx1, by1);
+      ctx.lineTo(bx2, by2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      ctx.fillStyle = '#3fb950';
+      ctx.font = '9px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('boundary', bx1 + 4, by1 - 5);
+    }
+
+    // Draw real dots on right panel (gold)
+    this.realDots.forEach(d => {
+      const px = rX + d.x * panelW;
+      const py = rY + d.y * panelH;
+      ctx.beginPath();
+      ctx.arc(px, py, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#f0a500';
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(240,165,0,0.5)';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+    });
+
+    // Draw fake dots on right panel too (so D can see them)
+    if (this.step >= 1) {
+      fakes.forEach(d => {
+        const px = rX + d.x * panelW;
+        const py = rY + d.y * panelH;
+        ctx.beginPath();
+        ctx.arc(px, py, 4, 0, Math.PI * 2);
+        ctx.strokeStyle = '#58a6ff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Fill with slight opacity
+        ctx.fillStyle = 'rgba(88,166,255,0.25)';
+        ctx.fill();
+      });
+    }
+
+    // Legend
+    ctx.fillStyle = '#f0a500';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('● real   ○ fake', rX + panelW / 2, rY + panelH + 18);
+
+    // Step label at bottom
+    if (this.step >= this.maxStep) {
+      ctx.fillStyle = '#3fb950';
+      ctx.font = 'bold 11px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Converged: D outputs ≈ 0.5 everywhere', W / 2, H - 4);
+    }
+  }
+
+  _interpolateDots(fromState, toState, t) {
+    // Use lerp from animations.js for smooth dot transitions
+    return fromState.map((d, i) => ({
+      x: lerp(d.x, toState[i].x, easeInOut(t)),
+      y: lerp(d.y, toState[i].y, easeInOut(t)),
+    }));
+  }
+
+  _drawSmallArrow(ctx, x1, y1, x2, y2, color) {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const hs = 6;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - hs * Math.cos(angle - Math.PI / 6), y2 - hs * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(x2 - hs * Math.cos(angle + Math.PI / 6), y2 - hs * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  renderLoss(canvas) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+    const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const pad = 45;
+    const { gLosses, dLosses } = this._computeLosses();
+    const maxL = 2.0;
+    const minL = 0.0;
+    const totalSteps = this.maxStep;
+
+    const toX = (s) => pad + (s / totalSteps) * (W - 2 * pad);
+    const toY = (l) => pad + (1 - (l - minL) / (maxL - minL)) * (H - 2 * pad);
+
+    // Axes
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, pad);
+    ctx.lineTo(pad, H - pad);
+    ctx.lineTo(W - pad, H - pad);
+    ctx.stroke();
+
+    // Reference line: log(2) ≈ 0.693
+    const refY = toY(Math.log(2));
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(pad, refY);
+    ctx.lineTo(W - pad, refY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    ctx.fillStyle = textMuted;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('log2 ≈ 0.693', pad - 4, refY + 4);
+
+    // Axis labels
+    ctx.fillStyle = textMuted;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Training Step', W / 2, H - 8);
+    ctx.save();
+    ctx.translate(14, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Loss', 0, 0);
+    ctx.restore();
+
+    // Plot lines up to current step
+    const maxIdx = Math.min(this.step, gLosses.length - 1);
+
+    if (maxIdx >= 1) {
+      // G loss (orange)
+      ctx.beginPath();
+      ctx.strokeStyle = '#f0a500';
+      ctx.lineWidth = 2;
+      for (let i = 0; i <= maxIdx; i++) {
+        const x = toX(i);
+        const y = toY(gLosses[i]);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // D loss (green)
+      ctx.beginPath();
+      ctx.strokeStyle = '#3fb950';
+      ctx.lineWidth = 2;
+      for (let i = 0; i <= maxIdx; i++) {
+        const x = toX(i);
+        const y = toY(dLosses[i]);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Dots
+      ['#f0a500', '#3fb950'].forEach((col, ci) => {
+        const arr = ci === 0 ? gLosses : dLosses;
+        for (let i = 0; i <= maxIdx; i++) {
+          ctx.beginPath();
+          ctx.arc(toX(i), toY(arr[i]), 4, 0, Math.PI * 2);
+          ctx.fillStyle = col;
+          ctx.fill();
+        }
+      });
+    }
+
+    // Step labels on x-axis
+    for (let i = 0; i <= totalSteps; i++) {
+      ctx.fillStyle = textMuted;
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(i, toX(i), H - pad + 14);
+    }
+
+    // Legend
+    ctx.fillStyle = '#f0a500';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('— G loss', W - 120, 22);
+    ctx.fillStyle = '#3fb950';
+    ctx.fillText('— D loss', W - 120, 38);
+  }
+
+  _renderLoss() {
+    const lossCanvas = document.getElementById('ganLossCanvas');
+    if (lossCanvas && document.getElementById('ganLossPanel').style.display !== 'none') {
+      this.renderLoss(lossCanvas);
+    }
+  }
+}
+
+// ── Wire GAN animation ────────────────────────────────────
+const ganCanvas = document.getElementById('ganCanvas');
+const ganAnim = new GANAnimation(ganCanvas);
+
+document.getElementById('ganNextBtn').addEventListener('click', () => ganAnim.nextStep());
+document.getElementById('ganRunBtn').addEventListener('click', () => ganAnim.runTraining());
+document.getElementById('ganResetBtn').addEventListener('click', () => ganAnim.reset());
+
+let lossVisible = false;
+document.getElementById('ganLossBtn').addEventListener('click', () => {
+  const panel = document.getElementById('ganLossPanel');
+  lossVisible = !lossVisible;
+  panel.style.display = lossVisible ? 'block' : 'none';
+  document.getElementById('ganLossBtn').textContent = lossVisible ? '◈ Hide Loss' : '◈ Show Loss';
+  if (lossVisible) ganAnim.renderLoss(document.getElementById('ganLossCanvas'));
+});
+
+// ── Playground canvas ─────────────────────────────────────
+(function () {
+  const pgCanvas = document.getElementById('pgCanvas');
+  const pgCtx = pgCanvas.getContext('2d');
+  const W = pgCanvas.width;
+  const H = pgCanvas.height;
+  const pad = 50;
+
+  let gLR = 0.01, dLR = 0.01, kSteps = 1;
+  let running = false;
+  let epoch = 0;
+  const maxEpoch = 120;
+  let gLossArr = [], dLossArr = [];
+  let timerId = null;
+
+  function computeLoss(ep) {
+    // Simulate different dynamics based on LR ratio
+    const ratio = gLR / dLR;
+    const gTarget = Math.log(2);
+    const dTarget = Math.log(2);
+    // Mode collapse risk: if ratio >> 1, G loss drops fast but oscillates
+    // Vanishing gradient: if ratio << 1, G loss stays high
+    const baseDecay = Math.exp(-ep / (maxEpoch * 0.4));
+    let gL, dL;
+    if (ratio > 2.5) {
+      // G too fast: oscillations
+      gL = gTarget + 0.3 * Math.sin(ep * 0.3) * baseDecay + 0.25 * baseDecay;
+      dL = dTarget + 0.4 * Math.cos(ep * 0.25) * baseDecay + 0.35 * baseDecay;
+    } else if (ratio < 0.4) {
+      // D too fast: G gradient vanishes, G loss stays high
+      gL = 1.8 - 0.8 * (1 - baseDecay) + 0.05 * Math.random();
+      dL = dTarget + 0.05 * baseDecay + 0.02 * Math.random();
+    } else {
+      // Balanced: smooth convergence
+      gL = gTarget + (1.3 - gTarget) * baseDecay + 0.02 * Math.random();
+      dL = dTarget + (0.3 - dTarget) * (1 - baseDecay) + 0.02 * Math.random();
+    }
+    return { g: Math.max(0.05, gL), d: Math.max(0.05, dL) };
+  }
+
+  function renderPG() {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+    const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+
+    pgCtx.clearRect(0, 0, W, H);
+    pgCtx.fillStyle = bg;
+    pgCtx.fillRect(0, 0, W, H);
+
+    pgCtx.strokeStyle = border;
+    pgCtx.lineWidth = 1;
+    pgCtx.beginPath();
+    pgCtx.moveTo(pad, pad);
+    pgCtx.lineTo(pad, H - pad);
+    pgCtx.lineTo(W - pad, H - pad);
+    pgCtx.stroke();
+
+    const toX = (i) => pad + (i / maxEpoch) * (W - 2 * pad);
+    const toY = (l) => pad + (1 - (l - 0) / 2.0) * (H - 2 * pad);
+
+    // Reference
+    const refY = toY(Math.log(2));
+    pgCtx.save();
+    pgCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+    pgCtx.setLineDash([4, 4]);
+    pgCtx.beginPath();
+    pgCtx.moveTo(pad, refY);
+    pgCtx.lineTo(W - pad, refY);
+    pgCtx.stroke();
+    pgCtx.setLineDash([]);
+    pgCtx.restore();
+
+    pgCtx.fillStyle = textMuted;
+    pgCtx.font = '10px JetBrains Mono, monospace';
+    pgCtx.textAlign = 'right';
+    pgCtx.fillText('log2', pad - 4, refY + 4);
+
+    // Plot losses
+    if (gLossArr.length >= 2) {
+      pgCtx.beginPath();
+      pgCtx.strokeStyle = '#f0a500';
+      pgCtx.lineWidth = 1.8;
+      gLossArr.forEach((l, i) => {
+        i === 0 ? pgCtx.moveTo(toX(i), toY(l)) : pgCtx.lineTo(toX(i), toY(l));
+      });
+      pgCtx.stroke();
+
+      pgCtx.beginPath();
+      pgCtx.strokeStyle = '#3fb950';
+      pgCtx.lineWidth = 1.8;
+      dLossArr.forEach((l, i) => {
+        i === 0 ? pgCtx.moveTo(toX(i), toY(l)) : pgCtx.lineTo(toX(i), toY(l));
+      });
+      pgCtx.stroke();
+    }
+
+    pgCtx.fillStyle = textMuted;
+    pgCtx.font = '11px JetBrains Mono, monospace';
+    pgCtx.textAlign = 'center';
+    pgCtx.fillText(`Epoch: ${epoch} / ${maxEpoch}    G LR: ${gLR.toFixed(3)}    D LR: ${dLR.toFixed(3)}    k: ${kSteps}`, W / 2, H - 10);
+
+    // Legend
+    pgCtx.fillStyle = '#f0a500';
+    pgCtx.font = '11px JetBrains Mono, monospace';
+    pgCtx.textAlign = 'left';
+    pgCtx.fillText('— G loss', W - 120, 22);
+    pgCtx.fillStyle = '#3fb950';
+    pgCtx.fillText('— D loss', W - 120, 38);
+
+    // Status label
+    const ratio = gLR / dLR;
+    let status = '';
+    if (ratio > 2.5) status = '⚠ G LR too high — oscillation / mode collapse risk';
+    else if (ratio < 0.4) status = '⚠ D LR too high — G gradient vanishing';
+    else status = '✓ Balanced LRs — stable convergence';
+    pgCtx.fillStyle = ratio > 2.5 || ratio < 0.4 ? '#f85149' : '#3fb950';
+    pgCtx.font = 'bold 11px JetBrains Mono, monospace';
+    pgCtx.textAlign = 'center';
+    pgCtx.fillText(status, W / 2, pad - 10);
+  }
+
+  function stepTraining() {
+    if (!running) return;
+    if (epoch >= maxEpoch) { running = false; return; }
+    epoch++;
+    const { g, d } = computeLoss(epoch);
+    gLossArr.push(g);
+    dLossArr.push(d);
+    renderPG();
+    timerId = setTimeout(stepTraining, 28);
+  }
+
+  function resetPG() {
+    clearTimeout(timerId);
+    running = false;
+    epoch = 0;
+    gLossArr = [];
+    dLossArr = [];
+    renderPG();
+  }
+
+  document.getElementById('pgGenLR').addEventListener('input', function () {
+    gLR = parseFloat(this.value);
+    document.getElementById('pgGenLRVal').textContent = gLR.toFixed(3);
+    resetPG();
+    updateCaption();
+  });
+  document.getElementById('pgDiscLR').addEventListener('input', function () {
+    dLR = parseFloat(this.value);
+    document.getElementById('pgDiscLRVal').textContent = dLR.toFixed(3);
+    resetPG();
+    updateCaption();
+  });
+  document.getElementById('pgKSteps').addEventListener('input', function () {
+    kSteps = parseInt(this.value);
+    document.getElementById('pgKStepsVal').textContent = kSteps;
+    resetPG();
+  });
+
+  function updateCaption() {
+    const ratio = gLR / dLR;
+    const el = document.getElementById('pgCaption');
+    if (!el) return;
+    if (ratio > 2.5) el.textContent = 'G learns faster than D — expect oscillations and mode collapse risk.';
+    else if (ratio < 0.4) el.textContent = 'D learns faster than G — G gradient vanishes, poor generation.';
+    else el.textContent = 'Balanced LRs: smooth adversarial convergence toward log(2) ≈ 0.693.';
+  }
+
+  document.getElementById('pgRunBtn').addEventListener('click', () => {
+    if (!running) { running = true; stepTraining(); }
+  });
+  document.getElementById('pgResetBtn').addEventListener('click', resetPG);
+
+  renderPG();
+})();
+
+// ── Quiz ──────────────────────────────────────────────────
+const CHAPTER_SLUG = 'gans';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+const TOTAL_Q = 9;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+}
+
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+
+// ── Reading progress bar ──────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ── Scroll reveal ─────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ── TOC active dot ────────────────────────────────────────
+const sections = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots  = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ── Re-render on theme change ─────────────────────────────
+window.onThemeChange(function () {
+  ganAnim._render();
+  ganAnim._renderLoss();
+});
+</script>
+</body>
+</html>

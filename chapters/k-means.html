@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>K-Means Clustering — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>          <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span><span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>          <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 1 · Basic Machine Learning</p>
+    <h1>K-Means Clustering</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The algorithm that finds structure no one told it was there.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-style:normal; font-size:1.05rem; line-height:1.8;">
+      K-Means is how Spotify groups songs you've never heard into playlists you'll love. It has never seen a genre label, a mood tag, or a single human opinion. It only sees numbers — and from numbers alone, it carves the music universe into neighbourhoods. That's <strong style="color:var(--accent)">K-Means</strong>: the algorithm that discovers groups without ever being told what a group is.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Finding the centre of gravity</h2>
+    <p class="lead">
+      Every algorithm we've studied so far — linear regression, gradient descent, SVMs — was <em>supervised</em>: you hand it labelled examples and it learns to predict labels. K-Means is different. It is <strong style="color:var(--accent)">unsupervised</strong>: there are no labels, no right answers, no teacher. Your only input is a pile of unlabelled data points. The question it answers is: "does this pile have natural groups hiding inside it?"
+    </p>
+    <p>
+      The mental model: imagine scattering 36 coins on a table in rough clusters. You want to find each cluster's centre of gravity — the point you could balance the cluster on if it were a physical object. K-Means does exactly this, but iteratively: it guesses where the centres are, assigns each coin to its nearest guess, recomputes the true centres of those assigned groups, and repeats until the centres stop moving.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">K</strong> is the number of clusters you specify in advance — it is not learned from the data.</li>
+      <li>The <strong style="color:var(--accent)">centroid</strong> is the mean position of all points currently assigned to a cluster.</li>
+      <li><strong style="color:var(--accent)">Assignment</strong> and <strong style="color:var(--accent)">update</strong> alternate until convergence — this is Lloyd's algorithm.</li>
+      <li>Distance is Euclidean. The algorithm carves space into <em>Voronoi regions</em> — each centroid owns the territory closest to it.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Build it from first principles — don't just accept it</h2>
+
+    <p class="lead">
+      Three questions that reveal whether you truly understand K-Means, or have only memorised the steps.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      K-Means is guaranteed to converge. Every run will terminate. But "converge" doesn't mean "find the best answer." What property of the algorithm guarantees convergence, and what does that tell you about the quality of the result?
+    </div>
+
+    <p>
+      K-Means converges because each of its two steps can only decrease — never increase — the objective (within-cluster sum of squares). The assignment step can only lower the total sum by moving each point to the nearest available centroid. The update step can only lower it further by moving the centroid to the true mean of its cluster, which is the unique position that minimises squared distances from all assigned points. Because the objective is bounded below by zero and strictly decreases at each step, convergence is guaranteed. But the objective has many local minima — the algorithm finds <em>one of them</em>, not necessarily the global best. The result is sensitive to which local minimum the initialisation leads into.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Two runs of K-Means on identical data, same K, different random seed — they converge to completely different cluster assignments. This happens regularly in practice. Why? And what does it reveal about what K-Means is actually doing?
+    </div>
+
+    <p>
+      Initialisation matters because the algorithm is a <em>local search</em>. It greedily improves from wherever it starts and has no mechanism to escape the basin of the first local minimum it finds. If the initial centroids are placed poorly — for example, two starting centroids in the same natural cluster and none in another — the algorithm will converge to a partition where one true cluster is split and another is merged. The canonical fix is <strong style="color:var(--accent)">K-Means++</strong> (Arthur &amp; Vassilvitskii, 2007): seed the first centroid randomly, then seed each subsequent centroid with probability proportional to its squared distance from the nearest already-chosen centroid. This biases initialisation toward spread, making poor partitions far less likely. It is the default in scikit-learn. Running multiple restarts and keeping the best result (lowest inertia) is additional insurance.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      The objective K-Means minimises is called <em>inertia</em>: the total squared distance of every point from its assigned centroid. What are two ways this objective can be low even when the clustering is useless or meaningless?
+    </div>
+
+    <p>
+      First: K = n. Assign each point to its own cluster; inertia = 0. Perfect score, zero information. Inertia always decreases as K grows — you cannot use it to compare clusterings with different K values without adjustment. This is why the <em>elbow method</em> looks for the K at which inertia stops decreasing rapidly, not the K that minimises it. Second: elongated or crescent-shaped clusters. K-Means carves space into convex, roughly spherical Voronoi regions; inertia can be low even when the boundary cuts through a natural cluster rather than between them. Low inertia does not mean the clusters are real — it means the clusters have small internal squared distances under a Euclidean, spherical assumption.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch it converge</h2>
+    <p class="lead">
+      Thirty-six points seeded in three natural groups. The coloured stars are centroids.
+      Press <strong>Next Step</strong> to walk through one step at a time, or <strong>Run Auto</strong> to watch the full convergence. Change K with the slider to see how the algorithm partitions the same data differently.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Watch the centroid stars drift toward the mean of their cluster on each Update step. When they stop moving — that's convergence.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="kmCanvas" width="720" height="380" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="kmCaption">
+        Press <strong>Next Step</strong> or <strong>Run Auto</strong> to begin.
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">K (clusters)</span>
+        <input type="range" id="kSlider" min="2" max="5" step="1" value="3">
+        <span class="control-value" id="kValue">3</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="nextStepBtn">Next Step</button>
+        <button class="btn" id="runAutoBtn" style="margin-left:0.5rem;">Run Auto</button>
+        <button class="btn secondary" id="kmResetBtn" style="margin-left:0.5rem;">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>The objective function and one full iteration</h2>
+
+    <p class="lead">
+      Plain English first: K-Means minimises the total squared distance from each point to its assigned centroid. Smaller means tighter clusters — every point is close to the centre of its group.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Within-Cluster Sum of Squares (WCSS / Inertia)</div>
+      <div class="formula">J  =  Σᵢ  min<sub>k</sub>  ||xᵢ − μₖ||²</div>
+      <div class="symbol-table">
+        <span class="sym">xᵢ</span>      <span>data point i — a vector of features (e.g. 2D coordinates)</span>
+        <span class="sym">μₖ</span>      <span>centroid of cluster k — the mean position of all points assigned to k</span>
+        <span class="sym">||·||²</span>  <span>squared Euclidean distance — sum of squared coordinate differences</span>
+        <span class="sym">min<sub>k</sub></span>    <span>each point contributes its distance to its nearest centroid only</span>
+        <span class="sym">Σᵢ</span>      <span>sum over all n data points — the total inertia</span>
+      </div>
+    </div>
+
+    <p><strong>One complete iteration — 6 points, K = 2, exact coordinates:</strong></p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0;">
+        <span class="step-num" style="background:transparent; color:var(--text-muted);"></span>
+        <span style="display:grid; grid-template-columns:6rem 1fr; gap:0 1rem; font-weight:600; font-family:var(--font-mono); font-size:0.78rem; color:var(--text-muted);">
+          <span>Phase</span><span>Detail</span>
+        </span>
+      </div>
+
+      <div class="step">
+        <span class="step-num">0</span>
+        <span>
+          <span class="step-math" style="display:block; margin-bottom:0.3rem;">Data: A(1,1), B(1.5,2), C(2,1.5), D(6,6), E(7,5.5), F(6.5,7)</span>
+          <span style="color:var(--text-muted); font-size:0.88rem; font-family:var(--font-mono);">Initial centroids chosen at random: μ₁ = A(1,1), μ₂ = D(6,6)</span>
+        </span>
+      </div>
+
+      <div class="step">
+        <span class="step-num">1</span>
+        <span>
+          <span style="color:var(--text-muted); font-size:0.82rem; font-family:var(--font-mono); display:block; margin-bottom:0.3rem;">ASSIGN — distance each point to μ₁=(1,1) and μ₂=(6,6)</span>
+          <span class="step-math" style="display:block;">A→μ₁ (d=0),  B→μ₁ (d²=1.25 vs 43),  C→μ₁ (d²=1.25 vs 32.5)</span>
+          <span class="step-math" style="display:block;">D→μ₂ (d=0),  E→μ₂ (d²=1.25 vs 43),  F→μ₂ (d²=1.25 vs 32.5)</span>
+          <span style="color:var(--text-muted); font-size:0.85rem; display:block; margin-top:0.2rem;">Cluster 1 = {A, B, C}   Cluster 2 = {D, E, F}</span>
+        </span>
+      </div>
+
+      <div class="step">
+        <span class="step-num">2</span>
+        <span>
+          <span style="color:var(--text-muted); font-size:0.82rem; font-family:var(--font-mono); display:block; margin-bottom:0.3rem;">UPDATE — recompute centroids as cluster means</span>
+          <span class="step-math" style="display:block;">μ₁ = mean({A,B,C}) = ((1+1.5+2)/3, (1+2+1.5)/3) = (1.5, 1.5)</span>
+          <span class="step-math" style="display:block;">μ₂ = mean({D,E,F}) = ((6+7+6.5)/3, (6+5.5+7)/3) = (6.5, 6.17)</span>
+        </span>
+      </div>
+
+      <div class="step">
+        <span class="step-num">3</span>
+        <span>
+          <span style="color:var(--text-muted); font-size:0.82rem; font-family:var(--font-mono); display:block; margin-bottom:0.3rem;">ASSIGN again with updated centroids</span>
+          <span class="step-math" style="display:block;">A→μ₁,  B→μ₁,  C→μ₁,  D→μ₂,  E→μ₂,  F→μ₂  (same assignments)</span>
+          <span style="color:var(--text-muted); font-size:0.85rem; display:block; margin-top:0.2rem;">No assignments changed → convergence after 1 full iteration</span>
+        </span>
+      </div>
+
+      <div class="step" style="flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">Inertia after convergence:</span>
+        <span style="color:var(--text-muted); font-size:0.88rem; font-family:var(--font-mono);">
+          Cluster 1: (1−1.5)²+(1−1.5)² + (1.5−1.5)²+(2−1.5)² + (2−1.5)²+(1.5−1.5)² = 0.5+0.25+0.25 = <strong style="color:var(--blue)">1.0</strong><br>
+          Cluster 2: (6−6.5)²+(6−6.17)² + (7−6.5)²+(5.5−6.17)² + (6.5−6.5)²+(7−6.17)² ≈ <strong style="color:var(--blue)">1.36</strong><br>
+          Total J ≈ <strong style="color:var(--accent)">2.36</strong> — a clean partition with tight inertia.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real Problem Bridge -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Toy to Real</p>
+    <h2>Customer segmentation — from 2D to embedding space</h2>
+    <p class="lead">
+      The worked example above used six points in 2D. Real applications cluster millions of items in hundreds or thousands of dimensions. The algorithm is identical — only the scale and the meaning of "distance" change.
+    </p>
+    <p>
+      <strong style="color:var(--white)">Netflix:</strong> Every user has a viewing history representable as a vector over ~15,000 titles. K-Means over this space groups users whose viewing patterns overlap — not because they share a demographic, but because the geometry of what they watch places them in the same region. Netflix uses these clusters to inform both content recommendations and content acquisition strategy. The clusters aren't named genres; they're discovered structure.
+    </p>
+    <p>
+      <strong style="color:var(--white)">Retail:</strong> Segment customers on recency, frequency, and monetary value (RFM) — a 3D space. K-Means at K=4 typically surfaces: high-value loyalists, lapsing high-value customers, price-sensitive occasional buyers, and dormant accounts. Each cluster gets a different intervention: retention offer, win-back campaign, discount nudge, write-off. The segmentation is not designed — it is discovered.
+    </p>
+    <p>
+      The jump from 2D to high-dimensional space introduces one important caution: <em>Euclidean distance becomes less meaningful as dimensionality grows</em>. In very high dimensions, distances between all pairs of points tend to converge — everything looks equidistant. The standard fix is to apply PCA first to reduce dimensionality to the 20–100 components that capture most variance, then run K-Means on that reduced space. That's not a hack — it's the standard industrial workflow, and it's exactly why PCA is the next chapter.
+    </p>
+    <div class="insight-box" style="font-style:normal;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">The key practical shift:</strong>
+      In 2D you can plot clusters and judge them visually. In 512-dimensional embedding space, you cannot. Inertia, silhouette scores, and domain validation (do experts agree the segments are coherent?) become your only tools for assessing whether the clustering is real — or just a mathematical artifact.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Interactive Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>See how K changes the partition</h2>
+    <p class="lead">
+      The same 36 points. Change K and watch how the algorithm redraws the territory boundaries.
+      Notice that K=3 recovers the three natural clusters; K=4 splits one cluster in two; K=2 merges clusters that belong apart. The data doesn't change — your choice of K changes what you see.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">K (clusters)</span>
+        <input type="range" id="playKSlider" min="2" max="6" step="1" value="3">
+        <span class="control-value" id="playKValue">3</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="playRunBtn">▶ Run to Convergence</button>
+        <button class="btn secondary" id="playResetBtn">↺ Reset</button>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="playCanvas" width="720" height="320" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="playCaption">
+          Inertia will be shown here after convergence.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs — and why they matter</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't random mistakes. Each one leads practitioners to misuse K-Means in a specific, predictable way.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① K-Means finds the true clusters in the data.</div>
+        <div class="truth">
+          K-Means finds a partition that minimises within-cluster squared distances under a Euclidean, spherical geometry assumption. If the true clusters are elongated, crescent-shaped, or non-convex, K-Means will cut through them rather than around them. "True clusters" is a concept that K-Means knows nothing about — it only knows inertia. The clusters it returns are the ones implied by its objective, not by the underlying data-generating process.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② Since it always converges, running it once is enough.</div>
+        <div class="truth">
+          Convergence is guaranteed but quality is not. K-Means converges to a local minimum whose value depends on initialisation. Two runs on identical data with different seeds often converge to different partitions with meaningfully different inertia values. Standard practice is multiple restarts (scikit-learn default: <code>n_init=10</code>) and keeping the run with the lowest final inertia. K-Means++ reduces this sensitivity but does not eliminate it.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Lower inertia always means a better clustering.</div>
+        <div class="truth">
+          Inertia decreases monotonically as K increases, reaching zero when K = n. You cannot use raw inertia to compare clusterings with different K values — it would always choose the largest K. The elbow method looks for the K after which inertia stops decreasing <em>steeply</em>; the silhouette score adjusts for separation between clusters. Lower inertia is better only when K is fixed.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ K-Means works well on any type of data.</div>
+        <div class="truth">
+          K-Means assumes numerical features, Euclidean distance, convex cluster shapes, and roughly equal cluster sizes. It performs poorly on categorical data (use K-Modes or K-Prototypes), high-dimensional data without preprocessing (use PCA first), non-convex clusters (use DBSCAN or Spectral Clustering), and clusters of very different densities or sizes (use Gaussian Mixture Models with unequal covariance). The algorithm is excellent within its assumptions; catastrophic outside them.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ The algorithm tells you what K to use.</div>
+        <div class="truth">
+          K is a hyperparameter you must specify before running the algorithm. K-Means has no mechanism for determining the number of clusters — it will produce a valid-looking partition for any K you give it, including K=1 (everyone in one cluster) and K=n (everyone alone). Choosing K requires external tools: the elbow method, silhouette analysis, gap statistics, or domain knowledge. Unlike Affinity Propagation or DBSCAN, K-Means cannot say "I think there are 3 groups here."
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>Lloyd's algorithm: Assign each point to the nearest centroid; recompute centroids as cluster means; repeat. Guaranteed to converge — not guaranteed to find the global optimum.</li>
+      <li>The objective is WCSS (inertia): sum of squared distances from each point to its assigned centroid. Both steps strictly decrease it — that's why convergence is guaranteed.</li>
+      <li>Initialisation is critical. K-Means++ seeds centroids far apart, dramatically reducing the chance of a poor local minimum. Always use it (it's scikit-learn's default) and run multiple restarts.</li>
+      <li>Inertia always decreases with larger K — use the elbow method or silhouette scores to choose K, never raw inertia comparison across different K values.</li>
+      <li>K-Means assumes convex, spherical clusters in Euclidean space. On elongated clusters, high-dimensional data without PCA, or categorical features, it silently produces meaningless results.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      K-Means clusters in the raw feature space. But for images, text, or genomic sequences, that space is thousands of dimensions wide — and Euclidean distance loses meaning fast. The right approach is to cluster in a compressed space that preserves the structure that matters. How do you find that compressed space, and how much information do you lose? That's the question PCA was designed to answer.<br><br>
+      That's the next chapter: <a href="pca.html" style="color:var(--accent);">PCA &amp; Dimensionality Reduction →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts. Algorithmic details are taken directly from them, not synthesised from memory.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">scikit-learn User Guide — §2.3 Clustering</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Pedregosa et al., scikit-learn developers (2024)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: K-Means objective (inertia), Lloyd's algorithm steps, K-Means++ initialisation,
+            convergence guarantee, limitations (convex/isotropic assumption), elbow and silhouette methods,
+            MiniBatchKMeans, equivalence to EM with diagonal equal covariance.
+          </span><br>
+          <a href="https://scikit-learn.org/stable/modules/clustering.html#k-means" style="font-family:var(--font-mono); font-size:0.8rem;">scikit-learn.org/stable/modules/clustering.html</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">"k-means++: The Advantages of Careful Seeding"</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">David Arthur &amp; Sergei Vassilvitskii, SODA 2007</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: K-Means++ seeding strategy, theoretical guarantees on initialisation quality,
+            distance-proportional centroid selection.
+          </span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">K-Means is guaranteed to converge. Does that mean it finds the best possible clustering?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No.</strong> Convergence is guaranteed because both the assignment and update steps can only decrease inertia, and inertia is bounded below by zero. But convergence to a local minimum is guaranteed — not to the global minimum. The result depends on initialisation; a poorly seeded run can converge to a partition that is far from optimal. This is why multiple restarts and K-Means++ are standard practice.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">You run K-Means with K=3 on the same data ten times and get ten different clusterings. Why? What is the standard fix?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Different random initialisations lead to different local minima.</strong> K-Means is a local search — it improves greedily from its starting centroids and cannot escape the first local minimum it reaches. Two runs with different seeds can converge to meaningfully different partitions. The standard fixes: (1) K-Means++ initialisation, which seeds centroids far apart, reducing the probability of poor starts; (2) multiple restarts (<code>n_init=10</code> in scikit-learn) keeping the run with the lowest final inertia.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">You compare K=3 (inertia: 142) to K=5 (inertia: 89). Is K=5 a better clustering?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>You cannot conclude that from inertia alone.</strong> Inertia always decreases as K increases — K=n always achieves inertia = 0. Comparing raw inertia across different K values is meaningless. Use the elbow method (look for a K after which inertia stops dropping steeply) or the silhouette score (which penalises both tight intra-cluster distances and large inter-cluster separation simultaneously). The question is not which K has lower inertia, but which K captures a real change in the rate of decrease.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">What does K-Means++ change compared to random initialisation? Why does it improve results?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>K-Means++ seeds centroids proportional to squared distance from already-chosen centroids.</strong> The first centroid is chosen uniformly at random. Each subsequent centroid is chosen from the remaining points with probability proportional to its squared distance from the nearest already-chosen centroid. This biases initialisation toward spread — centroids start far apart, which means each natural cluster is more likely to have at least one seed in it. The result is faster convergence and lower final inertia on average. Arthur &amp; Vassilvitskii (2007) proved it achieves an expected approximation ratio of O(log K) to the optimal.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">Your data has two crescent-shaped clusters (like two interlocking C shapes). You run K-Means with K=2. What happens, and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>K-Means will split the crescents incorrectly.</strong> K-Means partitions space into Voronoi regions — convex, roughly spherical territories around each centroid. Crescent shapes are non-convex; no placement of two centroids can produce a Voronoi boundary that follows the crescent curve. The algorithm will find a partition that minimises inertia under its spherical assumption, but that partition will slice through — not between — the true clusters. For non-convex cluster shapes, use DBSCAN or Spectral Clustering.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">Why does K-Means perform poorly on very high-dimensional data without preprocessing? What is the standard fix?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>In high dimensions, Euclidean distances converge — the curse of dimensionality.</strong> As the number of dimensions grows, pairwise distances between all points become nearly equal; the contrast between "close" and "far" collapses. K-Means relies on meaningful distance differences to separate clusters; when distances are all similar, the Voronoi boundaries become arbitrary. The standard fix is dimensionality reduction (PCA) to 20–100 principal components before running K-Means. This removes noise dimensions and preserves the variance structure that makes distances meaningful.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">You have 6 points and set K=6. What is the final inertia? What does this tell you about inertia as a metric?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Inertia = 0.</strong> With K = n, every point is its own cluster — distance from each point to its centroid (itself) is zero. This is the global minimum of the inertia objective, achieved trivially with zero information. It tells you that inertia cannot be used to select K: it will always prefer more clusters, and its minimum is always the degenerate case of K=n. This is why external metrics (elbow, silhouette, domain validation) are essential for K selection — inertia alone is not a valid guide.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">What does it mean to say K-Means is a special case of the Expectation-Maximisation (EM) algorithm?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>K-Means is EM applied to a Gaussian Mixture Model with equal, small, diagonal covariance matrices.</strong> The EM algorithm alternates between an E-step (compute soft cluster responsibilities for each point) and an M-step (update model parameters given those responsibilities). K-Means is the hard-assignment limit: the E-step assigns each point entirely to its nearest centroid (probability 1), and the M-step updates centroids to the mean of assigned points. Gaussian Mixture Models generalise this by allowing soft assignments and non-spherical, unequal covariance matrices — they are strictly more expressive than K-Means.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">A colleague clusters customer data with K-Means and presents the 4 segments as "the true customer archetypes." What is the strongest objection?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The clusters reflect the algorithm's geometric assumptions, not necessarily real archetypes.</strong> Three layered objections: (1) The algorithm was told there are 4 groups — a different K would have produced different, equally internally-valid segments. (2) K-Means produces convex, spherical partitions; if customer behaviour lives on a non-convex manifold, the boundary cuts through real groups. (3) Inertia measures tightness, not meaningfulness — the segments may be tight mathematically but arbitrary from a business perspective. Validation requires domain experts to assess whether the segments are coherent and actionable, not just whether inertia is low.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────
+//  KMeansAnimation — inline, self-contained
+// ─────────────────────────────────────────────────────────────
+class KMeansAnimation {
+  constructor(canvas, opts = {}) {
+    this.canvas  = canvas;
+    this.ctx     = canvas.getContext('2d');
+    this.K       = opts.K || 3;
+    this._build();
+    this._render();
+  }
+
+  // ── Seeded PRNG (simple LCG) for reproducible points ──────
+  _seededRand(seed) {
+    let s = seed;
+    return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+  }
+
+  _build() {
+    // Generate 36 points in 3 natural clusters regardless of K
+    const rng   = this._seededRand(42);
+    this.points = [];
+    const W = this.canvas.width, H = this.canvas.height;
+    const pad = 60;
+    const clusters3 = [
+      { cx: W*0.20, cy: H*0.25, rx: W*0.09, ry: H*0.14, n: 12 },
+      { cx: W*0.72, cy: H*0.22, rx: W*0.10, ry: H*0.12, n: 12 },
+      { cx: W*0.48, cy: H*0.72, rx: W*0.10, ry: H*0.13, n: 12 },
+    ];
+    clusters3.forEach(cl => {
+      for (let i = 0; i < cl.n; i++) {
+        const angle = rng() * Math.PI * 2;
+        const r     = Math.sqrt(rng());
+        this.points.push({
+          x: Math.max(pad, Math.min(W-pad, cl.cx + r * cl.rx * Math.cos(angle))),
+          y: Math.max(pad, Math.min(H-pad, cl.cy + r * cl.ry * Math.sin(angle))),
+        });
+      }
+    });
+
+    this.K          = this.K;
+    this.assignment = new Array(this.points.length).fill(-1);
+    this.centroids  = [];
+    this.animCentroids = []; // visual positions (animated)
+    this.phase      = 'init';   // 'init' | 'assign' | 'update' | 'converged'
+    this.iteration  = 0;
+    this.converged  = false;
+    this._placeCentroids();
+  }
+
+  _placeCentroids() {
+    // K-Means++ style seeding for visual clarity
+    const rng  = this._seededRand(99 + this.K * 7);
+    const pts  = this.points;
+    const seeds = [];
+    const idx0 = Math.floor(rng() * pts.length);
+    seeds.push({ x: pts[idx0].x, y: pts[idx0].y });
+    while (seeds.length < this.K) {
+      const dists = pts.map(p => {
+        const min = seeds.reduce((m, c) => {
+          const d = (p.x-c.x)**2 + (p.y-c.y)**2;
+          return d < m ? d : m;
+        }, Infinity);
+        return min;
+      });
+      const total = dists.reduce((s,d) => s+d, 0);
+      let rand = rng() * total;
+      let chosen = 0;
+      for (let i = 0; i < dists.length; i++) {
+        rand -= dists[i];
+        if (rand <= 0) { chosen = i; break; }
+      }
+      seeds.push({ x: pts[chosen].x, y: pts[chosen].y });
+    }
+    this.centroids     = seeds;
+    this.animCentroids = seeds.map(c => ({ x: c.x, y: c.y }));
+    this.assignment    = new Array(this.points.length).fill(-1);
+    this.iteration     = 0;
+    this.converged     = false;
+    this.phase         = 'init';
+    this._updateCaption('Click "Next Step" to begin.');
+  }
+
+  _clusterColors() {
+    return [
+      { dot: '#f0a500', cent: '#f0a500' },  // gold
+      { dot: '#58a6ff', cent: '#58a6ff' },  // blue
+      { dot: '#3fb950', cent: '#3fb950' },  // green
+      { dot: '#f85149', cent: '#f85149' },  // red
+      { dot: '#d2a8ff', cent: '#d2a8ff' },  // purple
+    ];
+  }
+
+  _assign() {
+    let changed = false;
+    this.points.forEach((p, i) => {
+      let minD = Infinity, best = 0;
+      this.centroids.forEach((c, k) => {
+        const d = (p.x-c.x)**2 + (p.y-c.y)**2;
+        if (d < minD) { minD = d; best = k; }
+      });
+      if (this.assignment[i] !== best) changed = true;
+      this.assignment[i] = best;
+    });
+    return changed;
+  }
+
+  _updateCentroids() {
+    const newCentroids = Array.from({length: this.K}, () => ({x:0, y:0, n:0}));
+    this.points.forEach((p, i) => {
+      const k = this.assignment[i];
+      if (k < 0) return;
+      newCentroids[k].x += p.x;
+      newCentroids[k].y += p.y;
+      newCentroids[k].n++;
+    });
+    this.centroids = newCentroids.map((c, k) =>
+      c.n > 0 ? { x: c.x/c.n, y: c.y/c.n } : this.centroids[k]
+    );
+  }
+
+  step() {
+    if (this.converged) return;
+    if (this.phase === 'init' || this.phase === 'update') {
+      // Assign step
+      const changed = this._assign();
+      this.phase = 'assign';
+      if (!changed && this.iteration > 0) {
+        this.converged = true;
+        this.phase = 'converged';
+        this._updateCaption('Converged! Iterations: ' + this.iteration);
+      } else {
+        this._updateCaption('Assign — each point coloured by nearest centroid. Iteration ' + (this.iteration+1));
+      }
+    } else if (this.phase === 'assign') {
+      // Update step — animate centroids
+      this._updateCentroids();
+      this.iteration++;
+      this.phase = 'update';
+      this._updateCaption('Update Centroids — stars move to cluster mean. Iteration ' + this.iteration);
+    }
+    this._render();
+  }
+
+  _animateTo(targetCentroids, duration, onComplete) {
+    const start = this.animCentroids.map(c => ({ x: c.x, y: c.y }));
+    const t0    = performance.now();
+    const tick  = (now) => {
+      const t = Math.min(1, (now - t0) / duration);
+      const e = easeInOut(t);
+      this.animCentroids = start.map((s, i) => ({
+        x: lerp(s.x, targetCentroids[i].x, e),
+        y: lerp(s.y, targetCentroids[i].y, e),
+      }));
+      this._render();
+      if (t < 1) requestAnimationFrame(tick);
+      else { if (onComplete) onComplete(); }
+    };
+    requestAnimationFrame(tick);
+  }
+
+  stepAnimated(onDone) {
+    if (this.converged) { if (onDone) onDone(); return; }
+    if (this.phase === 'init' || this.phase === 'update') {
+      const changed = this._assign();
+      this.phase = 'assign';
+      if (!changed && this.iteration > 0) {
+        this.converged = true;
+        this.phase = 'converged';
+        this._updateCaption('Converged! Iterations: ' + this.iteration);
+        this._render();
+        if (onDone) onDone();
+      } else {
+        this._updateCaption('Assign — each point coloured by nearest centroid. Iteration ' + (this.iteration+1));
+        this._render();
+        setTimeout(onDone, 400);
+      }
+    } else if (this.phase === 'assign') {
+      const prev = this.centroids.map(c => ({ x: c.x, y: c.y }));
+      this._updateCentroids();
+      this.iteration++;
+      this.phase = 'update';
+      this._updateCaption('Update Centroids — stars move to cluster mean. Iteration ' + this.iteration);
+      this.animCentroids = prev;
+      this._animateTo(this.centroids, 500, () => {
+        this.animCentroids = this.centroids.map(c => ({ x: c.x, y: c.y }));
+        if (onDone) onDone();
+      });
+    }
+  }
+
+  runAuto() {
+    if (this._autoRunning) return;
+    this._autoRunning = true;
+    const tick = () => {
+      if (this.converged || !this._autoRunning) { this._autoRunning = false; return; }
+      this.stepAnimated(() => {
+        if (!this.converged) setTimeout(tick, 150);
+        else this._autoRunning = false;
+      });
+    };
+    tick();
+  }
+
+  stopAuto() { this._autoRunning = false; }
+
+  reset(K) {
+    this.stopAuto();
+    if (K !== undefined) this.K = K;
+    this._placeCentroids();
+    this._render();
+  }
+
+  _inertia() {
+    let total = 0;
+    this.points.forEach((p, i) => {
+      const k = this.assignment[i];
+      if (k < 0) return;
+      const c = this.animCentroids[k];
+      total += (p.x-c.x)**2 + (p.y-c.y)**2;
+    });
+    return total;
+  }
+
+  _render() {
+    const ctx    = this.ctx;
+    const W      = this.canvas.width;
+    const H      = this.canvas.height;
+    const colors = this._clusterColors();
+    const bg     = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw points
+    this.points.forEach((p, i) => {
+      const k     = this.assignment[i];
+      const color = k >= 0 ? colors[k % colors.length].dot : '#555';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.88;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      // ring if assigned
+      if (k >= 0) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.35;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    });
+
+    // Draw centroids as 5-pointed stars
+    this.animCentroids.forEach((c, k) => {
+      const color = colors[k % colors.length].cent;
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      this._drawStar(ctx, 0, 0, 13, 6, color);
+      ctx.restore();
+    });
+  }
+
+  _drawStar(ctx, cx, cy, outer, inner, color) {
+    const points = 5;
+    ctx.beginPath();
+    for (let i = 0; i < points * 2; i++) {
+      const r     = i % 2 === 0 ? outer : inner;
+      const angle = (i * Math.PI) / points - Math.PI / 2;
+      if (i === 0) ctx.moveTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+      else         ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth   = 1.5;
+    ctx.globalAlpha = 0.7;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  _updateCaption(text) {
+    const el = document.getElementById('kmCaption');
+    if (el) el.innerHTML = text;
+  }
+
+  runToConvergence(onDone) {
+    if (this._autoRunning) return;
+    this._autoRunning = true;
+    const tick = () => {
+      if (this.converged || !this._autoRunning) { this._autoRunning = false; if (onDone) onDone(); return; }
+      this.step();
+      if (!this.converged) setTimeout(tick, 0);
+      else { this._autoRunning = false; if (onDone) onDone(); }
+    };
+    // Run synchronously to convergence then render once
+    let iters = 0;
+    while (!this.converged && iters < 200) { this.step(); iters++; }
+    this._render();
+    this._autoRunning = false;
+    if (onDone) onDone();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Wire up Animation section
+// ─────────────────────────────────────────────────────────────
+const kmCanvas  = document.getElementById('kmCanvas');
+const kmAnim    = new KMeansAnimation(kmCanvas, { K: 3 });
+
+const kSlider   = document.getElementById('kSlider');
+const kValue    = document.getElementById('kValue');
+kSlider.addEventListener('input', () => {
+  const v = parseInt(kSlider.value, 10);
+  kValue.textContent = v;
+  kmAnim.reset(v);
+});
+
+document.getElementById('nextStepBtn').addEventListener('click', () => {
+  kmAnim.stopAuto();
+  kmAnim.stepAnimated(() => {});
+});
+document.getElementById('runAutoBtn').addEventListener('click', () => {
+  kmAnim.runAuto();
+});
+document.getElementById('kmResetBtn').addEventListener('click', () => {
+  kmAnim.reset();
+});
+
+// ─────────────────────────────────────────────────────────────
+//  Wire up Playground section (separate instance)
+// ─────────────────────────────────────────────────────────────
+const playCanvas  = document.getElementById('playCanvas');
+const playAnim    = new KMeansAnimation(playCanvas, { K: 3 });
+
+const playKSlider = document.getElementById('playKSlider');
+const playKValue  = document.getElementById('playKValue');
+const playCaption = document.getElementById('playCaption');
+
+playKSlider.addEventListener('input', () => {
+  const v = parseInt(playKSlider.value, 10);
+  playKValue.textContent = v;
+  playAnim.reset(v);
+  playCaption.textContent = 'Inertia will be shown here after convergence.';
+});
+
+document.getElementById('playRunBtn').addEventListener('click', () => {
+  playAnim.stopAuto();
+  // Run to convergence synchronously then update caption
+  let iters = 0;
+  while (!playAnim.converged && iters < 300) { playAnim.step(); iters++; }
+  playAnim._render();
+  const inertia = playAnim._inertia().toFixed(0);
+  playCaption.textContent = `Converged in ${playAnim.iteration} iteration(s) · Inertia: ${inertia} (lower = tighter clusters)`;
+});
+
+document.getElementById('playResetBtn').addEventListener('click', () => {
+  playAnim.reset();
+  playCaption.textContent = 'Inertia will be shown here after convergence.';
+});
+
+// ─────────────────────────────────────────────────────────────
+//  Quiz
+// ─────────────────────────────────────────────────────────────
+const CHAPTER_SLUG   = 'k-means';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / 9 revealed`;
+}
+
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / 9 revealed`;
+
+// ─────────────────────────────────────────────────────────────
+//  Reading progress bar
+// ─────────────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop  = window.scrollY;
+  const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─────────────────────────────────────────────────────────────
+//  Scroll reveal
+// ─────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─────────────────────────────────────────────────────────────
+//  TOC active dot
+// ─────────────────────────────────────────────────────────────
+const sections   = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots    = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─────────────────────────────────────────────────────────────
+//  Re-render canvases on theme change
+// ─────────────────────────────────────────────────────────────
+window.onThemeChange(function() {
+  kmAnim._render();
+  playAnim._render();
+});
+</script>
+</body>
+</html>

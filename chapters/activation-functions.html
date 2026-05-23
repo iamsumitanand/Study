@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activation Functions — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>          <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">History</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span><span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>          <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 2 · Neural Networks</p>
+    <h1>Activation Functions</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The single ingredient that turns a stack of matrix multiplications into a learning machine.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.05rem; line-height:1.8;">
+      Remove the activation function and your 100-layer network is secretly just one linear layer. Every weight matrix collapses into a single equivalent matrix — no matter how deep you go. Non-linearity isn't a detail. It's the entire point.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Non-linearity is not a trick — it's what depth means</h2>
+    <p class="lead">
+      A linear transformation can only rotate, scale, and shear. No matter how many you stack,
+      the composition is still just one linear transformation. Activation functions break this
+      by introducing a bend — after each linear step, the space gets twisted in a new way.
+      That twist is what makes depth meaningful.
+    </p>
+    <p>
+      Think of the layers as a <strong style="color:var(--accent)">transformation hierarchy</strong>.
+      Early layers bend the input space so that simple patterns — edges, tone shifts, character strokes —
+      become linearly separable at the next level. Middle layers combine those separable patterns into
+      shapes, phonemes, or semantic concepts. Late layers assemble those into the final decision.
+      Without activation functions, none of this hierarchy exists — you get one flat linear map from input to output.
+    </p>
+    <p>
+      This is why the Universal Approximation Theorem says a single hidden layer with enough neurons
+      and a nonlinear activation can approximate any continuous function. The activation function is
+      what buys that expressive power. Without it, you can only approximate linear functions —
+      regardless of width or depth.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">pre-activation</strong> z = Wx + b is always linear — a weighted sum of inputs.</li>
+      <li>The <strong style="color:var(--accent)">activation function</strong> σ(z) applies a nonlinear squeeze, gate, or threshold.</li>
+      <li>The <strong style="color:var(--accent)">output</strong> a = σ(z) becomes the input to the next layer — now living in a twisted space.</li>
+      <li>The <strong style="color:var(--accent)">gradient</strong> of the activation at each neuron controls how much signal backpropagates through it.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three questions that reveal the whole story</h2>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Sigmoid squashes any input into (0, 1). That sounds useful. But when |z| is large — say z = 10 or z = −10 — the output is nearly 0 or nearly 1. What does that do to the gradient, and why does it cause problems in deep networks?
+    </div>
+
+    <p>
+      The sigmoid derivative is σ(z)(1 − σ(z)). At saturation — when z is far from zero — both σ(z) and (1 − σ(z)) are close to 0 or 1, so their product approaches zero. The gradient nearly vanishes. In backpropagation, gradients are multiplied through every layer in the chain rule. With even 5 layers, a gradient that starts at 0.01 per layer becomes 0.01⁵ = 10⁻¹⁰ — effectively zero. The earliest layers receive no training signal. This is the <strong style="color:var(--accent)">vanishing gradient problem</strong>, and sigmoid's saturation regions are its primary cause in early deep networks.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      ReLU is defined as max(0, x). Nothing clever about that — it just zeroes out negative inputs. Why does this absurdly simple function outperform sigmoid in deep networks, and what does the gradient look like everywhere?
+    </div>
+
+    <p>
+      ReLU's gradient is exactly 1 for any positive input and 0 for any negative input. There is no saturation region on the positive side — no matter how large z gets, the gradient never shrinks. This means the chain rule product through many layers stays at 1 (for positive activations), and early layers receive full gradients. ReLU is also cheap to compute — one comparison, no exponentials — and sparse by nature: roughly half the neurons in a typical network output zero at any given time, which acts as implicit regularization. The simplicity is the point. It solves the vanishing gradient problem where sigmoid fails.
+    </p>
+    <p>
+      The cost is the <strong style="color:var(--accent)">dying ReLU problem</strong>: if a neuron's pre-activation is consistently negative (e.g., from a large negative bias), its gradient is permanently zero. The neuron stops learning entirely and can never recover. Leaky ReLU, ELU, and related variants address this by allowing a small negative slope (e.g., 0.01x) rather than a hard zero.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Researchers used sigmoid for decades. Then ReLU became standard. Now transformers use GELU. Each replacement came with empirical evidence that the new function trained better. What structural property could make GELU better than plain ReLU in attention-based architectures?
+    </div>
+
+    <p>
+      ReLU is a hard gate: every negative input is exactly zeroed out. GELU (Gaussian Error Linear Unit) softens this — instead of a binary zero/one gate, it weights each input by the probability that a Gaussian random variable would exceed it. Near zero, GELU has a smooth stochastic behavior: inputs slightly below zero are still partially passed through. This smoothness is gradient-friendly, especially for the stochastic attention patterns in transformers, where many pre-activations cluster near zero. GELU's smooth gradient also reduces the risk of the dead neuron problem while keeping ReLU's non-saturating behavior for large positive inputs. Empirically, GELU consistently outperforms ReLU in transformer architectures (BERT, GPT, and successors all use it), though the advantage shrinks in simpler CNNs where ReLU remains competitive.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 4. The Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>See the functions and their gradients</h2>
+    <p class="lead">
+      Each activation function plotted with its derivative. The gold curve is the function itself;
+      the blue dashed curve is the derivative — the gradient signal that backpropagation will use.
+      Red shading marks saturation regions (gradient ≈ 0). Orange marks the dead neuron zone (x &lt; 0, gradient = 0 for ReLU).
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Move your mouse over the canvas to read off exact values. Toggle between functions with the buttons below.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="afCanvas" width="720" height="340" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="afCaption">
+        Sigmoid — output range (0, 1) · derivative peaks at 0.25 when x = 0 · saturates for |x| &gt; 3
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">Activation function</span>
+        <button class="btn" id="btnSigmoid">Sigmoid</button>
+        <button class="btn secondary" id="btnTanh">Tanh</button>
+        <button class="btn secondary" id="btnRelu">ReLU</button>
+        <button class="btn secondary" id="btnGelu">GELU</button>
+      </div>
+      <div class="control-row" style="margin-top:0.5rem; gap:2rem; flex-wrap:wrap; align-items:flex-start;">
+        <div id="afStatsPanel" style="font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted); min-width:180px;">
+          <div style="color:var(--accent); font-weight:700; margin-bottom:0.5rem; text-transform:uppercase; font-size:0.7rem; letter-spacing:0.1em;">Properties</div>
+          <div id="afStatRows"></div>
+        </div>
+        <div id="afBarChart" style="flex:1; min-width:220px;">
+          <div style="color:var(--accent); font-weight:700; margin-bottom:0.6rem; text-transform:uppercase; font-size:0.7rem; letter-spacing:0.1em; font-family:var(--font-mono);">Relative traits</div>
+          <div id="afBars"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Formulas, derivatives, and what they mean</h2>
+
+    <p class="lead">
+      Four functions, each solving a different trade-off between expressivity and gradient flow.
+      Learn the derivative of each — that's what determines whether a neuron can learn.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Sigmoid</div>
+      <div class="formula">σ(x)  =  1 / (1 + e<sup style="font-size:0.75em">−x</sup>)</div>
+      <div class="formula" style="font-size:1rem; border-bottom:none; margin-bottom:0.25rem;">σ′(x)  =  σ(x) · (1 − σ(x))</div>
+      <div class="symbol-table">
+        <span class="sym">range</span>   <span>(0, 1) — never reaches 0 or 1</span>
+        <span class="sym">max σ′</span>  <span>0.25, at x = 0 — gradient peaks at the centre and decays rapidly</span>
+        <span class="sym">saturates</span><span>Yes — for |x| &gt; 3, gradient ≈ 0. Vanishing gradient in deep nets.</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Tanh</div>
+      <div class="formula">tanh(x)  =  (e<sup style="font-size:0.75em">x</sup> − e<sup style="font-size:0.75em">−x</sup>) / (e<sup style="font-size:0.75em">x</sup> + e<sup style="font-size:0.75em">−x</sup>)</div>
+      <div class="formula" style="font-size:1rem; border-bottom:none; margin-bottom:0.25rem;">tanh′(x)  =  1 − tanh²(x)</div>
+      <div class="symbol-table">
+        <span class="sym">range</span>   <span>(−1, 1) — zero-centred, unlike sigmoid</span>
+        <span class="sym">max tanh′</span><span>1.0, at x = 0 — stronger gradient than sigmoid</span>
+        <span class="sym">saturates</span><span>Yes — same vanishing gradient problem as sigmoid, just 4× stronger peak</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">ReLU</div>
+      <div class="formula">ReLU(x)  =  max(0, x)</div>
+      <div class="formula" style="font-size:1rem; border-bottom:none; margin-bottom:0.25rem;">ReLU′(x)  =  1 if x &gt; 0, else 0</div>
+      <div class="symbol-table">
+        <span class="sym">range</span>    <span>[0, ∞) — unbounded positive output</span>
+        <span class="sym">gradient</span> <span>Exactly 1 for positive inputs — no saturation, no shrinkage</span>
+        <span class="sym">dead zone</span><span>x &lt; 0 → gradient = 0. Dead neuron risk if bias pushes neuron permanently negative.</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">GELU</div>
+      <div class="formula">GELU(x)  =  x · Φ(x)</div>
+      <div class="formula" style="font-size:1rem; border-bottom:none; margin-bottom:0.25rem;">GELU′(x)  =  Φ(x) + x · φ(x)</div>
+      <div class="symbol-table">
+        <span class="sym">Φ(x)</span>    <span>CDF of standard normal — probability that N(0,1) ≤ x</span>
+        <span class="sym">φ(x)</span>    <span>PDF of standard normal — the density at x</span>
+        <span class="sym">fast approx</span><span>0.5x · (1 + tanh(√(2/π) · (x + 0.044715x³)))</span>
+        <span class="sym">range</span>    <span>(−0.17, ∞) — slight dip below zero near x ≈ −0.5</span>
+      </div>
+    </div>
+
+    <p><strong>4-step forward pass: comparing gradient magnitude at depth.</strong></p>
+    <p style="color:var(--text-muted); font-size:0.92rem;">
+      A 2-layer network. Pre-activations: z₁ = 0.5, z₂ = 0.5. Compare how much gradient reaches
+      the first layer under sigmoid vs ReLU.
+    </p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.75rem;">
+        <span class="step-num" style="color:var(--text-muted);"></span>
+        <span style="display:grid; grid-template-columns:12rem 1fr 1fr; gap:0 1rem; font-weight:600; font-family:var(--font-mono); font-size:0.78rem; color:var(--text-muted);">
+          <span>Quantity</span><span>Sigmoid</span><span>ReLU</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">1</span>
+        <span style="display:grid; grid-template-columns:12rem 1fr 1fr; gap:0 1rem; font-family:var(--font-mono); font-size:0.85rem;">
+          <span style="color:var(--text-muted)">Layer 2 activation a₂</span>
+          <span class="step-math">σ(0.5) ≈ 0.622</span>
+          <span class="step-math">ReLU(0.5) = 0.5</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span style="display:grid; grid-template-columns:12rem 1fr 1fr; gap:0 1rem; font-family:var(--font-mono); font-size:0.85rem;">
+          <span style="color:var(--text-muted)">Gradient at layer 2  σ′(z₂)</span>
+          <span class="step-math">0.622 × 0.378 ≈ 0.235</span>
+          <span class="step-math">1.0</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span style="display:grid; grid-template-columns:12rem 1fr 1fr; gap:0 1rem; font-family:var(--font-mono); font-size:0.85rem;">
+          <span style="color:var(--text-muted)">Gradient at layer 1  σ′(z₁)</span>
+          <span class="step-math">0.622 × 0.378 ≈ 0.235</span>
+          <span class="step-math">1.0</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span style="display:grid; grid-template-columns:12rem 1fr 1fr; gap:0 1rem; font-family:var(--font-mono); font-size:0.85rem;">
+          <span style="color:var(--text-muted)">Chain rule product (gradient reaching layer 1)</span>
+          <span class="step-math" style="color:var(--red);">0.235 × 0.235 ≈ 0.055</span>
+          <span class="step-math" style="color:var(--green);">1.0 × 1.0 = 1.0</span>
+        </span>
+      </div>
+      <div class="step" style="margin-top:0; flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">After just 2 layers, ReLU delivers 18× stronger gradient to the first layer.</span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          With 10 layers and pre-activations all at 0.5, sigmoid's chain product ≈ 0.235¹⁰ ≈ 4 × 10⁻⁷.
+          ReLU's product stays at 1.0. This is why deep networks became practical only after the switch to ReLU.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 6. Real Problem Bridge -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">The Historical Arc</p>
+    <h2>Sigmoid → Tanh → ReLU → GELU: why each replaced the previous</h2>
+    <p class="lead">
+      The history of activation functions is a sequence of practitioners hitting a wall,
+      diagnosing the cause, and finding a function that removed it. Each transition is
+      a case study in what "better" means.
+    </p>
+
+    <p>
+      <strong style="color:var(--accent)">Sigmoid (1980s–2000s)</strong> was the natural first choice.
+      Its output maps to (0, 1), interpretable as a probability. Its smooth derivative seemed ideal for gradient
+      descent. It worked well for shallow networks and single-layer perceptrons. But when researchers tried
+      adding layers — hoping for more representational power — training became unreliable. Gradients
+      shrank toward zero as they propagated backward through each sigmoid layer. Training the first layer
+      was nearly impossible with five or more layers. The vanishing gradient problem was identified and
+      named, but the solution wasn't obvious.
+    </p>
+
+    <p>
+      <strong style="color:var(--accent)">Tanh (RNNs, late 1990s–2010s)</strong> was an improvement
+      for a specific reason: zero-centring. Sigmoid outputs are always positive, which means the gradients
+      of the weights below a sigmoid layer are always the same sign. This causes a zig-zag update pattern
+      in gradient descent — each step can only move in a restricted direction, slowing convergence.
+      Tanh centres outputs around zero, eliminating this. It became the default for recurrent networks
+      (LSTMs use tanh for cell state outputs) but still saturates and still causes vanishing gradients
+      in very deep feedforward nets.
+    </p>
+
+    <p>
+      <strong style="color:var(--accent)">ReLU (deep CNNs, 2010–2017)</strong> solved the vanishing
+      gradient problem in one stroke. Krizhevsky et al.'s AlexNet (2012) demonstrated that deep
+      convolutional networks trained with ReLU converged six times faster than with tanh. The gradient
+      of 1 for any positive input meant that no matter how many layers the backward pass traversed,
+      the signal did not decay (for active neurons). ReLU also made networks sparse — neurons either fire
+      or don't — which acted as implicit regularization and reduced overfitting. It became the universal
+      default for CNNs and most feedforward architectures and remains the first thing to try today.
+    </p>
+
+    <p>
+      <strong style="color:var(--accent)">GELU (transformers, 2018–present)</strong> emerged from BERT
+      and GPT. In these architectures, many pre-activations cluster close to zero — attention weights
+      and residual stream values are often small. ReLU's hard zero-floor is problematic here:
+      a large fraction of neurons die or sit exactly on the discontinuity. GELU's smooth, stochastic
+      gate handles this more gracefully. The Gaussian weighting naturally down-weights small negative
+      inputs without fully killing them, and it's differentiable everywhere. BERT, GPT-2, GPT-3,
+      PaLM, LLaMA, and virtually every transformer architecture published after 2019 use GELU
+      (or its close cousin SwiGLU).
+    </p>
+
+    <div class="insight-box" style="font-style:normal;">
+      The pattern is consistent: each new function was adopted not because it was theoretically superior
+      in isolation, but because it removed the specific bottleneck that practitioners were hitting at
+      the depth and architecture of the moment. Activation function choice is inseparable from
+      network architecture. The same function that works poorly in one context can be essential in another.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Gradient magnitude through depth</h2>
+    <p class="lead">
+      Watch how the gradient signal weakens with depth for each activation function.
+      Set a pre-activation value and a depth, and see what fraction of the original gradient
+      survives to the first layer.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Network depth (layers)</span>
+        <input type="range" id="pgDepthSlider" min="1" max="30" step="1" value="10">
+        <span class="control-value" id="pgDepthValue">10</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Pre-activation z</span>
+        <input type="range" id="pgZSlider" min="-3" max="3" step="0.1" value="0.5">
+        <span class="control-value" id="pgZValue">0.50</span>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="pgCanvas" width="720" height="260" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="pgCaption">
+          Gradient fraction reaching the first layer vs activation function
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five causal mistakes — and how to unlearn them</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      Each misconception listed here leads naturally to the next. Tracing the chain makes all five impossible to forget.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① More layers automatically means more expressive power.</div>
+        <div class="truth">
+          Not without activation functions. Stacking linear layers without non-linearities between them is
+          mathematically identical to a single linear layer — the composition W₂(W₁x) = (W₂W₁)x.
+          Depth only buys representational power when each layer introduces non-linearity.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② Sigmoid is the natural default because its output looks like a probability.</div>
+        <div class="truth">
+          Sigmoid is appropriate as the final output layer for binary classification, where probability
+          interpretation matters. As a hidden layer activation in deep networks, its saturation causes
+          vanishing gradients that cripple training. The probability interpretation is irrelevant in
+          hidden layers — neurons don't need to output probabilities, they need to pass gradients.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ So use a non-saturating function like ReLU everywhere — it solves all gradient problems.</div>
+        <div class="truth">
+          ReLU solves vanishing gradients for positive inputs but introduces the dying ReLU problem for
+          negative inputs. A neuron whose pre-activation is always negative has a gradient of exactly zero —
+          it cannot update its weights and will never recover, no matter how long training runs.
+          Large learning rates and poor weight initialisation can push many neurons into this state
+          simultaneously, effectively reducing network capacity.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ Dead neurons are rare and a minor concern in practice.</div>
+        <div class="truth">
+          In poorly initialised networks or with aggressive learning rates, dead neuron fractions of 10–40%
+          are reported. These neurons contribute nothing to forward pass outputs and nothing to backward
+          pass gradients. The network trains as if it had that many fewer neurons — but you're still
+          paying the compute cost. Batch normalisation, careful weight initialisation (He initialisation
+          for ReLU), and Leaky ReLU are all practical mitigations.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ GELU is just a smoother ReLU — the choice between them is cosmetic tuning.</div>
+        <div class="truth">
+          The smooth gradient near zero is architecturally significant in transformers, where pre-activations
+          frequently cluster near zero due to residual connections and attention scaling. GELU's stochastic
+          gating behaviour was empirically shown to improve BERT's accuracy by ~1% on GLUE benchmarks vs
+          ReLU — a meaningful margin. The choice is not cosmetic; it's a design decision tied to the
+          distribution of pre-activations in the specific architecture. For CNNs trained on ImageNet, the
+          gap is much smaller.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 10. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>Without activation functions, any depth of network collapses to a single linear transformation — depth is meaningless without non-linearity.</li>
+      <li>Sigmoid and tanh saturate: for large |x|, their derivatives approach zero. In deep networks, this zeroes out gradients in early layers — the vanishing gradient problem.</li>
+      <li>ReLU solves vanishing gradients for positive inputs (gradient = 1) but creates the dead neuron problem for permanently negative inputs (gradient = 0, unrecoverable).</li>
+      <li>GELU's smooth stochastic gate avoids both hard saturation and hard zeroing, making it the default in transformer architectures where pre-activations cluster near zero.</li>
+      <li>Activation function choice is architecture-specific, not universal: sigmoid is correct for binary output layers; tanh remains in LSTMs; ReLU is the right default for CNNs; GELU for transformers.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      We now know that the gradient of the activation function at each neuron controls how much signal propagates backward. But exactly <em>how</em> does the network compute those gradients for every weight across every layer in a single pass? Doing it naively — recomputing from scratch for each weight — would cost O(n²) operations per step in a large network. Modern networks train in O(n). The algorithm that achieves this is backpropagation. And it's the next chapter.
+    </div>
+    <div style="display:flex; gap:1rem; margin-top:1.25rem; flex-wrap:wrap;">
+      <a href="mlp.html" class="btn secondary" style="text-decoration:none;">← MLPs</a>
+      <a href="backpropagation.html" class="btn" style="text-decoration:none;">Backpropagation →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — Chapters 6 &amp; 8</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: non-linearity motivation (§6.1), sigmoid and tanh saturation (§6.3.1–6.3.2),
+            vanishing gradient analysis (§8.2.5), ReLU and variants (§6.3.1), dead neuron problem,
+            Universal Approximation Theorem reference (§6.4).
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Gaussian Error Linear Units (GELUs)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Dan Hendrycks &amp; Kevin Gimpel (2016, updated 2020)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: GELU definition, stochastic gating interpretation, approximation formula,
+            BERT benchmark comparisons, empirical gains over ReLU in NLP tasks.
+          </span><br>
+          <a href="https://arxiv.org/abs/1606.08415" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1606.08415</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">ImageNet Classification with Deep CNNs (AlexNet)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Krizhevsky, Sutskever &amp; Hinton (NeurIPS 2012)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: ReLU vs tanh convergence speed (6× faster), practical demonstration of ReLU
+            enabling the first deep CNN to win ImageNet, empirical case for ReLU over sigmoid/tanh.
+          </span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">A 5-layer network uses no activation functions — just matrix multiplications. You double the number of layers to 10. Does the network's representational power increase?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No.</strong> Without activation functions, any number of stacked linear layers is mathematically equivalent to a single linear layer: W₅ · W₄ · W₃ · W₂ · W₁ = W_combined. Adding more layers only changes the combined matrix — not what the network can represent. Representational power in neural networks comes from the non-linearities, not the depth itself.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">Sigmoid outputs are always positive (range: 0 to 1). Why does this specifically slow down gradient descent, independent of the saturation problem?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Zig-zag gradient updates.</strong> When all activations feeding into a weight are positive, the gradient of that weight is always the same sign as the upstream error signal. This means weights can only move in one direction per step — either all increase or all decrease simultaneously. To reach a minimum that requires mixed updates, the optimizer must zig-zag across the loss surface. Tanh avoids this by producing zero-centred outputs (range: −1 to 1), allowing gradients of mixed signs in the same step.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">A neuron using ReLU has weights [−2, 3] and bias −5. For any typical input, what will happen to this neuron during training, and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>It will become a dead neuron and stop learning.</strong> The large negative bias (−5) makes the pre-activation z = w·x + b very likely to be negative for typical inputs. ReLU maps any negative z to exactly 0, and more critically, ReLU′(z) = 0 for z ≤ 0. With zero gradient, no weight update occurs during backpropagation. The neuron is stuck: it cannot change its weights to escape this state. This is the dying ReLU problem — the neuron is permanently silenced.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">You have a 20-layer network where every layer's sigmoid activation receives pre-activations of approximately z = 2.0. Estimate whether training the first layer is practically feasible.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Not feasible.</strong> σ(2.0) ≈ 0.88, so σ′(2.0) = 0.88 × 0.12 ≈ 0.105. Through 20 layers, the chain rule multiplies this 20 times: 0.105²⁰ ≈ 10⁻²⁰. This is numerically indistinguishable from zero in floating-point arithmetic. The first layer receives no training signal at all. This is the vanishing gradient problem in practice — the reason training deep networks with sigmoid was described as "practically infeasible" before ReLU.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">Why is sigmoid still used at all, given its vanishing gradient problem? Name one specific scenario where it is the correct choice.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Binary classification output layer.</strong> Sigmoid is correct as the final activation when the task requires a probability output in (0, 1), such as binary classification. The vanishing gradient problem only matters in hidden layers — the output layer only needs to produce the right value, not propagate gradients further. Using sigmoid here is mathematically natural: it pairs directly with binary cross-entropy loss and produces a well-calibrated probability. The problem arises only when sigmoid is placed in hidden layers of deep networks.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">ReLU and GELU both output approximately the same value for large positive x. For what range of x do they differ most, and why does this matter for transformers?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Near x = 0 (approximately −1 to 1).</strong> ReLU is a hard gate — exactly 0 for x ≤ 0, exactly x for x &gt; 0, with a discontinuous derivative at 0. GELU smoothly transitions around 0, outputting a slightly negative value for small negative x (dipping to about −0.17 at x ≈ −0.5) and growing smoothly for positive x. In transformers, attention weights and residual stream values frequently cluster near zero. A hard gate at zero creates a large fraction of neurons that are either fully active or fully dead — GELU's smooth transition handles this distribution more gracefully, providing better gradient flow near the decision boundary.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">Your CNN is training with ReLU and you notice that 35% of your neurons output zero for every sample in the training set. Should you be concerned? What might be causing this?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Yes — this indicates a significant dead neuron problem.</strong> 35% of capacity is wasted. Likely causes: (1) Learning rate too large — weight updates pushed neurons into a permanently negative pre-activation region. (2) Poor weight initialisation — weights initialised too large can cause large pre-activations that with the wrong sign produce zero gradients immediately. (3) Large negative biases — explicit or emergent. Mitigations: use He initialisation (designed specifically for ReLU), lower the learning rate, add batch normalisation to stabilise pre-activations, or switch to Leaky ReLU which allows a small gradient (0.01x) for negative inputs.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">Tanh is said to be "better than sigmoid" for hidden layers. But LSTM cells use tanh for the cell state output. Isn't that contradictory — using a saturating activation in a deep network?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — LSTMs solve the vanishing gradient problem through gating, not the activation function.</strong> An LSTM's cell state is updated through an additive recurrence: c_t = f·c_{t-1} + i·g. The forget gate f and input gate i regulate this additively, so gradients can flow through many time steps without being multiplied by a small derivative repeatedly. The tanh applied to the cell output is just for bounding the output range (−1, 1) before it enters the hidden state. The gradient highway in an LSTM bypasses this tanh via the additive cell state path — this is the architectural innovation, not the choice of tanh.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">You're designing a new architecture for a vision task. You have no particular constraints. Which activation function should you start with in the hidden layers, and what single property makes it the right default?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>ReLU — because its gradient is exactly 1 for any positive input.</strong> No saturation, no gradient decay for positive activations. It is cheap to compute, well understood, and has been validated across thousands of vision architectures. The dead neuron problem is manageable with proper He initialisation and reasonable learning rates. GELU is worth considering for transformer-style or attention-heavy architectures where pre-activations cluster near zero, but for a standard CNN on vision tasks, ReLU is the correct first choice. Always start simple.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+// ActivationFunctionAnimation — inline, self-contained
+// ═══════════════════════════════════════════════════════════
+
+class ActivationFunctionAnimation {
+  constructor(canvas, captionEl, statsEl, barsEl) {
+    this.canvas    = canvas;
+    this.ctx       = canvas.getContext('2d');
+    this.captionEl = captionEl;
+    this.statsEl   = statsEl;
+    this.barsEl    = barsEl;
+
+    this.current = 'sigmoid';
+    this.mouseX  = null;
+
+    // Function definitions
+    this.fns = {
+      sigmoid: {
+        f:  x => 1 / (1 + Math.exp(-x)),
+        df: x => { const s = 1 / (1 + Math.exp(-x)); return s * (1 - s); },
+        label: 'Sigmoid',
+        caption: 'Sigmoid — output range (0, 1) · derivative peaks at 0.25 when x = 0 · saturates for |x| > 3',
+        saturateLeft:  true,
+        saturateRight: true,
+        deadZone:      false,
+        stats: { range: '(0, 1)', maxGrad: '0.25', saturates: 'Yes', zeroCenter: 'No' },
+        bars: { training: 0.35, gradient: 0.15, cost: 0.55 },
+      },
+      tanh: {
+        f:  x => Math.tanh(x),
+        df: x => 1 - Math.pow(Math.tanh(x), 2),
+        label: 'Tanh',
+        caption: 'Tanh — output range (−1, 1) · zero-centred · derivative peaks at 1.0 · still saturates for |x| > 2',
+        saturateLeft:  true,
+        saturateRight: true,
+        deadZone:      false,
+        stats: { range: '(−1, 1)', maxGrad: '1.0', saturates: 'Yes', zeroCenter: 'Yes' },
+        bars: { training: 0.50, gradient: 0.30, cost: 0.55 },
+      },
+      relu: {
+        f:  x => Math.max(0, x),
+        df: x => x > 0 ? 1 : 0,
+        label: 'ReLU',
+        caption: 'ReLU — max(0, x) · gradient = 1 for x > 0, 0 for x ≤ 0 · no saturation · dead neuron risk',
+        saturateLeft:  false,
+        saturateRight: false,
+        deadZone:      true,
+        stats: { range: '[0, ∞)', maxGrad: '1.0', saturates: 'No', zeroCenter: 'No' },
+        bars: { training: 0.82, gradient: 0.90, cost: 0.20 },
+      },
+      gelu: {
+        f:  x => 0.5 * x * (1 + Math.tanh(Math.sqrt(2 / Math.PI) * (x + 0.044715 * x * x * x))),
+        df: x => {
+          const c = Math.sqrt(2 / Math.PI);
+          const inner = c * (x + 0.044715 * x * x * x);
+          const tanhInner = Math.tanh(inner);
+          const sechSq = 1 - tanhInner * tanhInner;
+          const dInner = c * (1 + 3 * 0.044715 * x * x);
+          return 0.5 * (1 + tanhInner) + 0.5 * x * sechSq * dInner;
+        },
+        label: 'GELU',
+        caption: 'GELU — smooth stochastic gate · differentiable everywhere · transformer default · slight dip below 0 near x = −0.5',
+        saturateLeft:  false,
+        saturateRight: false,
+        deadZone:      false,
+        stats: { range: '(−0.17, ∞)', maxGrad: '~1.08', saturates: 'No', zeroCenter: 'No' },
+        bars: { training: 0.88, gradient: 0.85, cost: 0.45 },
+      },
+    };
+
+    this.xMin = -5;
+    this.xMax =  5;
+    this.pad  = { top: 30, right: 30, bottom: 36, left: 48 };
+
+    canvas.addEventListener('mousemove', e => this._onMouse(e));
+    canvas.addEventListener('mouseleave', () => { this.mouseX = null; this._render(); });
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const px = (touch.clientX - rect.left) * (canvas.width / rect.width);
+      this.mouseX = px;
+      this._render();
+    }, { passive: false });
+
+    this._render();
+    this._renderStats();
+  }
+
+  select(name) {
+    this.current = name;
+    this._render();
+    this._renderStats();
+    if (this.captionEl) this.captionEl.textContent = this.fns[name].caption;
+  }
+
+  _onMouse(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    this.mouseX = (e.clientX - rect.left) * (this.canvas.width / rect.width);
+    this._render();
+  }
+
+  _xToCanvas(x) {
+    const W = this.canvas.width - this.pad.left - this.pad.right;
+    return this.pad.left + ((x - this.xMin) / (this.xMax - this.xMin)) * W;
+  }
+
+  _yToCanvas(y, yMin, yMax) {
+    const H = this.canvas.height - this.pad.top - this.pad.bottom;
+    return this.pad.top + H - ((y - yMin) / (yMax - yMin)) * H;
+  }
+
+  _canvasToX(px) {
+    const W = this.canvas.width - this.pad.left - this.pad.right;
+    return this.xMin + ((px - this.pad.left) / W) * (this.xMax - this.xMin);
+  }
+
+  _render() {
+    const { canvas, ctx, pad, xMin, xMax } = this;
+    const fn = this.fns[this.current];
+    const W  = canvas.width;
+    const H  = canvas.height;
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+
+    // Canvas bg from CSS token
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+    const border    = getComputedStyle(document.documentElement).getPropertyValue('--border').trim()    || '#30363d';
+    const accent    = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()    || '#f0a500';
+    const blue      = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim()      || '#58a6ff';
+    const red       = getComputedStyle(document.documentElement).getPropertyValue('--red').trim()       || '#f85149';
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Sample function and derivative
+    const STEPS = 300;
+    const xs = [];
+    const ys = [];
+    const dys = [];
+    for (let i = 0; i <= STEPS; i++) {
+      const x = xMin + (i / STEPS) * (xMax - xMin);
+      xs.push(x);
+      ys.push(fn.f(x));
+      dys.push(fn.df(x));
+    }
+
+    const yAll = [...ys, ...dys];
+    const rawYMin = Math.min(...yAll);
+    const rawYMax = Math.max(...yAll);
+    const yPad = (rawYMax - rawYMin) * 0.12;
+    const yMin = rawYMin - yPad;
+    const yMax = rawYMax + yPad;
+
+    // Draw saturation regions
+    if (fn.saturateLeft) {
+      const satX = -3;
+      const cx0 = this._xToCanvas(xMin);
+      const cx1 = this._xToCanvas(satX);
+      ctx.fillStyle = 'rgba(248,81,73,0.08)';
+      ctx.fillRect(cx0, pad.top, cx1 - cx0, plotH);
+      ctx.fillStyle = red;
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.globalAlpha = 0.5;
+      ctx.fillText('saturated', (cx0 + cx1) / 2, pad.top + 14);
+      ctx.globalAlpha = 1;
+    }
+    if (fn.saturateRight) {
+      const satX = 3;
+      const cx0 = this._xToCanvas(satX);
+      const cx1 = this._xToCanvas(xMax);
+      ctx.fillStyle = 'rgba(248,81,73,0.08)';
+      ctx.fillRect(cx0, pad.top, cx1 - cx0, plotH);
+      ctx.fillStyle = red;
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.globalAlpha = 0.5;
+      ctx.fillText('saturated', (cx0 + cx1) / 2, pad.top + 14);
+      ctx.globalAlpha = 1;
+    }
+    // Dead neuron region for ReLU
+    if (fn.deadZone) {
+      const cx0 = this._xToCanvas(xMin);
+      const cx1 = this._xToCanvas(0);
+      ctx.fillStyle = 'rgba(240,165,0,0.10)';
+      ctx.fillRect(cx0, pad.top, cx1 - cx0, plotH);
+      ctx.fillStyle = accent;
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.globalAlpha = 0.6;
+      ctx.fillText('dead zone', (cx0 + cx1) / 2, pad.top + 14);
+      ctx.globalAlpha = 1;
+    }
+
+    // Grid lines
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    // x-axis at y=0
+    const y0 = this._yToCanvas(0, yMin, yMax);
+    ctx.moveTo(pad.left, y0);
+    ctx.lineTo(W - pad.right, y0);
+    // y-axis at x=0
+    const x0 = this._xToCanvas(0);
+    ctx.moveTo(x0, pad.top);
+    ctx.lineTo(x0, H - pad.bottom);
+    ctx.setLineDash([3, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Axis lines
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, H - pad.bottom);
+    ctx.lineTo(W - pad.right, H - pad.bottom);
+    ctx.moveTo(pad.left, pad.top);
+    ctx.lineTo(pad.left, H - pad.bottom);
+    ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = textMuted;
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    for (let xv = Math.ceil(xMin); xv <= xMax; xv++) {
+      if (xv === 0) continue;
+      const cx = this._xToCanvas(xv);
+      ctx.fillText(xv, cx, H - pad.bottom + 15);
+    }
+    ctx.textAlign = 'right';
+    const yTicks = [-1, 0, 0.5, 1];
+    yTicks.forEach(yv => {
+      if (yv < yMin || yv > yMax) return;
+      const cy = this._yToCanvas(yv, yMin, yMax);
+      ctx.fillText(yv.toFixed(1), pad.left - 6, cy + 4);
+    });
+
+    // Derivative curve — blue dashed
+    ctx.beginPath();
+    ctx.strokeStyle = blue;
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([5, 4]);
+    for (let i = 0; i <= STEPS; i++) {
+      const cx = this._xToCanvas(xs[i]);
+      const cy = this._yToCanvas(dys[i], yMin, yMax);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Function curve — gold solid
+    ctx.beginPath();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i <= STEPS; i++) {
+      const cx = this._xToCanvas(xs[i]);
+      const cy = this._yToCanvas(ys[i], yMin, yMax);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+
+    // Legend
+    const legX = W - pad.right - 145;
+    const legY = pad.top + 8;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(legX, legY + 5);
+    ctx.lineTo(legX + 24, legY + 5);
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.fillText(fn.label + '(x)', legX + 28, legY + 9);
+
+    ctx.strokeStyle = blue;
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(legX, legY + 22);
+    ctx.lineTo(legX + 24, legY + 22);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = blue;
+    ctx.fillText("d/dx", legX + 28, legY + 26);
+
+    // Crosshair
+    if (this.mouseX !== null) {
+      const mx = this.mouseX;
+      if (mx >= pad.left && mx <= W - pad.right) {
+        const xv = this._canvasToX(mx);
+        const fv = fn.f(xv);
+        const dfv = fn.df(xv);
+        const cy_f  = this._yToCanvas(fv,  yMin, yMax);
+        const cy_df = this._yToCanvas(dfv, yMin, yMax);
+
+        // Vertical line
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(mx, pad.top);
+        ctx.lineTo(mx, H - pad.bottom);
+        ctx.stroke();
+
+        // Dots on curves
+        ctx.beginPath();
+        ctx.arc(mx, cy_f, 5, 0, Math.PI * 2);
+        ctx.fillStyle = accent;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(mx, cy_df, 4, 0, Math.PI * 2);
+        ctx.fillStyle = blue;
+        ctx.fill();
+
+        // Readout
+        const label = `x = ${xv.toFixed(2)}   f(x) = ${fv.toFixed(3)}   f′(x) = ${dfv.toFixed(3)}`;
+        ctx.font = '11px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = textMuted;
+        ctx.fillText(label, W / 2, H - 6);
+      }
+    }
+  }
+
+  _renderStats() {
+    const fn = this.fns[this.current];
+
+    // Stats rows
+    if (this.statsEl) {
+      const rows = [
+        ['range',    fn.stats.range],
+        ['max grad', fn.stats.maxGrad],
+        ['saturates',fn.stats.saturates],
+        ['zero-cent',fn.stats.zeroCenter],
+      ];
+      this.statsEl.innerHTML = rows.map(([k, v]) =>
+        `<div style="display:flex; gap:0.75rem; margin-bottom:0.3rem;">
+          <span style="color:var(--blue); min-width:5rem;">${k}</span>
+          <span style="color:var(--text);">${v}</span>
+        </div>`
+      ).join('');
+    }
+
+    // Bar chart
+    if (this.barsEl) {
+      const bars = [
+        { label: 'Training speed',   val: fn.bars.training,  color: 'var(--green)' },
+        { label: 'Gradient flow',    val: fn.bars.gradient,  color: 'var(--blue)' },
+        { label: 'Compute cost (inv)',val: 1 - fn.bars.cost, color: 'var(--accent)' },
+      ];
+      this.barsEl.innerHTML = bars.map(b =>
+        `<div style="margin-bottom:0.55rem;">
+          <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:0.75rem; color:var(--text-muted); margin-bottom:0.2rem;">
+            <span>${b.label}</span><span style="color:${b.color};">${Math.round(b.val * 100)}%</span>
+          </div>
+          <div style="height:6px; background:var(--border); border-radius:3px; overflow:hidden;">
+            <div style="height:100%; width:${b.val * 100}%; background:${b.color}; border-radius:3px; transition:width 0.4s ease;"></div>
+          </div>
+        </div>`
+      ).join('');
+    }
+  }
+}
+
+// ── Instantiate animation ──────────────────────────────────
+const afCanvas  = document.getElementById('afCanvas');
+const afCaption = document.getElementById('afCaption');
+const afStatRows = document.getElementById('afStatRows');
+const afBars    = document.getElementById('afBars');
+const afAnim    = new ActivationFunctionAnimation(afCanvas, afCaption, afStatRows, afBars);
+
+// Toggle buttons
+const btnMap = {
+  btnSigmoid: 'sigmoid',
+  btnTanh:    'tanh',
+  btnRelu:    'relu',
+  btnGelu:    'gelu',
+};
+Object.entries(btnMap).forEach(([id, name]) => {
+  document.getElementById(id).addEventListener('click', () => {
+    Object.keys(btnMap).forEach(bid => {
+      const b = document.getElementById(bid);
+      b.classList.toggle('secondary', btnMap[bid] !== name);
+      if (btnMap[bid] === name) b.classList.remove('secondary');
+    });
+    afAnim.select(name);
+  });
+});
+
+// ── Playground: gradient decay by depth ────────────────────
+const pgCanvas  = document.getElementById('pgCanvas');
+const pgCtx     = pgCanvas.getContext('2d');
+const pgCaption = document.getElementById('pgCaption');
+const pgDepthSlider = document.getElementById('pgDepthSlider');
+const pgDepthValue  = document.getElementById('pgDepthValue');
+const pgZSlider     = document.getElementById('pgZSlider');
+const pgZValue      = document.getElementById('pgZValue');
+
+const PG_FNS = {
+  sigmoid: {
+    df: x => { const s = 1/(1+Math.exp(-x)); return s*(1-s); },
+    color: '#f0a500', label: 'Sigmoid',
+  },
+  tanh: {
+    df: x => 1 - Math.pow(Math.tanh(x), 2),
+    color: '#58a6ff', label: 'Tanh',
+  },
+  relu: {
+    df: x => x > 0 ? 1 : 0,
+    color: '#3fb950', label: 'ReLU',
+  },
+  gelu: {
+    df: x => {
+      const c = Math.sqrt(2/Math.PI);
+      const inner = c*(x + 0.044715*x*x*x);
+      const t = Math.tanh(inner);
+      const sech2 = 1 - t*t;
+      return 0.5*(1+t) + 0.5*x*sech2*c*(1+3*0.044715*x*x);
+    },
+    color: '#f85149', label: 'GELU',
+  },
+};
+
+function renderPlayground() {
+  const depth = parseInt(pgDepthSlider.value);
+  const z     = parseFloat(pgZSlider.value);
+  pgDepthValue.textContent = depth;
+  pgZValue.textContent = z.toFixed(2);
+
+  const W = pgCanvas.width;
+  const H = pgCanvas.height;
+  const padL = 55, padR = 30, padT = 30, padB = 40;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+  const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+  const borderC   = getComputedStyle(document.documentElement).getPropertyValue('--border').trim()    || '#30363d';
+
+  pgCtx.clearRect(0, 0, W, H);
+  pgCtx.fillStyle = bg;
+  pgCtx.fillRect(0, 0, W, H);
+
+  // For each function, compute gradient fraction at each layer depth 1..depth
+  const maxDepth = depth;
+  const BAR_NAMES = Object.keys(PG_FNS);
+
+  // Draw bar chart — one group per function, showing fraction at final depth
+  const groupW = plotW / BAR_NAMES.length;
+  const barW   = groupW * 0.55;
+
+  // Axes
+  pgCtx.strokeStyle = borderC;
+  pgCtx.lineWidth = 1.5;
+  pgCtx.beginPath();
+  pgCtx.moveTo(padL, padT);
+  pgCtx.lineTo(padL, H - padB);
+  pgCtx.lineTo(W - padR, H - padB);
+  pgCtx.stroke();
+
+  // Y-axis label and ticks
+  pgCtx.fillStyle = textMuted;
+  pgCtx.font = '11px Inter, sans-serif';
+  pgCtx.textAlign = 'center';
+  pgCtx.save();
+  pgCtx.translate(14, padT + plotH / 2);
+  pgCtx.rotate(-Math.PI / 2);
+  pgCtx.fillText('Gradient fraction', 0, 0);
+  pgCtx.restore();
+
+  // Y ticks
+  [0, 0.25, 0.5, 0.75, 1.0].forEach(yv => {
+    const cy = padT + plotH - yv * plotH;
+    pgCtx.strokeStyle = borderC;
+    pgCtx.lineWidth = 0.5;
+    pgCtx.beginPath();
+    pgCtx.setLineDash([3, 4]);
+    pgCtx.moveTo(padL, cy);
+    pgCtx.lineTo(W - padR, cy);
+    pgCtx.stroke();
+    pgCtx.setLineDash([]);
+    pgCtx.fillStyle = textMuted;
+    pgCtx.font = '10px JetBrains Mono, monospace';
+    pgCtx.textAlign = 'right';
+    pgCtx.fillText(yv.toFixed(2), padL - 5, cy + 4);
+  });
+
+  BAR_NAMES.forEach((name, i) => {
+    const fnSpec = PG_FNS[name];
+    const singleGrad = Math.abs(fnSpec.df(z));
+    const frac = Math.pow(Math.min(singleGrad, 1.0), maxDepth);
+    const displayFrac = Math.min(frac, 1.0);
+
+    const cx = padL + (i + 0.5) * groupW;
+    const bx = cx - barW / 2;
+    const barH = displayFrac * plotH;
+    const by = padT + plotH - barH;
+
+    // Bar fill
+    pgCtx.fillStyle = fnSpec.color;
+    pgCtx.globalAlpha = 0.85;
+    pgCtx.fillRect(bx, by, barW, barH);
+    pgCtx.globalAlpha = 1;
+
+    // Bar border
+    pgCtx.strokeStyle = fnSpec.color;
+    pgCtx.lineWidth = 1.5;
+    pgCtx.strokeRect(bx, by, barW, barH);
+
+    // Value label
+    pgCtx.fillStyle = fnSpec.color;
+    pgCtx.font = '10px JetBrains Mono, monospace';
+    pgCtx.textAlign = 'center';
+    const pct = (displayFrac * 100).toFixed(displayFrac < 0.001 ? 4 : 1);
+    pgCtx.fillText(pct + '%', cx, Math.max(by - 5, padT + 12));
+
+    // Function name
+    pgCtx.fillStyle = textMuted;
+    pgCtx.font = '11px Inter, sans-serif';
+    pgCtx.textAlign = 'center';
+    pgCtx.fillText(fnSpec.label, cx, H - padB + 16);
+  });
+
+  // Caption update
+  pgCaption.textContent = `Gradient fraction surviving ${depth} layer${depth === 1 ? '' : 's'} at z = ${z.toFixed(2)} — single-gradient = σ′(z)^depth`;
+}
+
+pgDepthSlider.addEventListener('input', renderPlayground);
+pgZSlider.addEventListener('input', renderPlayground);
+renderPlayground();
+
+// ── Quiz ──────────────────────────────────────────────────
+const CHAPTER_SLUG = 'activation-functions';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+const TOTAL_Q = 9;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+
+// ── Reading progress bar ──────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop  = window.scrollY;
+  const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ── Scroll reveal ─────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ── TOC active dot ────────────────────────────────────────
+const sections = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots  = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ── Re-render canvases on theme change ─────────────────────
+window.onThemeChange(function() {
+  afAnim._render();
+  renderPlayground();
+});
+</script>
+</body>
+</html>

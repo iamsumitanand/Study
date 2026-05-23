@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Large Language Models — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>          <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Models</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span><span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>          <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 4 · Generative AI</p>
+    <h1>Large Language Models</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      How predicting the next word taught machines to reason, write, and think.
+    </p>
+    <div style="display:flex; gap:1.5rem; margin-top:1.25rem; font-size:0.85rem; color:var(--text-muted); font-family:var(--font-mono);">
+      <a href="diffusion-models.html" style="color:var(--text-muted);">← Diffusion Models</a>
+      <a href="fine-tuning-rlhf.html" style="color:var(--text-muted);">Fine-tuning &amp; RLHF →</a>
+    </div>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.05rem; line-height:1.8;">
+      A language model trained on text doesn't learn words — it learns a <strong style="color:var(--accent)">compressed model of how humans think and express ideas</strong>. The objective is trivial: predict the next token. What emerges is not.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Next-token prediction, trained on all of human writing</h2>
+    <p class="lead">
+      A language model is a function trained on a single self-supervised task: given all the words so far, predict what word comes next. No labels required — every sentence in every document on the internet is its own training example. The input is the context; the label is the very next token. Run this on hundreds of billions of words and something unexpected happens: the model doesn't just learn grammar. It learns to reason.
+    </p>
+    <p>
+      This is the central mystery of modern AI. No one explicitly taught GPT-4 to write code, explain concepts, or solve logic puzzles. These are <strong style="color:var(--accent)">emergent capabilities</strong> — abilities that appear at scale that were not present at smaller sizes. A model trained on 10 billion tokens can't do arithmetic. Train the same architecture on 500 billion tokens with 100 billion parameters and it can. The capability wasn't programmed; it fell out of learning to predict text extremely well.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">token</strong> is the unit — roughly a word or word-piece. "unbelievable" → ["un", "believ", "able"].</li>
+      <li>The <strong style="color:var(--accent)">context window</strong> is how many past tokens the model can see — GPT-4 sees ~128k tokens at once.</li>
+      <li>The <strong style="color:var(--accent)">training objective</strong> is cross-entropy loss over every position — minimize surprise at each next token.</li>
+      <li>The <strong style="color:var(--accent)">emergent behavior</strong> is why scale matters — capabilities appear discontinuously as size and data increase.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three questions that go to the heart of it</h2>
+
+    <p class="lead">
+      Next-token prediction looks trivial on the surface. But if you think carefully about what it requires — and what surprises it has produced — three deep questions emerge. Work through them before reading the answers.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why does predicting the next token teach reasoning, math, and coding — not just grammar? The training signal is nothing more than "what word comes next." How can that teach a model to prove theorems?
+    </div>
+
+    <p>
+      Because to predict the next token well across all of the internet, you must internalize the world that generated the text. A model that sees "The proof proceeds by induction. Base case: n=1..." and must predict the next line has to understand what a valid induction proof looks like — not just the surface grammar. The same applies to code, logic, and science. You can't fake your way to low cross-entropy on millions of diverse technical texts. You have to learn the underlying structure. Predicting text is a proxy for modeling the minds that wrote it.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What does "in-context learning" mean, and why is it surprising? When you give GPT-4 a few examples in the prompt and it generalizes to new cases — what is actually happening? No weights are updated. No gradient steps are taken. How?
+    </div>
+
+    <p>
+      In-context learning is the model's ability to use patterns in its context window as implicit training signal at inference time — without any weight updates. This was not designed in. It emerged. Researchers believe the transformer's attention mechanism learned, during pretraining, to implement a form of gradient descent internally — recognizing patterns in the prompt and adjusting its predictions accordingly. The model isn't memorizing your examples; it's using its billion-parameter generalization engine to extrapolate from them. This is why few-shot prompting works even on tasks the model has never explicitly seen.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What is the difference between a base model and an instruction-tuned model? If GPT-4 and its base model have the same weights at the start of fine-tuning, what does fine-tuning change — and what doesn't it change?
+    </div>
+
+    <p>
+      A base model is a pure next-token predictor — it will complete "How do I bake a cake?" by continuing the text as if it were a recipe book, not by answering you. Fine-tuning with human feedback (RLHF) teaches it to play the role of a helpful assistant. Crucially, <em>fine-tuning doesn't add knowledge</em> — all the world knowledge is already baked into the base model's weights from pretraining. Fine-tuning shapes the <strong style="color:var(--accent)">behavior</strong>: the model learns to respond in a particular format, to follow instructions, to refuse harmful requests, and to rank helpful answers higher. You're not filling an empty vessel — you're steering a very full one.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Token prediction in action</h2>
+    <p class="lead">
+      Watch how a language model processes a sequence and produces a probability distribution over the next token. The temperature slider controls how sharp or flat the distribution is — the most important inference-time hyperparameter.
+    </p>
+    <p>
+      At low temperature, the model is confident and the distribution collapses to one token. At high temperature, probability spreads across many tokens — more creative, more random. Click any predicted token to append it to the sequence and see the model update its prediction.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Adjust temperature, click <strong>Generate Next</strong>, or click a token bar to append it.
+    </p>
+
+    <div class="animation-wrapper grain" id="llmAnimWrapper">
+      <canvas id="llmCanvas" width="720" height="340" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="llmCaption">
+        Temperature controls how peaked the distribution is — lower = more deterministic, higher = more random.
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">Temperature</span>
+        <input type="range" id="tempSlider" min="0.1" max="2.0" step="0.05" value="1.0">
+        <span class="control-value" id="tempValue">1.00</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="generateBtn">▶ Generate Next</button>
+        <button class="btn secondary" id="llmResetBtn">↺ Reset</button>
+        <span style="font-size:0.85rem; color:var(--text-muted); margin-left:0.5rem;">
+          Or click a token bar to choose it
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Autoregressive generation and softmax temperature</h2>
+
+    <p class="lead">
+      An LLM generates text one token at a time. Each token's probability depends on all the tokens that came before. Two equations govern this completely: the autoregressive factorization and the temperature-scaled softmax.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Autoregressive Factorization</div>
+      <div class="formula">p(x) = ∏<sub style="font-size:0.7em">t=1</sub><sup style="font-size:0.7em">T</sup> p(x<sub style="font-size:0.7em">t</sub> | x<sub style="font-size:0.7em">1</sub>, …, x<sub style="font-size:0.7em">t−1</sub>)</div>
+      <div class="symbol-table">
+        <span class="sym">x</span>        <span>the full sequence of tokens — a sentence, paragraph, or document</span>
+        <span class="sym">x<sub style="font-size:0.7em">t</sub></span>       <span>the token at position t — predicted one at a time, left to right</span>
+        <span class="sym">∏</span>        <span>product — the joint probability of the whole sequence is the product of each step's probability</span>
+        <span class="sym">p(x<sub style="font-size:0.7em">t</sub> | …)</span><span>the model's next-token distribution — a softmax over the vocabulary at each step</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Softmax with Temperature</div>
+      <div class="formula">p(x<sub style="font-size:0.7em">t</sub> = k) = exp(z<sub style="font-size:0.7em">k</sub> / τ) / Σ<sub style="font-size:0.7em">j</sub> exp(z<sub style="font-size:0.7em">j</sub> / τ)</div>
+      <div class="symbol-table">
+        <span class="sym">z<sub style="font-size:0.7em">k</sub></span>     <span>logit for token k — the raw score from the model's final linear layer before softmax</span>
+        <span class="sym">τ</span>        <span>temperature — scales all logits before softmax; τ &lt; 1 sharpens, τ &gt; 1 flattens</span>
+        <span class="sym">exp(·)</span>   <span>exponential — ensures all probabilities are positive; larger logits get exponentially more mass</span>
+        <span class="sym">Σ exp</span>    <span>the partition function — normalizes so all probabilities sum to 1</span>
+      </div>
+    </div>
+
+    <p><strong>Four steps — computing next-token probabilities from logits:</strong></p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.75rem;">
+        <span class="step-num" style="color:var(--text-muted);"></span>
+        <span style="display:grid; grid-template-columns:5rem 4.5rem 5rem 5.5rem 5rem; gap:0 1rem; font-weight:600; font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);">
+          <span>Token</span><span>Logit z</span><span>z / τ (τ=1)</span><span>exp(z/τ)</span><span>Probability</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">1</span>
+        <span style="display:grid; grid-template-columns:5rem 4.5rem 5rem 5.5rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">mat</span>
+          <span class="step-math">2.10</span>
+          <span class="step-math">2.10</span>
+          <span class="step-math">8.166</span>
+          <span class="step-math">0.41</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span style="display:grid; grid-template-columns:5rem 4.5rem 5rem 5.5rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">floor</span>
+          <span class="step-math">1.20</span>
+          <span class="step-math">1.20</span>
+          <span class="step-math">3.320</span>
+          <span class="step-math">0.18</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span style="display:grid; grid-template-columns:5rem 4.5rem 5rem 5.5rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">sofa</span>
+          <span class="step-math">0.85</span>
+          <span class="step-math">0.85</span>
+          <span class="step-math">2.340</span>
+          <span class="step-math">0.12</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span style="display:grid; grid-template-columns:5rem 4.5rem 5rem 5.5rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">roof</span>
+          <span class="step-math">0.40</span>
+          <span class="step-math">0.40</span>
+          <span class="step-math">1.492</span>
+          <span class="step-math">0.09</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num" style="font-size:0.75rem;">Σ</span>
+        <span style="display:grid; grid-template-columns:5rem 4.5rem 5rem 5.5rem 5rem; gap:0 1rem; font-family:var(--font-mono); font-size:0.88rem;">
+          <span class="step-math">—</span>
+          <span class="step-math">—</span>
+          <span class="step-math">—</span>
+          <span class="step-math">~19.78</span>
+          <span class="step-math">1.00</span>
+        </span>
+      </div>
+      <div class="step" style="margin-top:0; flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">Now apply temperature τ = 0.5 (greedy-ish).</span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          Divide all logits by 0.5 before softmax: 2.10→4.20, 1.20→2.40, etc. The top token "mat" now gets exp(4.20) / Σ ≈ 0.74 — much more dominant. Temperature is division before exponentiation, so its effect is exponentially amplified. Halving τ doesn't double the top probability; it raises it to a much higher power.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real Models -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">Real Models</p>
+    <h2>GPT-4, Claude, Gemini — and why size and data both matter</h2>
+    <p class="lead">
+      Every major LLM — GPT-4, Claude, Gemini — is a transformer trained on next-token prediction at enormous scale. The architecture is nearly identical across all of them. What varies is scale, data quality, and the fine-tuning recipe.
+    </p>
+
+    <p>
+      <strong style="color:var(--white)">Architecture overview.</strong> All frontier LLMs are decoder-only transformers. Input tokens are embedded into vectors, passed through dozens or hundreds of transformer blocks (each containing self-attention + feed-forward layers), and projected back to a vocabulary distribution. GPT-4 is estimated at ~1.8 trillion parameters across a mixture-of-experts architecture. Claude 3 and Gemini 1.5 are similar in scale and share the same basic design. What differs is training data curation, context length (Gemini 1.5 handles 1M tokens), and the fine-tuning objectives.
+    </p>
+
+    <p>
+      <strong style="color:var(--white)">Scaling laws (Chinchilla).</strong> For years, the field believed bigger models were always better. The 2022 Chinchilla paper (Hoffmann et al., DeepMind) overturned this. It showed that for a given compute budget, you should train a <em>smaller model on more data</em> rather than a larger model on less data. The optimal ratio is approximately 20 tokens of training data per model parameter. GPT-3 (175B parameters) was significantly undertrained — it would have been more capable if trained on 3.5 trillion tokens rather than 300 billion. The Chinchilla insight reshaped how every major lab trains its models.
+    </p>
+
+    <div class="insight-box" style="font-style:normal;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.4rem;">Why both size and data matter — and why you can't trade one for the other:</strong>
+      Model capacity (parameters) determines what patterns the model can represent. Training data determines what patterns it's exposed to. A small model on vast data hits a capacity ceiling — it can't store what it sees. A large model on thin data memorizes rather than generalizes. Chinchilla showed the optimal frontier: roughly 20 tokens per parameter. Below this line, data is the bottleneck. Above it, capacity is. The major labs now all train on trillions of tokens across hundreds of billions of parameters — because that's where the frontier is.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Interactive Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Feel the effect of temperature</h2>
+    <p class="lead">
+      Temperature is the most important inference-time knob. At τ = 0.1 the model is almost always right about the most likely next token. At τ = 2.0 it has no strong opinion and creativity (or incoherence) emerges.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Temperature (τ)</span>
+        <input type="range" id="playTempSlider" min="0.1" max="2.0" step="0.05" value="1.0">
+        <span class="control-value" id="playTempValue">1.00</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="playGenerateBtn">▶ Generate</button>
+        <button class="btn secondary" id="playLlmResetBtn">↺ Reset</button>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="playLlmCanvas" width="720" height="280" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="playLlmCaption">
+          Try τ = 0.1 (near-deterministic) · τ = 1.0 (standard) · τ = 2.0 (flat/random)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five causal misconceptions about LLMs</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These misconceptions form a chain. Each one fails to account for what actually happens at scale. Trace the chain and none of them can survive contact with the evidence.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① LLMs understand language the way humans do.</div>
+        <div class="truth">
+          LLMs model statistical distributions over token sequences. They have no grounding in physical reality, no sensory experience, no persistent memory across conversations. "Understanding" as humans experience it — tied to embodied action and consequence — is not what's happening. What they do have is an extraordinary capacity to represent and manipulate the latent structure of language. That is genuinely impressive and genuinely different from human cognition.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② Therefore LLMs are just stochastic parrots — they only repeat patterns from training data.</div>
+        <div class="truth">
+          This overcorrects. The stochastic parrot framing predicts that LLMs shouldn't generalize to novel inputs outside their training distribution. But they do — they solve novel math problems, write code for APIs that didn't exist during training, and reason about counterfactuals. The compression required to achieve low loss on trillions of diverse tokens cannot be achieved by simple pattern matching. Something structural is being learned. The debate is about the nature of that structure, not whether generalization occurs.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Then size is all that matters — bigger is always better.</div>
+        <div class="truth">
+          The Chinchilla result directly refutes this. For a fixed compute budget, an undertrained large model is consistently outperformed by an optimally trained smaller model. GPT-3 (175B) was outperformed on many benchmarks by Chinchilla (70B trained on 4× more data). Size and data interact — the optimal frontier is roughly 20 tokens of training per parameter. More parameters with insufficient data leads to memorization, not generalization.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ LLMs memorize their training data rather than generalizing from it.</div>
+        <div class="truth">
+          Memorization and generalization coexist. LLMs can recite passages verbatim from training data (especially frequently-repeated text) — this is a real privacy and copyright concern. But the same model also generalizes to tasks and combinations it has never seen. A neural network with 100B parameters trained on 2T tokens cannot memorize everything — it must compress. The weights represent a generalized model of language, not a lookup table. Both phenomena are real; neither fully characterizes what LLMs do.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ Hallucinations are bugs that will be patched away in future versions.</div>
+        <div class="truth">
+          Hallucinations are a structural consequence of autoregressive generation, not a software bug. The model always produces the highest-probability continuation given its context — it has no mechanism to distinguish "things I know" from "things I'm confabulating." When the model generates a plausible-sounding but false fact, it's doing exactly what it was trained to do: produce fluent, contextually appropriate text. Reducing hallucinations requires either grounding (RAG), explicit uncertainty modeling, or training on human feedback that rewards saying "I don't know" — none of which fully eliminate the problem.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>LLMs are decoder-only transformers trained on next-token prediction via cross-entropy loss. The training signal is self-supervised — no manual labels required.</li>
+      <li>Emergent capabilities (reasoning, coding, math) were not designed in — they arise at scale as a byproduct of extremely good next-token prediction across diverse text.</li>
+      <li>Generation is autoregressive: p(x) = ∏ p(x_t | x_{1..t-1}). Temperature τ scales logits before softmax — lower τ sharpens, higher τ flattens the distribution.</li>
+      <li>Chinchilla scaling laws: optimal training uses ~20 tokens per parameter. A smaller model on more data beats a larger model on less data for the same compute budget.</li>
+      <li>Fine-tuning (RLHF) shapes behavior, not knowledge. Hallucinations are a structural consequence of autoregressive generation, not a patchable bug.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      A base language model will complete "What is the capital of France?" by generating more text that looks like it came from a training document — perhaps an essay, a list, or a continuation of whatever context it was given. It won't answer you. So how do you take a model that predicts text and turn it into a model that follows instructions, refuses harmful requests, and sounds like a helpful assistant?<br><br>
+      That's fine-tuning and RLHF. And it's the next chapter.
+    </div>
+    <div style="margin-top:1.5rem;">
+      <a href="fine-tuning-rlhf.html" class="btn">Next: Fine-tuning &amp; RLHF →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Key papers and resources that underpin the claims in this chapter.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Attention Is All You Need</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Vaswani et al., Google Brain (NeurIPS 2017)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            The original transformer paper. Introduced the architecture underlying every major LLM: multi-head self-attention, positional encoding, encoder-decoder structure (later simplified to decoder-only for generation).
+          </span><br>
+          <a href="https://arxiv.org/abs/1706.03762" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1706.03762</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Training Compute-Optimal Large Language Models (Chinchilla)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Hoffmann et al., DeepMind (2022)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            The scaling law paper that changed how every lab trains models. Proved that GPT-3 was undertrained. Established the ~20 tokens/parameter optimal ratio.
+          </span><br>
+          <a href="https://arxiv.org/abs/2203.15556" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/2203.15556</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Language Models are Few-Shot Learners (GPT-3)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Brown et al., OpenAI (NeurIPS 2020)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Introduced in-context learning at scale. Demonstrated that a sufficiently large base model generalizes to new tasks from a handful of examples in the prompt — without any weight updates.
+          </span><br>
+          <a href="https://arxiv.org/abs/2005.14165" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/2005.14165</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">An LLM is trained purely on next-token prediction. No task labels, no explicit instructions. Yet GPT-4 can write Python, solve calculus problems, and explain quantum mechanics. How?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Emergent capabilities from scale.</strong> To predict the next token with low cross-entropy loss across hundreds of billions of words of Python documentation, math papers, and physics textbooks, the model must internalize the underlying structure of those domains. The training signal isn't "learn to code" — it's "predict text perfectly." But doing that perfectly across diverse technical domains requires learning the things that generated the text. Capabilities appear discontinuously as model size and training data scale up.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">You have a compute budget of 6×10²³ FLOPs. You can train a 70B parameter model or a 7B parameter model. The Chinchilla paper tells you which is better — what does it say, and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>It depends on how many tokens each gets.</strong> Chinchilla (Hoffmann et al., 2022) showed the optimal ratio is ~20 tokens per parameter. A 70B model needs ~1.4 trillion tokens to be compute-optimal. A 7B model needs ~140 billion. If your budget lets the 7B model train on 10× more data, the 7B model wins. If both get the same token count, the 70B model wins on capacity. GPT-3 (175B on 300B tokens) was massively undertrained — Chinchilla 70B on 1.4T tokens outperformed it.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">Temperature τ = 0.1 vs τ = 2.0. You need to generate 100 different creative story openings. Which do you use and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>τ = 2.0 (or at least τ &gt; 1.0).</strong> At τ = 0.1, the distribution is extremely peaked — the model almost always picks the single highest-probability token, producing near-identical outputs across runs. At τ = 2.0, probability is spread broadly across many tokens, so each generation samples a different path through the distribution. You get diversity at the cost of coherence. For creative variation across 100 runs, you want a flat distribution. For factual Q&A where there's one right answer, you want a sharp one.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">You give GPT-4 three examples of a new task format in the prompt and it immediately does the task correctly on new inputs — without any fine-tuning. What is happening, and why is this surprising from a learning theory perspective?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>In-context learning — a form of task adaptation without weight updates.</strong> Classical learning theory says learning requires updating parameters based on gradient signal. Here, no weights change. The model uses the examples in the prompt as implicit signal, and its attention mechanism allows it to "attend" to those examples when predicting outputs. Researchers hypothesize the transformer learned to implement a form of meta-learning during pretraining — its internal computations effectively perform gradient-descent-like adaptation based on in-context examples. It's surprising because no optimization step occurs at inference time.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">A model generates a plausible-sounding citation to a paper that does not exist. This happens consistently. Is this a bug that will be fixed in the next version?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — it's a structural property of autoregressive generation.</strong> The model does not have a "knowledge" module separate from its generation module. It produces the highest-probability next token given context. A plausible citation looks like a plausible citation — same format, similar author names, a reasonable-sounding title. The model has no way to look up whether that paper exists before generating it. Reducing hallucinations requires retrieval augmentation (RAG), training on explicit uncertainty signals ("I don't know"), or post-hoc verification — not patching the generation mechanism.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">Logits for a 3-token vocabulary: [3.0, 1.0, 0.0]. Compute the probabilities at τ = 1.0 and at τ = 0.5. What happens to the top token's probability when you halve the temperature?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>τ=1.0: exp([3,1,0]) = [20.09, 2.72, 1.00]. Sum = 23.81. p = [0.844, 0.114, 0.042].</strong><br>
+          <strong>τ=0.5: exp([6,2,0]) = [403.4, 7.39, 1.00]. Sum = 411.8. p = [0.980, 0.018, 0.002].</strong><br>
+          The top token goes from 84% to 98%. Halving temperature doubled the logits before exponentiation — and exponentiation is nonlinear, so doubling the input more than doubles the output. The effect on probability is superlinear: small temperature changes have large effects on how peaked the distribution is.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">What is the difference between fine-tuning and pretraining in terms of what changes in the model?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Both update weights — but they update what the model "knows" vs. how it "behaves."</strong> Pretraining on trillions of tokens fills the model's weights with world knowledge: facts, reasoning patterns, language structure, code syntax. Fine-tuning on thousands of human-preference examples adjusts the same weights to favor certain output styles, instruction-following formats, and refusal behaviors. Fine-tuning doesn't add new knowledge — it shapes which of the model's existing knowledge it surfaces and how. A fine-tuned model that "knows" a fact but was fine-tuned to be evasive will still know the fact; it just won't say it.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">GPT-3 has 175B parameters and was trained on 300B tokens. Chinchilla has 70B parameters and was trained on 1.4T tokens. They used roughly the same compute. Which performs better, and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Chinchilla outperforms GPT-3 on most benchmarks despite being 2.5× smaller.</strong> GPT-3 was undertrained — 300B tokens gives roughly 1.7 tokens per parameter, far below the Chinchilla-optimal ~20. The model had high capacity but insufficient exposure to learn how to use it. Chinchilla at 70B × 20 tokens/param = 1.4T tokens is at the compute-optimal frontier. The Chinchilla paper showed this holds across a wide range of model sizes: for any compute budget, the optimal strategy is to train a smaller model on more data, not a larger model on less.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">A colleague says: "LLMs are just autocomplete — they can't actually reason, they just predict statistically likely tokens." How do you respond?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The description is technically accurate but the conclusion doesn't follow.</strong> LLMs do predict statistically likely tokens. But "statistically likely given the context" on problems that require multi-step reasoning means the model must arrive at intermediate correct conclusions to make the final token likely. On chain-of-thought math problems, a wrong intermediate step leads to wrong downstream tokens — so producing correct final answers requires producing correct reasoning chains. Whether this constitutes "real" reasoning is a philosophical question; that it produces correct solutions to novel logic and math problems that simple pattern matching cannot is an empirical fact.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─── LLM Token Prediction Animation ───────────────────────────────────────
+class LLMAnimation {
+  constructor(canvas, opts = {}) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+
+    // Token sequence
+    this.INITIAL_TOKENS = ['The', 'cat', 'sat', 'on', 'the'];
+    this.tokens = [...this.INITIAL_TOKENS];
+
+    // Base logits for the prediction (fixed, temperature scales them)
+    // Candidates: mat, floor, sofa, roof, grass
+    this.candidates = ['mat', 'floor', 'sofa', 'roof', 'grass'];
+    this.baseLogits  = [2.10, 1.20, 0.85, 0.40, -0.10];
+
+    this.temperature = opts.temperature ?? 1.0;
+
+    // Animation state
+    this._animating  = false;
+    this._animFrame  = null;
+    this._glowPhase  = 0;
+    this._glowTimer  = null;
+    this._barAnim    = null; // { from: [], to: [], start, dur }
+
+    // Token colors (fixed palette)
+    this.tokenColors = ['#58a6ff','#3fb950','#f0a500','#e07b54','#c678dd'];
+
+    this._render();
+    this._startIdleGlow();
+  }
+
+  _softmax(logits, tau) {
+    const scaled = logits.map(z => z / tau);
+    const maxZ = Math.max(...scaled);
+    const exps = scaled.map(z => Math.exp(z - maxZ));
+    const sum  = exps.reduce((a,b) => a+b, 0);
+    return exps.map(e => e / sum);
+  }
+
+  setTemperature(tau) {
+    const oldProbs = this._softmax(this.baseLogits, this.temperature);
+    this.temperature = tau;
+    const newProbs = this._softmax(this.baseLogits, tau);
+    this._animateBars(oldProbs, newProbs);
+  }
+
+  appendToken(candidateIdx) {
+    if (this.tokens.length >= 9) this.tokens = [...this.INITIAL_TOKENS];
+    this.tokens.push(this.candidates[candidateIdx]);
+    this._render();
+  }
+
+  reset() {
+    this.tokens = [...this.INITIAL_TOKENS];
+    this.temperature = 1.0;
+    this._barAnim = null;
+    this._render();
+  }
+
+  _animateBars(from, to) {
+    this._barAnim = { from, to, start: performance.now(), dur: 450 };
+    if (!this._animating) this._tick();
+  }
+
+  _startIdleGlow() {
+    const tick = () => {
+      this._glowPhase += 0.04;
+      if (!this._animating) this._render();
+      this._glowTimer = requestAnimationFrame(tick);
+    };
+    this._glowTimer = requestAnimationFrame(tick);
+  }
+
+  _tick() {
+    this._animating = true;
+    const step = () => {
+      this._render();
+      if (this._barAnim) {
+        const t = Math.min((performance.now() - this._barAnim.start) / this._barAnim.dur, 1);
+        if (t < 1) {
+          this._animFrame = requestAnimationFrame(step);
+          return;
+        }
+        this._barAnim = null;
+      }
+      this._animating = false;
+    };
+    this._animFrame = requestAnimationFrame(step);
+  }
+
+  _getProbs() {
+    if (!this._barAnim) return this._softmax(this.baseLogits, this.temperature);
+    const t = easeInOut(Math.min((performance.now() - this._barAnim.start) / this._barAnim.dur, 1));
+    const from = this._barAnim.from;
+    const to   = this._barAnim.to;
+    return from.map((f, i) => lerp(f, to[i], t));
+  }
+
+  _render() {
+    const { canvas, ctx, tokens, candidates, tokenColors } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Background
+    const bgColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+
+    const isDark = bgColor !== '#ffffff' && bgColor !== '#fff';
+    const textColor     = isDark ? '#e6edf3' : '#1a1a2e';
+    const mutedColor    = isDark ? '#8b949e' : '#6b7280';
+    const borderColor   = isDark ? '#30363d' : '#d1c9bc';
+    const cardBg        = isDark ? '#1c2128' : '#f0ebe3';
+
+    // ── Section 1: Input tokens ────────────────────────────────
+    const tokenAreaY = 28;
+    ctx.fillStyle = mutedColor;
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('INPUT TOKENS', 24, tokenAreaY);
+
+    const tokenH   = 34;
+    const tokenPad = 12;
+    const tokenY   = tokenAreaY + 14;
+    let tx = 24;
+
+    tokens.forEach((tok, i) => {
+      ctx.font = 'bold 13px JetBrains Mono, monospace';
+      const tw = ctx.measureText(tok).width + tokenPad * 2;
+      const col = tokenColors[i % tokenColors.length];
+
+      // Token box
+      const glow = 0.5 + 0.5 * Math.sin(this._glowPhase - i * 0.6);
+      ctx.save();
+      ctx.shadowBlur = 6 + glow * 4;
+      ctx.shadowColor = col;
+      ctx.fillStyle = isDark
+        ? `rgba(${hexToRgb(col)},0.12)`
+        : `rgba(${hexToRgb(col)},0.12)`;
+      roundRect(ctx, tx, tokenY, tw, tokenH, 6);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, tx, tokenY, tw, tokenH, 6);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = col;
+      ctx.textAlign = 'center';
+      ctx.fillText(tok, tx + tw / 2, tokenY + tokenH / 2 + 5);
+
+      tx += tw + 8;
+    });
+
+    // "?" next token placeholder
+    const qGlow = 0.5 + 0.5 * Math.sin(this._glowPhase * 1.5);
+    ctx.font = 'bold 13px JetBrains Mono, monospace';
+    const qW = 38;
+    ctx.save();
+    ctx.shadowBlur = 8 + qGlow * 8;
+    ctx.shadowColor = '#f0a500';
+    ctx.fillStyle = isDark ? 'rgba(240,165,0,0.08)' : 'rgba(240,165,0,0.1)';
+    roundRect(ctx, tx, tokenY, qW, tokenH, 6);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#f0a500';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    roundRect(ctx, tx, tokenY, qW, tokenH, 6);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    ctx.fillStyle = '#f0a500';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 16px JetBrains Mono, monospace';
+    ctx.fillText('?', tx + qW / 2, tokenY + tokenH / 2 + 6);
+
+    // ── Attention glow line ────────────────────────────────────
+    const arrowY = tokenY + tokenH + 18;
+    ctx.save();
+    const grad = ctx.createLinearGradient(24, arrowY, tx + qW, arrowY);
+    grad.addColorStop(0, 'rgba(88,166,255,0.0)');
+    grad.addColorStop(0.4, 'rgba(88,166,255,0.5)');
+    grad.addColorStop(0.85, 'rgba(240,165,0,0.7)');
+    grad.addColorStop(1, 'rgba(240,165,0,0.0)');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = '#f0a500';
+    ctx.beginPath();
+    ctx.moveTo(24, arrowY);
+    ctx.lineTo(tx + qW, arrowY);
+    ctx.stroke();
+    // arrowhead
+    ctx.fillStyle = '#f0a500';
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.moveTo(tx + qW + 10, arrowY);
+    ctx.lineTo(tx + qW + 2, arrowY - 5);
+    ctx.lineTo(tx + qW + 2, arrowY + 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Model label
+    ctx.fillStyle = mutedColor;
+    ctx.font = '10px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Transformer', W / 2, arrowY - 6);
+
+    // ── Section 2: Probability distribution ───────────────────
+    const probs  = this._getProbs();
+    const barTop = arrowY + 22;
+    const barAreaH = H - barTop - 48;
+    const nBars = candidates.length;
+    const barW  = 72;
+    const gap   = (W - 48 - nBars * barW) / (nBars - 1);
+
+    ctx.fillStyle = mutedColor;
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('NEXT-TOKEN PROBABILITIES', 24, barTop - 6);
+
+    probs.forEach((p, i) => {
+      const bx = 24 + i * (barW + gap);
+      const maxBarH = barAreaH - 24;
+      const bh = p * maxBarH;
+      const by = barTop + maxBarH - bh + 8;
+
+      // Bar background
+      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)';
+      ctx.fillRect(bx, barTop + 8, barW, maxBarH);
+
+      // Bar fill
+      const col = tokenColors[i % tokenColors.length];
+      const barGrad = ctx.createLinearGradient(bx, by + bh, bx, by);
+      barGrad.addColorStop(0, `rgba(${hexToRgb(col)},0.5)`);
+      barGrad.addColorStop(1, `rgba(${hexToRgb(col)},0.9)`);
+      ctx.fillStyle = barGrad;
+      ctx.fillRect(bx, by, barW, bh);
+
+      // Border
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(bx, by, barW, bh);
+
+      // Probability label above bar
+      ctx.fillStyle = col;
+      ctx.font = 'bold 12px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText((p * 100).toFixed(0) + '%', bx + barW / 2, Math.max(by - 4, barTop + 4));
+
+      // Token label below
+      ctx.fillStyle = textColor;
+      ctx.font = '13px JetBrains Mono, monospace';
+      ctx.fillText(candidates[i], bx + barW / 2, barTop + maxBarH + 26);
+    });
+
+    // Temperature readout
+    ctx.fillStyle = mutedColor;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`τ = ${this.temperature.toFixed(2)}`, W - 16, H - 10);
+  }
+
+  // Returns the candidate index hit by a click on the bar chart, or -1
+  hitTest(x, y, rect) {
+    const scaleX = this.canvas.width  / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    const cx = (x - rect.left) * scaleX;
+    const cy = (y - rect.top)  * scaleY;
+
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+    const barTop  = 120; // approx, recompute for exact hit
+    const barAreaH = H - barTop - 48;
+    const nBars   = this.candidates.length;
+    const barW    = 72;
+    const gap     = (W - 48 - nBars * barW) / (nBars - 1);
+
+    for (let i = 0; i < nBars; i++) {
+      const bx = 24 + i * (barW + gap);
+      if (cx >= bx && cx <= bx + barW &&
+          cy >= barTop && cy <= barTop + barAreaH + 24) {
+        return i;
+      }
+    }
+    return -1;
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+function hexToRgb(hex) {
+  hex = hex.replace('#','');
+  if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
+  const n = parseInt(hex, 16);
+  return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ─── Wire up main animation ───────────────────────────────────────────────
+const llmCanvas = document.getElementById('llmCanvas');
+const llmAnim   = new LLMAnimation(llmCanvas, { temperature: 1.0 });
+
+const tempSlider = document.getElementById('tempSlider');
+const tempValue  = document.getElementById('tempValue');
+const llmCaption = document.getElementById('llmCaption');
+
+function updateCaption(tau) {
+  if (tau <= 0.3)       llmCaption.textContent = `τ = ${tau.toFixed(2)} — near-deterministic. The model is very confident about "mat".`;
+  else if (tau <= 0.8)  llmCaption.textContent = `τ = ${tau.toFixed(2)} — low temperature. Top token dominates.`;
+  else if (tau <= 1.2)  llmCaption.textContent = `τ = ${tau.toFixed(2)} — standard sampling. Probabilities reflect the model's actual uncertainty.`;
+  else if (tau <= 1.6)  llmCaption.textContent = `τ = ${tau.toFixed(2)} — elevated temperature. Distribution is flatter — more tokens are viable.`;
+  else                   llmCaption.textContent = `τ = ${tau.toFixed(2)} — high temperature. Nearly uniform — the model is agnostic. Expect random output.`;
+}
+
+tempSlider.addEventListener('input', () => {
+  const v = parseFloat(tempSlider.value);
+  tempValue.textContent = v.toFixed(2);
+  llmAnim.setTemperature(v);
+  updateCaption(v);
+  // sync playground slider
+  const ps = document.getElementById('playTempSlider');
+  if (ps) { ps.value = v; document.getElementById('playTempValue').textContent = v.toFixed(2); playAnim.setTemperature(v); }
+});
+
+document.getElementById('generateBtn').addEventListener('click', () => {
+  const probs = llmAnim._softmax(llmAnim.baseLogits, llmAnim.temperature);
+  // Sample from distribution
+  const r = Math.random();
+  let cum = 0;
+  let chosen = 0;
+  for (let i = 0; i < probs.length; i++) {
+    cum += probs[i];
+    if (r <= cum) { chosen = i; break; }
+  }
+  llmAnim.appendToken(chosen);
+});
+
+document.getElementById('llmResetBtn').addEventListener('click', () => {
+  llmAnim.reset();
+  tempSlider.value = '1.0';
+  tempValue.textContent = '1.00';
+  updateCaption(1.0);
+});
+
+llmCanvas.addEventListener('click', (e) => {
+  const rect = llmCanvas.getBoundingClientRect();
+  const idx = llmAnim.hitTest(e.clientX, e.clientY, rect);
+  if (idx >= 0) llmAnim.appendToken(idx);
+});
+
+// ─── Wire up playground animation ─────────────────────────────────────────
+const playLlmCanvas = document.getElementById('playLlmCanvas');
+const playAnim      = new LLMAnimation(playLlmCanvas, { temperature: 1.0 });
+
+const playTempSlider = document.getElementById('playTempSlider');
+const playTempValue  = document.getElementById('playTempValue');
+const playLlmCaption = document.getElementById('playLlmCaption');
+
+function updatePlayCaption(tau) {
+  if (tau <= 0.3)      playLlmCaption.textContent = `τ = ${tau.toFixed(2)} — greedy-ish. Same token almost every time.`;
+  else if (tau <= 0.8) playLlmCaption.textContent = `τ = ${tau.toFixed(2)} — confident but not deterministic.`;
+  else if (tau <= 1.2) playLlmCaption.textContent = `τ = ${tau.toFixed(2)} — balanced. Use for most tasks.`;
+  else if (tau <= 1.6) playLlmCaption.textContent = `τ = ${tau.toFixed(2)} — creative. Distribution is spreading out.`;
+  else                  playLlmCaption.textContent = `τ = ${tau.toFixed(2)} — very flat. Approaching a uniform distribution.`;
+}
+
+playTempSlider.addEventListener('input', () => {
+  const v = parseFloat(playTempSlider.value);
+  playTempValue.textContent = v.toFixed(2);
+  playAnim.setTemperature(v);
+  updatePlayCaption(v);
+});
+
+document.getElementById('playGenerateBtn').addEventListener('click', () => {
+  const probs = playAnim._softmax(playAnim.baseLogits, playAnim.temperature);
+  const r = Math.random();
+  let cum = 0, chosen = 0;
+  for (let i = 0; i < probs.length; i++) {
+    cum += probs[i];
+    if (r <= cum) { chosen = i; break; }
+  }
+  playAnim.appendToken(chosen);
+});
+
+document.getElementById('playLlmResetBtn').addEventListener('click', () => {
+  playAnim.reset();
+  playTempSlider.value = '1.0';
+  playTempValue.textContent = '1.00';
+  updatePlayCaption(1.0);
+});
+
+playLlmCanvas.addEventListener('click', (e) => {
+  const rect = playLlmCanvas.getBoundingClientRect();
+  const idx = playAnim.hitTest(e.clientX, e.clientY, rect);
+  if (idx >= 0) playAnim.appendToken(idx);
+});
+
+// ─── Quiz ──────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG = 'llms';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+const TOTAL_Q = 9;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+
+// ─── Reading progress bar ─────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop  = window.scrollY;
+  const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─── Scroll reveal ────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── TOC active dot ───────────────────────────────────────────────────────
+const sections   = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots    = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─── Re-render canvases on theme change ───────────────────────────────────
+window.onThemeChange(function() {
+  llmAnim._render();
+  playAnim._render();
+});
+</script>
+</body>
+</html>

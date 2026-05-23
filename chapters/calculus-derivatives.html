@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculus &amp; Derivatives — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>           <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span> <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>           <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 0 · Mathematical Foundations</p>
+    <h1>Calculus &amp; Derivatives</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The microscope that lets AI see which way to improve.
+    </p>
+    <div style="display:flex; gap:1.5rem; margin-top:1rem; font-size:0.85rem;">
+      <a href="vectors-linear-algebra.html" style="color:var(--text-muted);">← Vectors &amp; Linear Algebra</a>
+      <a href="probability-statistics.html" style="color:var(--text-muted);">Probability &amp; Statistics →</a>
+    </div>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.05rem; line-height:1.8;">
+      A derivative answers one question: if I change this input by a tiny amount, how much does the output change? Every AI training loop asks this question billions of times. The answer is what tells the model which direction to improve — and by exactly how much.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Zoom in until it's a straight line</h2>
+    <p class="lead">
+      A derivative is a slope — the slope of a function at a single point. But what does "slope at a point" mean
+      for a curve? The key insight is this: zoom in far enough on any smooth curve, and it looks like a straight line.
+      The slope of that line <em>is</em> the derivative.
+    </p>
+    <p>
+      Formally, the derivative captures how much the output <code>f(x)</code> changes when you nudge the input by
+      a small amount <code>h</code>: take the ratio of output-change to input-change, then shrink <code>h</code>
+      to zero. The function's rate of change at that point is what you're left with.
+    </p>
+    <p>
+      This is the <strong style="color:var(--accent)">slope-as-rate-of-change</strong> interpretation:
+      the derivative at <code>x</code> tells you approximately how much <code>f</code> changes per unit change
+      in <code>x</code> — locally, right at that point.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>If <strong style="color:var(--accent)">f'(x) > 0</strong>, the function is increasing — output goes up when input goes up.</li>
+      <li>If <strong style="color:var(--accent)">f'(x) &lt; 0</strong>, the function is decreasing — output goes down when input goes up.</li>
+      <li>If <strong style="color:var(--accent)">f'(x) = 0</strong>, the function is momentarily flat — a critical point.</li>
+    </ul>
+    <p>
+      <strong>Partial derivatives</strong> extend this idea to functions of many variables.
+      If your function is <code>f(x, y, z)</code>, the partial derivative with respect to <code>x</code>
+      asks: how does <code>f</code> change if I nudge <code>x</code>, while holding <code>y</code> and <code>z</code>
+      completely frozen? You're differentiating in one direction at a time — treating all other variables as constants.
+      This is the exact operation that backpropagation uses on neural network weights: one weight at a time,
+      all others frozen.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three questions worth sitting with</h2>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What does it mean to take the derivative with respect to a matrix? A neural network layer maps
+      an input vector to an output vector via a weight matrix <strong>W</strong>. When you want to know
+      how the loss changes as you vary <strong>W</strong>, you're taking a derivative with respect to
+      a matrix. What shape should that derivative be?
+    </div>
+
+    <p>
+      It should be the same shape as <strong>W</strong> itself. The derivative of a scalar loss <code>L</code>
+      with respect to a matrix <strong>W</strong> is a matrix of the same dimensions — every entry
+      <code>(∂L/∂W)<sub>ij</sub></code> tells you how <code>L</code> changes if you nudge the single weight
+      at row <code>i</code>, column <code>j</code>. This matrix of partial derivatives is the
+      <strong style="color:var(--accent)">gradient</strong> of <code>L</code> with respect to <strong>W</strong>,
+      and it has the same shape as <strong>W</strong> precisely so that the gradient descent update rule
+      <code>W := W − α · ∂L/∂W</code> is dimensionally consistent.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why does the chain rule work — what is it actually doing? If <code>y = g(f(x))</code>,
+      the chain rule says <code>dy/dx = (dy/du)(du/dx)</code> where <code>u = f(x)</code>.
+      This looks like fractions canceling. Is that a coincidence or the real explanation?
+    </div>
+
+    <p>
+      It isn't a coincidence, but fraction-cancellation isn't the real mechanism either — derivatives aren't
+      actually fractions. What the chain rule is really saying is this: the composite function <code>g(f(x))</code>
+      amplifies changes in two steps. A nudge to <code>x</code> produces a change in <code>u = f(x)</code>
+      by the factor <code>du/dx</code>. That change in <code>u</code> then propagates through <code>g</code>,
+      amplified again by <code>dg/du</code>. The total amplification is the product.
+      This is why backpropagation in a deep network multiplies gradients layer by layer — each multiplication
+      is one application of the chain rule, propagating the error signal backward through a composed function.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why is the gradient a vector and not a scalar? If a function <code>f(x, y)</code> has a single
+      scalar output, you might expect a single scalar to describe its rate of change. Why do we instead
+      collect all the partial derivatives into a vector?
+    </div>
+
+    <p>
+      Because rate of change depends on direction. In a multi-variable function, the function can change
+      at different rates along different directions. The gradient vector ∇f collects all the directional
+      information: its components are the partial derivatives in each coordinate direction, and together
+      they encode the direction and magnitude of steepest ascent in the input space.
+      The gradient isn't <em>one</em> rate of change — it's the complete description of how the function
+      changes in any direction. Moving in the direction of −∇f is what descends the steepest slope,
+      which is exactly the update gradient descent makes.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 4. The Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>See the derivative move</h2>
+    <p class="lead">
+      The gold curve is <code>f(x) = x³ − 2x² + 1</code>. The blue tangent line shows the derivative
+      at the draggable point. Below it, the second panel plots the derivative function
+      <code>f'(x) = 3x² − 4x</code>, with a gold dot tracking the current value.
+      Drag the point and watch both panels update in real time.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Drag the point along the curve · Toggle chain rule demo · Toggle gradient descent step
+    </p>
+
+    <div class="animation-wrapper grain" style="padding:0; overflow:hidden;">
+      <canvas id="calcCanvas" width="720" height="440" style="max-width:100%; display:block;"></canvas>
+      <div class="animation-caption" id="calcCaption">
+        Drag the gold point left and right to see the tangent slope update.
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">Drag x position</span>
+        <input type="range" id="xSlider" min="-0.5" max="2.5" step="0.01" value="0.5">
+        <span class="control-value" id="xValue">0.50</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="chainRuleBtn">Chain rule demo</button>
+        <button class="btn secondary" id="gdStepBtn">Show gradient descent step</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>From definition to training update</h2>
+
+    <p class="lead">
+      Six building blocks. Once you have them, the gradient descent update rule and backpropagation
+      both fall out as direct consequences.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Derivative Definition (Limit)</div>
+      <div class="formula">f'(x)  =  lim<sub style="font-size:0.7em">h→0</sub>  [f(x + h) − f(x)] / h</div>
+      <div class="symbol-table">
+        <span class="sym">h</span>         <span>infinitesimally small nudge to the input</span>
+        <span class="sym">f(x+h)−f(x)</span> <span>resulting change in the output</span>
+        <span class="sym">lim h→0</span>   <span>the ratio as the nudge shrinks to zero — the instantaneous rate of change</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Power Rule</div>
+      <div class="formula">d/dx [x<sup>n</sup>]  =  n · x<sup>n−1</sup></div>
+      <div class="symbol-table">
+        <span class="sym">n</span>  <span>any real exponent — the rule applies even to fractional and negative powers</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Chain Rule</div>
+      <div class="formula">d/dx [g(f(x))]  =  g'(f(x)) · f'(x)</div>
+      <div class="symbol-table">
+        <span class="sym">f(x)</span>    <span>inner function — applied first</span>
+        <span class="sym">g(u)</span>    <span>outer function — applied to the result of f</span>
+        <span class="sym">g'(f(x))</span> <span>derivative of g, evaluated at the output of f — "how sensitive is g to its input, at the current input value?"</span>
+        <span class="sym">f'(x)</span>   <span>derivative of f — "how sensitive is f to x?"</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Partial Derivatives</div>
+      <div class="formula">∂f/∂x  =  derivative of f treating all other variables as constants</div>
+      <div class="symbol-table">
+        <span class="sym">∂</span>  <span>Leibniz notation for partial differentiation — distinguishes from total derivative d</span>
+        <span class="sym">f(x,y)</span> <span>function of multiple variables; ∂f/∂x freezes y, ∂f/∂y freezes x</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Gradient ∇f</div>
+      <div class="formula">∇f  =  [∂f/∂x₁,  ∂f/∂x₂,  …,  ∂f/∂xₙ]</div>
+      <div class="symbol-table">
+        <span class="sym">∇f</span>   <span>vector of all partial derivatives — points in the direction of steepest ascent</span>
+        <span class="sym">−∇f</span>  <span>negative gradient — the direction gradient descent moves</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Jacobian</div>
+      <div class="formula">J<sub>ij</sub>  =  ∂f<sub>i</sub>/∂x<sub>j</sub></div>
+      <div class="symbol-table">
+        <span class="sym">J</span>  <span>matrix of all first-order partial derivatives of a vector-valued function f: ℝⁿ → ℝᵐ</span>
+        <span class="sym">shape</span> <span>m × n — one row per output, one column per input; generalises gradient to vector outputs</span>
+      </div>
+    </div>
+
+    <p><strong>Worked example: gradient of the loss for linear regression — and the training update</strong></p>
+
+    <div class="worked-example">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span class="step-text">
+          <strong>Define the loss.</strong> For a single training example with prediction <code>wx + b</code>
+          and true label <code>y</code>, the squared loss is:
+          <code class="step-math" style="display:inline; font-size:0.95em;">L = (y − wx − b)²</code>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span class="step-text">
+          <strong>Compute ∂L/∂w.</strong> Let the error <code>e = y − wx − b</code>. By the chain rule:
+          <code class="step-math" style="display:inline; font-size:0.95em;">∂L/∂w = 2e · ∂e/∂w = 2e · (−x) = −2(y − wx − b)x</code>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span class="step-text">
+          <strong>Compute ∂L/∂b.</strong> By the same chain rule, ∂e/∂b = −1:
+          <code class="step-math" style="display:inline; font-size:0.95em;">∂L/∂b = 2e · (−1) = −2(y − wx − b)</code>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span class="step-text">
+          <strong>Write the gradient descent update.</strong> Subtract the scaled gradient from each parameter.
+          This is the exact step every training loop executes:
+          <span style="display:block; margin-top:0.4rem; font-family:var(--font-mono); font-size:0.88rem; color:var(--blue);">
+            w  :=  w  −  α · (−2(y − wx − b) · x)<br>
+            b  :=  b  −  α · (−2(y − wx − b))
+          </span>
+          <span style="display:block; margin-top:0.4rem; font-size:0.88rem; color:var(--text-muted);">
+            Calculus produces the gradient; gradient descent uses it to update weights.
+            These two steps — differentiate, then step — are the complete training loop.
+          </span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 6. Real Problem Bridge -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Toy to Real</p>
+    <h2>Automatic differentiation: calculus at scale</h2>
+    <p class="lead">
+      Manual differentiation works for two parameters. A large neural network has hundreds of millions.
+      Nobody writes out partial derivatives by hand — PyTorch and JAX do it automatically using
+      a technique called <strong style="color:var(--accent)">automatic differentiation</strong> (autograd).
+    </p>
+    <p>
+      The key idea is the <strong style="color:var(--accent)">computation graph</strong>. Every forward pass
+      builds a directed acyclic graph of operations — multiply, add, activate, sum, etc. — where each node
+      stores the operation performed and the local partial derivative of its output with respect to its inputs.
+      This is just the chain rule, pre-assembled.
+    </p>
+    <p>
+      When you call <code>loss.backward()</code>, PyTorch traverses this graph in reverse, multiplying
+      partial derivatives along each path from the loss back to the parameters:
+    </p>
+    <div class="math-block">
+      <div class="math-label">Backprop as Chain Rule on the Computation Graph</div>
+      <div class="formula">∂L/∂w  =  (∂L/∂out) · (∂out/∂h) · (∂h/∂w)</div>
+      <div class="symbol-table">
+        <span class="sym">∂L/∂out</span>  <span>gradient of loss with respect to final output — seed value (= 1 for scalar loss)</span>
+        <span class="sym">∂out/∂h</span>  <span>local Jacobian at the output layer — stored during forward pass</span>
+        <span class="sym">∂h/∂w</span>    <span>local Jacobian at the hidden layer — stored during forward pass</span>
+      </div>
+    </div>
+    <p>
+      This mechanical application of the chain rule across a stored graph is what makes deep learning
+      computationally feasible. Each local partial derivative is cheap to compute (often just a
+      multiplication by a constant or the input value), and the chain of multiplications gives the full
+      gradient of the loss with respect to every parameter in one backward pass.
+    </p>
+    <div class="insight-box" style="font-style:normal;">
+      PyTorch's <code>requires_grad=True</code> flag tells the graph to track operations on a tensor.
+      <code>loss.backward()</code> triggers the reverse traversal. <code>.grad</code> on each parameter
+      contains <code>∂L/∂w</code> — which is exactly the partial derivative the chain rule computed.
+      The whole training loop is calculus made mechanical.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Explore the function landscape</h2>
+    <p class="lead">
+      Move the point and watch the tangent slope and derivative value change in real time.
+      The derivative is zero at a local minimum and local maximum — that's where the tangent line is flat.
+      The sign of the derivative tells you which direction gradient descent would move.
+    </p>
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Function</span>
+        <select id="funcSelect" style="font-family:var(--font-mono); font-size:0.85rem; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:var(--radius); padding:0.35rem 0.6rem; cursor:pointer;">
+          <option value="cubic">f(x) = x³ − 2x² + 1</option>
+          <option value="quartic">f(x) = x⁴ − 4x² + 3</option>
+          <option value="sine">f(x) = sin(x)</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <span class="control-label">x position</span>
+        <input type="range" id="playXSlider" min="-1.5" max="3" step="0.01" value="0.5">
+        <span class="control-value" id="playXValue">0.50</span>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="playCanvas" width="720" height="280" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="playCaption">
+          Slope = 0 at critical points. Positive slope → gradient descent moves left. Negative slope → gradient descent moves right.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs — and the truth behind each</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't independent mistakes. Each one builds on the previous. Trace the chain and they all dissolve together.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① The derivative is the slope of the tangent line.</div>
+        <div class="truth">
+          Partially correct — but the derivative <em>defines</em> the slope of the tangent, it isn't defined
+          by it. The derivative is a limit: the ratio of output change to input change as the input change
+          shrinks to zero. The tangent line is just the geometric interpretation. What matters in ML is the
+          <em>value</em>: how much does the loss change per unit change in this weight?
+        </div>
+      </li>
+      <li>
+        <div class="myth">② The chain rule is just multiplying derivatives together.</div>
+        <div class="truth">
+          Multiplying is the mechanism, but the meaning matters. The chain rule says: when functions
+          compose, their local sensitivities multiply. The outer function's sensitivity (at the current
+          inner output) times the inner function's sensitivity to its input. Forgetting the evaluation
+          point — plugging in <code>g'(x)</code> instead of <code>g'(f(x))</code> — is a common error
+          that breaks backpropagation silently.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ The gradient and the derivative are the same thing.</div>
+        <div class="truth">
+          For a scalar function of one variable, yes — they coincide. But the gradient is a vector:
+          it collects all partial derivatives of a scalar function of many variables.
+          A derivative tells you the rate of change along one axis. The gradient tells you the
+          rate of change in every direction simultaneously, and points in the direction of steepest ascent.
+          In ML, every weight update uses the gradient (a vector or matrix), not a scalar derivative.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ Second derivatives don't matter for ML — gradient descent only uses the first.</div>
+        <div class="truth">
+          Gradient descent uses only the first derivative. But second derivatives (the Hessian) determine
+          the <em>curvature</em> of the loss surface, which governs how well a given learning rate works.
+          High curvature → the gradient-only linear approximation becomes inaccurate quickly →
+          learning rate must be small. Low curvature → you can take larger steps. Second-order
+          optimizers (Newton's method, L-BFGS) exploit the Hessian to take better steps. Adam
+          implicitly adapts to curvature using gradient history.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ Differentiation requires a closed-form mathematical expression.</div>
+        <div class="truth">
+          Symbolic differentiation requires one — you need to manipulate the formula.
+          But <strong>automatic differentiation</strong> (what PyTorch uses) operates on the
+          <em>execution trace</em> of the computation, not the formula. It applies the chain rule
+          to every elementary operation in the computation graph, regardless of whether the
+          overall function has a clean closed form. This is why you can differentiate through
+          control flow, loops, and arbitrary code — autograd doesn't need to know the formula,
+          only what operations were executed.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 10. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Six things to lock in</h2>
+    <ul class="summary-list">
+      <li>The derivative is the limit of output-change/input-change as the nudge shrinks to zero — the instantaneous rate of change, not just a slope.</li>
+      <li>Partial derivatives differentiate in one direction while freezing all others — exactly what backprop does for each weight.</li>
+      <li>The gradient ∇f is a vector of all partial derivatives — same shape as the input, pointing in the direction of steepest ascent.</li>
+      <li>The chain rule multiplies local sensitivities across composed functions — this is what backpropagation applies mechanically across the computation graph.</li>
+      <li>The Jacobian generalises the gradient to vector-valued functions — it's an m×n matrix of partial derivatives, the full linear map between input and output changes.</li>
+      <li>Autograd builds a computation graph during the forward pass and applies the chain rule in reverse — you never write partial derivatives by hand for large models.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      Calculus tells you how a model's output changes with its inputs — but which outputs should we care about?
+      Training a model requires defining what "correct" means, and that requires probability. How do you turn
+      "the model assigned probability 0.3 to the right answer" into a loss function? And why should you
+      maximize log-probability rather than raw probability? That's where calculus hands off to probability theory.<br><br>
+      The next chapter: <a href="probability-statistics.html">Probability &amp; Statistics →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts.
+      Derivations are taken directly from source material, not synthesized from memory.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — Chapter 4: Numerical Computation</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: gradient definition, directional derivatives, Jacobian, Hessian and curvature,
+            the connection between gradient direction and steepest ascent, second-order methods.
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">CS229 Lecture Notes — §1 (Supervised Learning)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Andrew Ng &amp; Tengyu Ma, Stanford University (2022 edition)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: partial derivative derivation of gradient descent update rule, LMS update,
+            the connection between the squared-loss gradient and the training step for linear regression.
+          </span><br>
+          <a href="https://cs229.stanford.edu" style="font-family:var(--font-mono); font-size:0.8rem;">cs229.stanford.edu</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">PyTorch Documentation — Autograd mechanics</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">PyTorch team (pytorch.org)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: computation graph construction, requires_grad, backward pass semantics,
+            how local Jacobians are stored and composed during backpropagation.
+          </span><br>
+          <a href="https://pytorch.org/docs/stable/autograd.html" style="font-family:var(--font-mono); font-size:0.8rem;">pytorch.org/docs/stable/autograd.html</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">f(x) = 3x⁴ − 2x² + 5. What is f'(x)? Then evaluate f'(1).</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>f'(x) = 12x³ − 4x; f'(1) = 8.</strong> By the power rule: d/dx[3x⁴] = 12x³ and d/dx[−2x²] = −4x; the constant 5 vanishes. At x = 1: f'(1) = 12(1) − 4(1) = 8. This means the function is increasing at x = 1 at a rate of 8 units of output per unit of input.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">h(x) = sin(x²). Use the chain rule to find h'(x).</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>h'(x) = 2x · cos(x²).</strong> Let f(x) = x² (inner) and g(u) = sin(u) (outer). Then g'(u) = cos(u) and f'(x) = 2x. Chain rule: h'(x) = g'(f(x)) · f'(x) = cos(x²) · 2x. Note: the outer derivative is evaluated at the inner function's output (x²), not at x.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">f(x, y) = x²y + 3y². Compute ∂f/∂x and ∂f/∂y.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>∂f/∂x = 2xy; ∂f/∂y = x² + 6y.</strong> For ∂f/∂x: treat y as a constant — d/dx[x²y] = 2xy, d/dx[3y²] = 0. For ∂f/∂y: treat x as a constant — d/dy[x²y] = x², d/dy[3y²] = 6y. The partial derivatives are the components of the gradient ∇f = [2xy, x² + 6y].
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">The gradient of a loss L at the current weights is ∇L = [3, −1, 2]. Learning rate α = 0.1. Write the gradient descent update for the three weights [w₁, w₂, w₃] = [0.5, 1.2, −0.3].</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>[0.2, 1.3, −0.5].</strong> Each weight: wᵢ := wᵢ − α · (∂L/∂wᵢ). So: w₁ = 0.5 − 0.1·3 = 0.2; w₂ = 1.2 − 0.1·(−1) = 1.3; w₃ = −0.3 − 0.1·2 = −0.5. Notice w₂ increases (negative gradient means decreasing L means move in positive direction), while w₁ and w₃ decrease.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">A neural network layer computes z = Wx + b, then a = σ(z). You want ∂L/∂W for gradient descent. Walk through the chain rule steps to get there from ∂L/∂a.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>∂L/∂W = (∂L/∂a) · (∂a/∂z) · (∂z/∂W).</strong> Step by step: ∂a/∂z = σ'(z) (derivative of activation function evaluated at z). ∂z/∂W = xᵀ (input transposed — standard linear layer Jacobian). So ∂L/∂W = (∂L/∂a) · σ'(z) · xᵀ. In code: this is exactly what PyTorch computes when you call loss.backward() — each factor is a local Jacobian stored during the forward pass.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">f(x) = x³ − 2x² + 1. At x = 0, the derivative is 0. Is this a minimum, maximum, or neither? How can you tell?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>It is a local maximum.</strong> f'(x) = 3x² − 4x = x(3x − 4). At x = 0: f'(0) = 0 (critical point confirmed). Second derivative: f''(x) = 6x − 4; f''(0) = −4 &lt; 0. Negative second derivative means concave down at this point → local maximum. The other critical point is at x = 4/3, where f''(4/3) = 6(4/3) − 4 = 4 > 0 → local minimum.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">Why does PyTorch's autograd need to store intermediate values during the forward pass? What would go wrong if it didn't?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Because chain rule requires local Jacobians evaluated at the forward-pass activations.</strong> The chain rule ∂L/∂w = (∂L/∂out) · (∂out/∂h) · (∂h/∂w) requires each local factor to be evaluated at the specific inputs that were computed during the forward pass. For example, ∂out/∂h at a sigmoid layer is σ(h)·(1−σ(h)) — this requires the value of h that was actually computed. Without storing it, the backward pass would need to recompute the entire forward pass, doubling memory or compute. Storing activations is the standard trade-off (gradient checkpointing trades compute for less memory).
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">A function maps ℝ³ → ℝ². What is the shape of its Jacobian? How many partial derivatives does it contain?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Shape 2×3; contains 6 partial derivatives.</strong> The Jacobian Jᵢⱼ = ∂fᵢ/∂xⱼ has one row per output dimension (2) and one column per input dimension (3). Each entry is one partial derivative: how does the i-th output change when you nudge the j-th input? The 2×3 Jacobian is the linear map that best approximates the function locally — it generalises the gradient (which is a special case: 1 output → 1×n Jacobian = row vector = gradient transposed).
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">You compute the gradient of a loss and find that ∂L/∂w = 0 for all weights. Does this mean the model is fully trained?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Not necessarily — a zero gradient means a critical point, not necessarily a good solution.</strong> The gradient is zero at local minima, local maxima, and saddle points. In high-dimensional spaces (many weights), saddle points are exponentially more common than local minima. The model could be stuck at a saddle where loss is still high. Additionally, "fully trained" requires good generalisation — even if you've found a true minimum of the training loss, the model may overfit. Training loss minimum ≠ good test performance.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─── CalculusAnimation ───────────────────────────────────────────────────────
+class CalculusAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.x = 0.5;            // current dragging x in function coords
+    this.mode = 'normal';    // 'normal' | 'chainrule' | 'gradient'
+    this._dragging = false;
+
+    // coordinate mapping: function domain [-0.5, 2.5]
+    this.xMin = -0.5;
+    this.xMax = 2.5;
+
+    // top panel: 0 → topH; bottom panel: topH → canvas.height
+    this.topH = 260;
+    this.padL = 55;
+    this.padR = 20;
+    this.padTop = 20;
+    this.padBot = 22;
+
+    this._bindEvents();
+    this._render();
+  }
+
+  // ── f(x) = x³ − 2x² + 1 ──────────────────────────────────────────────────
+  _f(x)  { return x*x*x - 2*x*x + 1; }
+  _fp(x) { return 3*x*x - 4*x; }      // f'(x)
+
+  // ── chain rule demo: g(f(x)) where f(x)=x², g(u)=sin(u) ─────────────────
+  _gf(x) { return Math.sin(x*x); }
+  _gfp(x) { return 2*x * Math.cos(x*x); }  // chain rule: g'(f(x))·f'(x)
+
+  // ── coordinate helpers ────────────────────────────────────────────────────
+  _toCanvasX(x) {
+    const { canvas, padL, padR, xMin, xMax } = this;
+    return padL + (x - xMin) / (xMax - xMin) * (canvas.width - padL - padR);
+  }
+
+  _toFuncX(cx) {
+    const { canvas, padL, padR, xMin, xMax } = this;
+    return xMin + (cx - padL) / (canvas.width - padL - padR) * (xMax - xMin);
+  }
+
+  _toCanvasY(y, yMin, yMax, panelTop, panelHeight) {
+    const { padTop, padBot } = this;
+    const h = panelHeight - padTop - padBot;
+    return panelTop + padTop + (1 - (y - yMin) / (yMax - yMin)) * h;
+  }
+
+  // ── panel y-range for the top curve ──────────────────────────────────────
+  _topYRange(useCR) {
+    if (useCR) return [-1.2, 1.2];
+    return [-0.1, 1.5];
+  }
+
+  // ── render everything ────────────────────────────────────────────────────
+  _render() {
+    const { ctx, canvas, x, topH, padL, padR, padTop, padBot, xMin, xMax } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+    const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f0a500';
+    const blueColor   = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim()   || '#58a6ff';
+    const greenColor  = getComputedStyle(document.documentElement).getPropertyValue('--green').trim()  || '#3fb950';
+    const redColor    = getComputedStyle(document.documentElement).getPropertyValue('--red').trim()    || '#f85149';
+
+    // clear
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+
+    const useCR = (this.mode === 'chainrule');
+    const showGD = (this.mode === 'gradient');
+
+    // ── TOP PANEL: f(x) or g(f(x)) ──────────────────────────────────────────
+    const [yMin, yMax] = this._topYRange(useCR);
+    const tyCv = (y) => this._toCanvasY(y, yMin, yMax, 0, topH);
+    const txCv = (xx) => this._toCanvasX(xx);
+
+    // axes
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, padTop);
+    ctx.lineTo(padL, topH - padBot);
+    ctx.moveTo(padL, topH - padBot);
+    ctx.lineTo(W - padR, topH - padBot);
+    ctx.stroke();
+
+    // y=0 line (dashed)
+    const y0 = tyCv(0);
+    if (y0 > padTop && y0 < topH - padBot) {
+      ctx.setLineDash([4, 6]);
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(padL, y0);
+      ctx.lineTo(W - padR, y0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // draw main curve (gold)
+    ctx.beginPath();
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 2.5;
+    const steps = 300;
+    for (let i = 0; i <= steps; i++) {
+      const fx = xMin + (i / steps) * (xMax - xMin);
+      const fy = useCR ? this._gf(fx) : this._f(fx);
+      const cx = txCv(fx);
+      const cy = tyCv(fy);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+
+    // tangent line
+    const curFx = useCR ? this._gf(x) : this._f(x);
+    const curFp = useCR ? this._gfp(x) : this._fp(x);
+    const tLen = 0.7;
+    const tx1 = txCv(x - tLen);
+    const ty1 = tyCv(curFx - tLen * curFp);
+    const tx2 = txCv(x + tLen);
+    const ty2 = tyCv(curFx + tLen * curFp);
+    ctx.beginPath();
+    ctx.strokeStyle = blueColor;
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([]);
+    ctx.moveTo(tx1, ty1);
+    ctx.lineTo(tx2, ty2);
+    ctx.stroke();
+
+    // gradient descent arrow (show GD mode)
+    if (showGD && Math.abs(curFp) > 0.01) {
+      const arrowLen = Math.min(Math.abs(curFp) * 0.22, 0.6);
+      const arrowDir = curFp > 0 ? -1 : 1; // move opposite to gradient
+      const ax1 = txCv(x);
+      const ay1 = tyCv(curFx);
+      const ax2 = txCv(x + arrowDir * arrowLen);
+      const ay2 = tyCv(curFx);
+      drawArrow(ctx, ax1, ay1, ax2, ay2, greenColor, 10);
+
+      // label
+      ctx.fillStyle = greenColor;
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('−∇f', ax2, ay2 - 14);
+    }
+
+    // chain rule annotation
+    if (useCR) {
+      const innerFp = 2 * x;          // f'(x) = 2x
+      const outerDeriv = Math.cos(x*x); // g'(u) = cos(u)
+      ctx.fillStyle = textColor;
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`d/dx[sin(x²)] = cos(x²)·2x`, padL + 8, padTop + 15);
+      ctx.fillStyle = accentColor;
+      ctx.fillText(`= cos(${(x*x).toFixed(2)})·${(2*x).toFixed(2)} = ${curFp.toFixed(3)}`, padL + 8, padTop + 30);
+    }
+
+    // current point (gold dot)
+    const dotX = txCv(x);
+    const dotY = tyCv(curFx);
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 8, 0, Math.PI * 2);
+    ctx.fillStyle = accentColor;
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = accentColor;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+
+    // panel label
+    ctx.fillStyle = textColor;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    const curveName = useCR ? 'g(f(x)) = sin(x²)' : 'f(x) = x³ − 2x² + 1';
+    ctx.fillText(curveName, padL + 6, topH - padBot - 6);
+
+    // slope readout
+    ctx.textAlign = 'right';
+    ctx.fillStyle = blueColor;
+    ctx.fillText(`slope = f'(${x.toFixed(2)}) = ${curFp.toFixed(3)}`, W - padR - 4, topH - padBot - 6);
+
+    // ── DIVIDER ──────────────────────────────────────────────────────────────
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(0, topH);
+    ctx.lineTo(W, topH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // ── BOTTOM PANEL: f'(x) or gf'(x) ────────────────────────────────────────
+    const botTop = topH;
+    const botH = H - topH;
+    const dpMin = -3;
+    const dpMax = 3;
+    const dyCv = (y) => this._toCanvasY(y, dpMin, dpMax, botTop, botH);
+
+    // axes
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, botTop + padTop);
+    ctx.lineTo(padL, H - padBot);
+    ctx.moveTo(padL, H - padBot);
+    ctx.lineTo(W - padR, H - padBot);
+    ctx.stroke();
+
+    // y=0 line in derivative panel
+    const dy0 = dyCv(0);
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(padL, dy0);
+    ctx.lineTo(W - padR, dy0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // derivative curve
+    ctx.beginPath();
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 1.8;
+    ctx.globalAlpha = 0.55;
+    for (let i = 0; i <= steps; i++) {
+      const fx = xMin + (i / steps) * (xMax - xMin);
+      const dfx = useCR ? this._gfp(fx) : this._fp(fx);
+      const cx = txCv(fx);
+      const cy = dyCv(Math.max(dpMin, Math.min(dpMax, dfx)));
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // gold dot at current x on derivative panel
+    const derVal = useCR ? this._gfp(x) : this._fp(x);
+    const clampedDer = Math.max(dpMin, Math.min(dpMax, derVal));
+    const ddotX = txCv(x);
+    const ddotY = dyCv(clampedDer);
+    ctx.beginPath();
+    ctx.arc(ddotX, ddotY, 6, 0, Math.PI * 2);
+    ctx.fillStyle = accentColor;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = accentColor;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+
+    // vertical line connecting panels at current x
+    ctx.setLineDash([3, 4]);
+    ctx.strokeStyle = blueColor;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.moveTo(dotX, dotY + 10);
+    ctx.lineTo(ddotX, ddotY - 8);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1.0;
+
+    // panel label
+    ctx.fillStyle = textColor;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    const derName = useCR ? "d/dx[sin(x²)]" : "f'(x) = 3x² − 4x";
+    ctx.fillText(derName, padL + 6, H - padBot - 6);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = accentColor;
+    ctx.fillText(`f'(${x.toFixed(2)}) = ${derVal.toFixed(3)}`, W - padR - 4, H - padBot - 6);
+  }
+
+  _bindEvents() {
+    const canvas = this.canvas;
+
+    const getX = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      return (e.clientX - rect.left) * scaleX;
+    };
+
+    const setXFromCanvas = (cx) => {
+      const fx = this._toFuncX(cx);
+      this.x = Math.max(this.xMin + 0.01, Math.min(this.xMax - 0.01, fx));
+      this._updateSlider();
+      this._render();
+      this._updateCaption();
+    };
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      this._dragging = true;
+      setXFromCanvas(getX(e));
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!this._dragging) return;
+      setXFromCanvas(getX(e));
+    });
+
+    window.addEventListener('mouseup', () => { this._dragging = false; });
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const tx = (e.touches[0].clientX - rect.left) * scaleX;
+      setXFromCanvas(tx);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const tx = (e.touches[0].clientX - rect.left) * scaleX;
+      setXFromCanvas(tx);
+    }, { passive: false });
+  }
+
+  _updateSlider() {
+    const slider = document.getElementById('xSlider');
+    const val    = document.getElementById('xValue');
+    if (slider) slider.value = this.x.toFixed(2);
+    if (val)    val.textContent = this.x.toFixed(2);
+  }
+
+  _updateCaption() {
+    const caption = document.getElementById('calcCaption');
+    if (!caption) return;
+    const fp = this.mode === 'chainrule' ? this._gfp(this.x) : this._fp(this.x);
+    if (Math.abs(fp) < 0.05) {
+      caption.textContent = `At x = ${this.x.toFixed(2)}: slope ≈ 0 — this is a critical point.`;
+    } else if (fp > 0) {
+      caption.textContent = `At x = ${this.x.toFixed(2)}: slope = ${fp.toFixed(3)} — function increasing. Gradient descent would move left (−x direction).`;
+    } else {
+      caption.textContent = `At x = ${this.x.toFixed(2)}: slope = ${fp.toFixed(3)} — function decreasing. Gradient descent would move right (+x direction).`;
+    }
+  }
+
+  setX(val) {
+    this.x = Math.max(this.xMin + 0.01, Math.min(this.xMax - 0.01, val));
+    this._render();
+    this._updateCaption();
+  }
+
+  setMode(mode) {
+    this.mode = mode;
+    this._render();
+    this._updateCaption();
+  }
+}
+
+// ─── Playground mini-animation ──────────────────────────────────────────────
+class PlaygroundAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.x = 0.5;
+    this.funcId = 'cubic';
+    this._render();
+  }
+
+  _f(x, id) {
+    switch(id) {
+      case 'quartic': return x*x*x*x - 4*x*x + 3;
+      case 'sine':    return Math.sin(x);
+      default:        return x*x*x - 2*x*x + 1;
+    }
+  }
+  _fp(x, id) {
+    switch(id) {
+      case 'quartic': return 4*x*x*x - 8*x;
+      case 'sine':    return Math.cos(x);
+      default:        return 3*x*x - 4*x;
+    }
+  }
+  _yRange(id) {
+    switch(id) {
+      case 'quartic': return [-1.5, 3.5];
+      case 'sine':    return [-1.5, 1.5];
+      default:        return [-0.2, 1.5];
+    }
+  }
+  _xRange(id) {
+    switch(id) {
+      case 'quartic': return [-1.5, 2.5];
+      case 'sine':    return [-1.5, 3.0];
+      default:        return [-0.5, 2.5];
+    }
+  }
+
+  _render() {
+    const { ctx, canvas, x, funcId } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+    const padL = 55, padR = 20, padT = 20, padB = 24;
+    const [xMin, xMax] = this._xRange(funcId);
+    const [yMin, yMax] = this._yRange(funcId);
+
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const textCol = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+    const borderCol = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f0a500';
+    const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim() || '#58a6ff';
+
+    const txCv = (xx) => padL + (xx - xMin) / (xMax - xMin) * (W - padL - padR);
+    const tyCv = (yy) => padT + (1 - (yy - yMin) / (yMax - yMin)) * (H - padT - padB);
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // axes
+    ctx.strokeStyle = borderCol;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT);
+    ctx.lineTo(padL, H - padB);
+    ctx.moveTo(padL, H - padB);
+    ctx.lineTo(W - padR, H - padB);
+    ctx.stroke();
+
+    // curve
+    ctx.beginPath();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2.5;
+    const steps = 300;
+    for (let i = 0; i <= steps; i++) {
+      const fx = xMin + (i / steps) * (xMax - xMin);
+      const fy = this._f(fx, funcId);
+      i === 0 ? ctx.moveTo(txCv(fx), tyCv(fy)) : ctx.lineTo(txCv(fx), tyCv(fy));
+    }
+    ctx.stroke();
+
+    // clamp x to range
+    const cx = Math.max(xMin + 0.01, Math.min(xMax - 0.01, x));
+    const cy = this._f(cx, funcId);
+    const cp = this._fp(cx, funcId);
+
+    // tangent
+    const tl = (xMax - xMin) * 0.18;
+    ctx.beginPath();
+    ctx.strokeStyle = blue;
+    ctx.lineWidth = 1.8;
+    ctx.moveTo(txCv(cx - tl), tyCv(cy - tl * cp));
+    ctx.lineTo(txCv(cx + tl), tyCv(cy + tl * cp));
+    ctx.stroke();
+
+    // dot
+    ctx.beginPath();
+    ctx.arc(txCv(cx), tyCv(cy), 8, 0, Math.PI * 2);
+    ctx.fillStyle = accent;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = accent;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+
+    // readout
+    ctx.fillStyle = textCol;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = blue;
+    ctx.fillText(`slope = ${cp.toFixed(3)}`, W - padR - 4, H - padB - 6);
+
+    // caption update
+    const caption = document.getElementById('playCaption');
+    if (caption) {
+      if (Math.abs(cp) < 0.03) {
+        caption.textContent = `Slope ≈ 0 at x = ${cx.toFixed(2)} — critical point. Gradient descent stalls here.`;
+      } else if (cp > 0) {
+        caption.textContent = `Slope = ${cp.toFixed(3)} at x = ${cx.toFixed(2)} — gradient descent would move in the −x direction.`;
+      } else {
+        caption.textContent = `Slope = ${cp.toFixed(3)} at x = ${cx.toFixed(2)} — gradient descent would move in the +x direction.`;
+      }
+    }
+  }
+
+  setX(val) { this.x = val; this._render(); }
+  setFunc(id) { this.funcId = id; this._render(); }
+}
+
+// ─── Wire up animation ───────────────────────────────────────────────────────
+const calcCanvas = document.getElementById('calcCanvas');
+const calcAnim = new CalculusAnimation(calcCanvas);
+
+const xSlider = document.getElementById('xSlider');
+const xValue  = document.getElementById('xValue');
+xSlider.addEventListener('input', () => {
+  const v = parseFloat(xSlider.value);
+  xValue.textContent = v.toFixed(2);
+  calcAnim.setX(v);
+});
+
+let chainActive = false;
+let gdActive = false;
+
+document.getElementById('chainRuleBtn').addEventListener('click', function() {
+  chainActive = !chainActive;
+  gdActive = false;
+  calcAnim.setMode(chainActive ? 'chainrule' : 'normal');
+  this.classList.toggle('secondary', !chainActive);
+  document.getElementById('gdStepBtn').classList.add('secondary');
+});
+
+document.getElementById('gdStepBtn').addEventListener('click', function() {
+  gdActive = !gdActive;
+  chainActive = false;
+  calcAnim.setMode(gdActive ? 'gradient' : 'normal');
+  this.classList.toggle('secondary', !gdActive);
+  document.getElementById('chainRuleBtn').classList.add('secondary');
+});
+
+// ─── Wire up playground ───────────────────────────────────────────────────────
+const playCanvas = document.getElementById('playCanvas');
+const playAnim = new PlaygroundAnimation(playCanvas);
+
+const playXSlider = document.getElementById('playXSlider');
+const playXValue  = document.getElementById('playXValue');
+playXSlider.addEventListener('input', () => {
+  const v = parseFloat(playXSlider.value);
+  playXValue.textContent = v.toFixed(2);
+  playAnim.setX(v);
+});
+
+document.getElementById('funcSelect').addEventListener('change', function() {
+  playAnim.setFunc(this.value);
+  // update x-range limits on slider
+  const ranges = { cubic:[-0.5,2.5], quartic:[-1.5,2.5], sine:[-1.5,3.0] };
+  const [mn, mx] = ranges[this.value];
+  playXSlider.min = mn;
+  playXSlider.max = mx;
+  const curVal = Math.max(mn, Math.min(mx, parseFloat(playXSlider.value)));
+  playXSlider.value = curVal;
+  playXValue.textContent = curVal.toFixed(2);
+  playAnim.setX(curVal);
+});
+
+// ─── Quiz ─────────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG = 'calculus-derivatives';
+const TOTAL_QUESTIONS = 9;
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_QUESTIONS} revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_QUESTIONS} revealed`;
+
+// ─── Reading progress bar ─────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop  = window.scrollY;
+  const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─── Scroll reveal ────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── TOC active dot ───────────────────────────────────────────────────────────
+const sections = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots  = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─── Re-render canvases on theme change ──────────────────────────────────────
+window.onThemeChange(function() {
+  calcAnim._render();
+  playAnim._render();
+});
+</script>
+</body>
+</html>

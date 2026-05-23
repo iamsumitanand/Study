@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCA &amp; Dimensionality Reduction — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>          <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span><span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>          <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb">
+      <a href="../index.html">← Back to curriculum</a>
+      <span style="margin:0 0.5rem; color:var(--border);">·</span>
+      <a href="k-means.html" style="color:var(--text-muted);">← K-Means</a>
+      <span style="margin:0 0.5rem; color:var(--border);">·</span>
+      <a href="bias-variance.html" style="color:var(--text-muted);">Bias-Variance →</a>
+    </div>
+    <p class="section-label">Part 1 · Basic Machine Learning</p>
+    <h1>PCA &amp; Dimensionality Reduction</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      How to compress a 10,000-pixel face into 50 numbers — and reconstruct it almost perfectly.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-style:normal; font-size:1.05rem; line-height:1.8;">
+      A grayscale photo of a human face at 100×100 pixels is a point in 10,000-dimensional space.
+      Every pixel is a coordinate. Yet PCA routinely compresses that face down to <strong style="color:var(--accent)">50 numbers</strong> —
+      a 200× reduction — while preserving enough structure to reconstruct it, recognise it, and cluster it.
+      Those 50 numbers are the face's <strong style="color:var(--accent)">fingerprint in variance space</strong>.
+      PCA doesn't discard information randomly. It finds the directions in which your data varies most,
+      and keeps only those. Everything else is, mathematically, noise.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Variance is information — shadows reveal structure</h2>
+    <p class="lead">
+      Imagine a long, thin cloud of data points stretched diagonally across a 2D plane.
+      If you shine a light from one side and look at the shadow on the floor, you see a wide spread.
+      Shine the light from a different angle and the shadow collapses to almost a single dot.
+      The shadow that preserves the most spread — the most <em>variance</em> — is the most informative
+      projection. That is exactly what PCA computes.
+    </p>
+    <p>
+      Variance is the mathematical measure of spread. A direction with high variance means the data
+      points are spread out along it — they differ from each other in that direction, so the direction
+      carries <em>discriminating power</em>. A direction with near-zero variance means all points sit
+      at roughly the same value — projecting onto it tells you almost nothing new.
+    </p>
+    <p>
+      PCA finds a new coordinate system for your data. The first axis (Principal Component 1) points
+      in the direction of maximum variance. The second axis (PC2) points in the direction of maximum
+      remaining variance, subject to being perpendicular to PC1. And so on. You can then represent
+      each data point using only the first few coordinates in this new system — the ones that actually
+      vary — and throw away the rest without losing much.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">original features</strong> (pixels, sensor readings, gene expressions) form a high-dimensional space.</li>
+      <li>The <strong style="color:var(--accent)">principal components</strong> are new axes that capture the most variance, in order.</li>
+      <li>The <strong style="color:var(--accent)">projection</strong> is the coordinate of each point along those new axes.</li>
+      <li>The <strong style="color:var(--accent)">explained variance ratio</strong> tells you how much information each PC retains.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Build it from first principles — don't just accept it</h2>
+
+    <p class="lead">
+      PCA is a change of basis. You rotate and rescale the coordinate system so that the axes align
+      with the directions of greatest spread. The key objects are the <em>covariance matrix</em>,
+      which encodes how every pair of features varies together, and its <em>eigenvectors</em>,
+      which point exactly in those directions of greatest spread.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      An eigenvector of the covariance matrix is said to represent a "direction of maximum variance."
+      But covariance matrices encode pairwise relationships between features —
+      what does an eigenvector of <em>that</em> actually mean in terms of the original data?
+      Think about what "rotating the axes" does to the cloud of points before reading on.
+    </div>
+
+    <p>
+      An eigenvector of the covariance matrix is a linear combination of original features such that,
+      when you project all your data points onto it, the resulting 1D distribution has the highest
+      possible variance. The eigenvalue is that variance. Because the covariance matrix is symmetric
+      and positive semi-definite, all its eigenvectors are orthogonal to each other — they define
+      directions that are statistically uncorrelated in the projected space. Each PC is a recipe for
+      mixing the original features in proportions that maximally spread out the data along one axis,
+      orthogonally to all the others.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      PCA works beautifully on a spiral or an elongated ellipse.
+      But what happens if your data lies on a curved manifold — say, points on the surface of a sphere,
+      or a Swiss-roll shape? Before reading on: would PCA recover the underlying 2D structure?
+      Why or why not?
+    </div>
+
+    <p>
+      PCA fails for non-linear structure because it can only find <em>linear</em> subspaces.
+      It rotates axes — it cannot curve them. A sphere's surface has two intrinsic dimensions,
+      but any flat 2D projection loses structure: the north pole and south pole collapse toward each
+      other. The covariance matrix of points on a sphere gives nearly equal variance in all three
+      directions, so PCA finds no dominant axes. Non-linear methods like t-SNE, UMAP, or kernel PCA
+      address this by learning curved manifolds, but PCA is blind to them by construction.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      You project 1,000 data points from 100 dimensions down to 5 PCs (retaining 80% explained variance).
+      What exactly is "lost"? Is it always bad to lose it?
+      Think about two scenarios: (a) the remaining 20% is random sensor noise; (b) the remaining 20%
+      encodes a rare but meaningful signal.
+    </div>
+
+    <p>
+      What is lost is the variance in all directions orthogonal to the 5 chosen PCs — the residual.
+      Each point's projection discards the component of that point that lies outside the chosen subspace;
+      this is called the <em>reconstruction error</em>. In scenario (a), the 20% is noise — discarding
+      it actually <em>improves</em> downstream tasks by denoising. In scenario (b), the rare signal
+      sits in a low-variance direction by definition (few points exhibit it), so PCA happily discards
+      it. This is PCA's fundamental assumption: low variance equals low importance. When that assumption
+      breaks — anomaly detection, rare disease markers, outlier signals — PCA can silently destroy
+      exactly the information you need.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch PCA find its axes</h2>
+    <p class="lead">
+      A cloud of 40 correlated 2D points. Step through: PC1 grows as an arrow from the centroid
+      in the direction of maximum variance, then PC2 appears perpendicular to it.
+      Hit "Project to 1D" to see each point slide onto PC1 — watch the dashed residual lines
+      showing what is lost by dropping PC2.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="pcaCanvas" width="720" height="380" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="pcaCaption">
+        Press <strong>Show PC1</strong> to begin.
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <button class="btn" id="btnPC1">Show PC1</button>
+        <button class="btn secondary" id="btnPC2">Show PC2</button>
+        <button class="btn secondary" id="btnProject">Project to 1D</button>
+        <button class="btn secondary" id="btnReset">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Covariance, eigendecomposition, explained variance</h2>
+
+    <p class="lead">
+      Three objects do all the work: the covariance matrix encodes pairwise spread,
+      eigendecomposition finds the principal axes, and the explained variance ratio tells you
+      how many dimensions you need.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Covariance Matrix</div>
+      <div class="formula">Σ  =  (1/n) · Xᵀ X</div>
+      <div class="symbol-table">
+        <span class="sym">X</span>      <span>mean-centered data matrix, shape (n × d) — each row is a sample, each col a feature</span>
+        <span class="sym">n</span>      <span>number of data points</span>
+        <span class="sym">d</span>      <span>number of features (dimensions)</span>
+        <span class="sym">Σ</span>      <span>d × d symmetric matrix — Σᵢⱼ = covariance between feature i and feature j</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Eigendecomposition</div>
+      <div class="formula">Σ  =  V · Λ · Vᵀ</div>
+      <div class="symbol-table">
+        <span class="sym">V</span>      <span>matrix whose columns are eigenvectors — the principal components</span>
+        <span class="sym">Λ</span>      <span>diagonal matrix of eigenvalues λ₁ ≥ λ₂ ≥ … ≥ λ_d — the variance along each PC</span>
+        <span class="sym">Vᵀ</span>     <span>to project data: Z = X · V_k, where V_k uses only the first k columns</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Explained Variance Ratio</div>
+      <div class="formula">EVR_k  =  λ_k  /  Σᵢ λᵢ</div>
+      <div class="symbol-table">
+        <span class="sym">EVR_k</span>  <span>fraction of total variance captured by PC k — pick enough PCs to reach 90–95%</span>
+        <span class="sym">λ_k</span>    <span>eigenvalue of PC k — equals the variance of the data projected onto that PC</span>
+        <span class="sym">Σᵢ λᵢ</span> <span>total variance = sum of all eigenvalues = trace of the covariance matrix</span>
+      </div>
+    </div>
+
+    <p><strong>Worked example — 4 points in 2D:</strong></p>
+
+    <div class="worked-example">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span class="step-text">
+          Data (already mean-centered):
+          <span class="step-math">x₁=(2,1) x₂=(−2,−1) x₃=(1,2) x₄=(−1,−2)</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span class="step-text">
+          Compute Σ = (1/4) XᵀX:
+          <span class="step-math">Σ = [[2.5, 1.5], [1.5, 2.5]]</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span class="step-text">
+          Eigenvalues: det(Σ − λI) = 0 →
+          <span class="step-math">λ₁ = 4.0, λ₂ = 1.0</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span class="step-text">
+          Eigenvectors (unit):
+          <span class="step-math">PC1 = [1/√2, 1/√2] ≈ [0.707, 0.707]</span>
+          <span class="step-math">PC2 = [−1/√2, 1/√2] ≈ [−0.707, 0.707]</span>
+        </span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">
+          EVR: PC1 captures 4/(4+1) = 80% · PC2 captures 1/(4+1) = 20%
+        </span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          PC1 points diagonally at 45° — exactly along the elongated axis of the data cloud.
+          Projecting all 4 points onto PC1 alone retains 80% of total variance;
+          you lose the perpendicular spread (PC2) which accounts for 20%.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real Problem Bridge -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Toy to Real</p>
+    <h2>Where PCA actually shows up in the wild</h2>
+    <p class="lead">
+      PCA isn't an academic exercise. It appears quietly inside several landmark ML systems —
+      sometimes as the core algorithm, sometimes as a preprocessing step nobody mentions.
+    </p>
+
+    <h3>Eigenfaces — face recognition</h3>
+    <p>
+      Turk &amp; Pentland (1991) showed that a database of face images, each 10,000 pixels,
+      could be represented by roughly 100 principal components called <em>eigenfaces</em>.
+      Every face in the database is a weighted sum of these eigenface templates.
+      Recognition works by projecting a new face into the eigenface subspace and finding
+      the nearest neighbor. The compression ratio is 100:1 and recognition accuracy stays high —
+      because the discarded variance is mostly noise: lighting flickers, background clutter,
+      JPEG artifacts. The 100 eigenfaces capture the structural variation that actually matters.
+    </p>
+
+    <h3>Genomics — population structure</h3>
+    <p>
+      A genome-wide association study (GWAS) might measure 500,000 SNPs (genetic variants)
+      per person across 100,000 individuals. Running PCA on this matrix reveals, in its first
+      two principal components, a near-perfect map of geographic ancestry — without any labels.
+      PC1 separates European from East Asian ancestry. PC2 separates North from South within
+      Europe. This works because genetic variation clusters geographically, and PCA finds the
+      directions of maximum variation in the genetic data. Researchers use the first 10–20 PCs
+      as covariates in models to control for population stratification.
+    </p>
+
+    <h3>Recommender systems — latent factors</h3>
+    <p>
+      A user–movie rating matrix is typically 99% empty — most users haven't rated most movies.
+      Matrix factorization (a close cousin of PCA, using SVD) decomposes this sparse matrix into
+      two low-rank factor matrices: one for users, one for movies. The resulting latent dimensions
+      capture abstract concepts — "action intensity," "romantic tone," "art-house sensibility" —
+      without being given those labels. Netflix's famous $1M Prize was won using this approach.
+      Predicting a missing rating becomes a dot product in a 50-dimensional latent space.
+    </p>
+
+    <div class="insight-box" style="font-style:normal;">
+      All three applications share the same structure: data lives in a high-dimensional space,
+      but the meaningful variation sits in a much lower-dimensional subspace.
+      PCA finds that subspace. The applications differ only in what "variance" means in context:
+      pixel intensity patterns, allele frequencies, or user preference signals.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>How many components do you need?</h2>
+    <p class="lead">
+      The scree plot shows explained variance per component. The "elbow" — the point where
+      additional components add little — is a heuristic for choosing how many to keep.
+      A common rule: retain enough PCs to explain 90–95% of total variance.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Data spread (correlation)</span>
+        <input type="range" id="corrSlider" min="0" max="0.98" step="0.01" value="0.85">
+        <span class="control-value" id="corrValue">0.85</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Dimensions</span>
+        <input type="range" id="dimSlider" min="2" max="8" step="1" value="4">
+        <span class="control-value" id="dimValue">4</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="playGenBtn">Generate</button>
+        <button class="btn secondary" id="playResetBtn">↺ Reset</button>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="screePlot" width="720" height="260" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="screeCaption">
+          High correlation → most variance in PC1 · Low correlation → variance spread evenly
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs about PCA</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't isolated mistakes — they form a chain of confusions that unravels cleanly
+      once you understand what PCA actually optimises.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① PCA selects the most important original features.</div>
+        <div class="truth">
+          PCA creates entirely <em>new</em> features (principal components) as linear combinations of
+          all original features. PC1 might be 0.7×feature_A + 0.5×feature_B − 0.3×feature_C.
+          No original feature is selected or discarded — all of them participate in every PC.
+          If you want feature selection (choosing which original features to keep), use LASSO
+          or recursive feature elimination instead.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② More variance always means more useful signal.</div>
+        <div class="truth">
+          Variance and usefulness are not the same thing. A noisy sensor reading or a background
+          illumination artifact can have high variance while carrying zero information about
+          what you care about. Conversely, a rare but critical signal (a tumor marker, a fraud indicator)
+          may sit in a low-variance direction and be exactly what PCA discards.
+          PCA's assumption — high variance = high importance — must be verified for each problem.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ PCA removes multicollinearity, so it's always good to run it before training.</div>
+        <div class="truth">
+          PCA does produce uncorrelated components, but blindly applying it before every model
+          is a mistake. It destroys interpretability (you can no longer say "feature X has coefficient Y"),
+          it can discard class-discriminative variance if the low-variance directions happen to separate
+          classes (this is exactly what Linear Discriminant Analysis addresses), and for tree-based
+          models it rarely helps because trees handle correlated features natively.
+          Use PCA deliberately, not as a default preprocessing step.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ The components explain the "causes" of variation in the data.</div>
+        <div class="truth">
+          PCA is purely statistical. It finds directions of variance — it says nothing about causation.
+          The first PC of a stock return dataset might correlate with "market beta," but PCA did not
+          discover the market; it found the direction most stocks move together. Labelling PCs with
+          causal interpretations (common in genomics papers: "PC1 = European ancestry") is a
+          post-hoc human interpretation, not something the algorithm established.
+          Interpret with caution — correlation is not causation, and variance direction is not mechanism.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ You need to run PCA on the raw feature matrix.</div>
+        <div class="truth">
+          PCA must be run on <em>mean-centered</em> and, if features have different scales, <em>standardized</em> data.
+          Without centering, PC1 points toward the mean of the data, not the direction of maximum
+          spread relative to the mean — the covariance matrix is wrong. Without standardization,
+          features measured in large units (e.g. income in thousands) dominate the covariance
+          matrix and PC1 becomes almost entirely that feature.
+          Always center; almost always standardize unless all features share the same units.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>PCA rotates the coordinate system so that axes align with directions of maximum variance. The first k axes capture the most spread — projecting onto them discards the least information.</li>
+      <li>The principal components are eigenvectors of the covariance matrix. The eigenvalue equals the variance along that direction. Eigenvectors are orthogonal — PCs are uncorrelated by construction.</li>
+      <li>Explained variance ratio (λ_k / Σλ) tells you how much information each PC holds. Choose k so the cumulative sum reaches 90–95% for most applications.</li>
+      <li>PCA assumes low variance equals low importance. This breaks for anomaly detection, rare signals, and non-linear manifolds. Check the assumption before trusting the compression.</li>
+      <li>Always mean-center before PCA. Standardize when features have different units. Failure to center makes PC1 point at the mean instead of the spread, corrupting the result.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      PCA reduces dimensions to compress data. But when you use PCA features to train a model,
+      you need to ask: does this compressed representation actually generalise to new data,
+      or did you just overfit to the training variance structure? A model trained on 5 PCs
+      might perform beautifully in-sample and fall apart out-of-sample — not because of PCA,
+      but because of a subtler trade-off between complexity and generalisation.<br><br>
+      That tension is the <strong style="color:var(--accent)">Bias-Variance Tradeoff</strong> — and it's the next chapter.
+      It will reframe everything you know about model performance: why simpler models sometimes win,
+      why more data helps, and how to diagnose whether your model is suffering from too much
+      structure or too little.
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">CS229 Lecture Notes — §10 (Factor Analysis &amp; PCA)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Andrew Ng &amp; Tengyu Ma, Stanford University (2022 edition)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: covariance matrix derivation, eigenvector interpretation,
+            projection and reconstruction, explained variance ratio, mean-centering requirement.
+          </span><br>
+          <a href="https://cs229.stanford.edu" style="font-family:var(--font-mono); font-size:0.8rem;">cs229.stanford.edu</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — §2.12 and §3.8</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: PCA as dimensionality reduction, SVD connection, reconstruction error,
+            whitening, and PCA as preprocessing for neural networks.
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Eigenfaces for Recognition</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Turk &amp; Pentland, Journal of Cognitive Neuroscience, 1991</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: Eigenfaces application, compression ratios, recognition accuracy with 100 PCs.
+          </span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">You run PCA on a dataset and find that the first two PCs explain 95% of the variance. You drop the remaining PCs. What exactly have you discarded?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The 5% of variance that lies in directions orthogonal to PC1 and PC2.</strong>
+          For each data point, you have discarded its component perpendicular to the PC1–PC2 plane —
+          this is the reconstruction error. Whether this loss matters depends entirely on context:
+          if it is sensor noise, discarding it improves your model. If it encodes rare but meaningful
+          signal, you may have just deleted the most important information you had.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">You compute the covariance matrix of a dataset and find its eigenvalues are all equal. What does this tell you about the data, and how many PCs should you keep?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The data is isotropic — it spreads equally in all directions.</strong>
+          All PCs explain the same fraction of variance. There is no preferred direction.
+          You cannot reduce dimensions without losing equal amounts of information in each step.
+          In practice this means PCA offers no compression benefit — you would need to keep all dimensions
+          or accept uniform information loss. This arises with uncorrelated, equal-variance Gaussian noise.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">Starting from data points (2,1), (−2,−1), (1,2), (−1,−2), which direction is PC1 and what is its eigenvalue?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>PC1 = [1/√2, 1/√2] ≈ [0.707, 0.707], eigenvalue = 4.0.</strong>
+          The covariance matrix is [[2.5, 1.5], [1.5, 2.5]]. Eigenvalues solve (2.5−λ)² − 1.5² = 0,
+          giving λ₁ = 4, λ₂ = 1. The eigenvector for λ₁ = 4 is [1, 1]/√2 — the 45° diagonal,
+          which aligns with the long axis of the data cloud.
+          EVR: PC1 = 4/5 = 80%, PC2 = 1/5 = 20%.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">You apply PCA before training a classifier. After projection, your classification accuracy is lower than without PCA. What went wrong?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>PCA discarded variance that was class-discriminative.</strong>
+          PCA maximises total variance regardless of class labels. The direction that best separates
+          class A from class B may be a low-variance direction overall — perhaps both classes are
+          tightly clustered but in very different places. PCA happily throws that direction away.
+          Linear Discriminant Analysis (LDA) solves this by finding the direction that maximises
+          between-class variance relative to within-class variance. Use LDA when you have labels
+          and want supervised dimensionality reduction.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">You forget to mean-center your data before running PCA. How does this corrupt the result?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>PC1 points toward the mean of the data instead of the direction of maximum spread.</strong>
+          Without centering, the "covariance" matrix is really the second-moment matrix E[XXᵀ],
+          which conflates the mean with the variance. If your data clusters tightly around a point
+          far from the origin, PC1 will mostly encode "the data is over there" rather than
+          "the data spreads in this direction." The principal components become meaningless as
+          measures of variance structure. Centering is non-negotiable; it is baked into the
+          mathematical definition of covariance.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">A dataset has features measured in meters, kilograms, and seconds. You run PCA without standardizing. What will happen?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>PC1 will be dominated by whichever feature has the largest numerical variance.</strong>
+          If distances vary from 0 to 10,000 meters while masses vary from 0 to 100 kg,
+          the variance in meters (millions) will dwarf the variance in kg (thousands).
+          PC1 will essentially be a re-scaling of the distance feature, ignoring mass and time entirely.
+          Standardizing (subtracting mean, dividing by std dev) places all features on equal footing
+          before covariance is computed. Skip standardization only when all features are in the same
+          units and comparable magnitudes — e.g. raw pixel intensities in an image dataset.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">You want to detect fraudulent transactions in a dataset. Will PCA help or hurt your fraud detector? Explain.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>PCA is likely to hurt it.</strong>
+          Fraud signals are, by definition, rare — they affect a small fraction of transactions.
+          Rare signals occupy low-variance directions in the data because very few points exhibit them.
+          PCA discards low-variance directions first. Your fraud signal may land precisely in the
+          dimensions PCA throws away. Anomaly detection systems (Isolation Forest, autoencoders,
+          one-class SVM) are designed specifically to identify low-density, unusual patterns
+          rather than to compress high-density, common variation. Use PCA for compression and
+          noise reduction, not for anomaly detection.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">Principal components are always orthogonal to each other. What property of the covariance matrix guarantees this?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The covariance matrix is real and symmetric.</strong>
+          The Spectral Theorem guarantees that any real symmetric matrix has a complete set of
+          real, orthogonal eigenvectors. The covariance matrix Σ = (1/n)XᵀX is symmetric by
+          construction (Σᵢⱼ = Σⱼᵢ — the covariance of X with Y equals the covariance of Y with X).
+          Orthogonality of PCs means they are linearly independent and, crucially, that projections
+          onto them are uncorrelated — you cannot get information about PC2 from PC1 alone.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">t-SNE and UMAP are often used instead of PCA for visualisation. When should you prefer PCA, and when should you use t-SNE or UMAP?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Prefer PCA when: you need a linear, interpretable projection that can be applied to new data, or when you want to preserve global structure and distances.</strong>
+          PCA is deterministic, fast, invertible, and can be applied to unseen test points
+          (project using the fitted eigenvectors). Prefer t-SNE or UMAP when: your data has
+          non-linear structure (clusters, manifolds, Swiss rolls) and you primarily care about
+          revealing local neighbourhood structure for visualisation. Caveat: t-SNE cannot transform
+          new data points, distances in the 2D plot are not meaningful globally, and results
+          change with hyperparameters. For preprocessing before a downstream model, use PCA.
+          For exploratory 2D visualisation of cluster structure, use UMAP.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─── PCA Animation ────────────────────────────────────────────────────────────
+class PCAAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.state = 'idle'; // idle | pc1 | pc2 | projected
+    this._animId = null;
+
+    // Generate 40 correlated points
+    this._seed = 42;
+    this.points = this._generatePoints(40);
+
+    // Compute centroid and PCA
+    this._computePCA();
+
+    // Animation progress
+    this.pc1Progress = 0;
+    this.pc2Progress = 0;
+    this.projProgress = 0;
+
+    this.render();
+  }
+
+  // Simple seeded random for reproducibility
+  _rand() {
+    this._seed = (this._seed * 1664525 + 1013904223) & 0xffffffff;
+    return ((this._seed >>> 0) / 0xffffffff);
+  }
+
+  _generatePoints(n) {
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      // Box-Muller with correlation
+      const u1 = this._rand(), u2 = this._rand();
+      const z1 = Math.sqrt(-2 * Math.log(Math.max(u1, 1e-10))) * Math.cos(2 * Math.PI * u2);
+      const z2 = Math.sqrt(-2 * Math.log(Math.max(this._rand(), 1e-10))) * Math.cos(2 * Math.PI * this._rand());
+      // correlated: y = 0.85 * x + sqrt(1 - 0.85^2) * z2
+      const rho = 0.85;
+      const x = z1;
+      const y = rho * z1 + Math.sqrt(1 - rho * rho) * z2;
+      pts.push({ x: x * 70, y: y * 40 }); // scale for display
+    }
+    return pts;
+  }
+
+  _computePCA() {
+    const pts = this.points;
+    const n = pts.length;
+    // Centroid
+    let cx = 0, cy = 0;
+    pts.forEach(p => { cx += p.x; cy += p.y; });
+    cx /= n; cy /= n;
+    this.centroid = { x: cx, y: cy };
+
+    // Covariance matrix
+    let cxx = 0, cxy = 0, cyy = 0;
+    pts.forEach(p => {
+      const dx = p.x - cx, dy = p.y - cy;
+      cxx += dx * dx; cxy += dx * dy; cyy += dy * dy;
+    });
+    cxx /= n; cxy /= n; cyy /= n;
+
+    // Eigenvalues of [[cxx, cxy],[cxy, cyy]]
+    const trace = cxx + cyy;
+    const det = cxx * cyy - cxy * cxy;
+    const disc = Math.sqrt(Math.max((trace / 2) * (trace / 2) - det, 0));
+    const l1 = trace / 2 + disc;
+    const l2 = trace / 2 - disc;
+
+    // Eigenvectors
+    let e1x, e1y;
+    if (Math.abs(cxy) > 1e-10) {
+      e1x = l1 - cyy; e1y = cxy;
+    } else {
+      e1x = 1; e1y = 0;
+    }
+    const len1 = Math.sqrt(e1x * e1x + e1y * e1y);
+    e1x /= len1; e1y /= len1;
+
+    // PC2 is perpendicular
+    const e2x = -e1y, e2y = e1x;
+
+    this.pc1 = { ex: e1x, ey: e1y, lambda: l1 };
+    this.pc2 = { ex: e2x, ey: e2y, lambda: l2 };
+
+    const totalVar = l1 + l2;
+    this.evr1 = totalVar > 0 ? l1 / totalVar : 0.75;
+    this.evr2 = totalVar > 0 ? l2 / totalVar : 0.25;
+
+    // Arrow lengths proportional to sqrt of eigenvalue, capped for display
+    this.arrowLen1 = Math.min(Math.sqrt(l1) * 1.4, 160);
+    this.arrowLen2 = Math.min(Math.sqrt(l2) * 1.4, 120);
+  }
+
+  // Canvas coordinate helpers
+  _toCanvas(x, y) {
+    const W = this.canvas.width, H = this.canvas.height;
+    const cx = W / 2, cy = H / 2;
+    return { cx: cx + x, cy: cy - y }; // y-flip
+  }
+
+  render() {
+    const { ctx, canvas } = this;
+    const W = canvas.width, H = canvas.height;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+    const dotColor  = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e6edf3';
+    const borderCol = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+
+    // Draw axes (faint)
+    ctx.strokeStyle = borderCol;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(W / 2, 20); ctx.lineTo(W / 2, H - 20);
+    ctx.moveTo(20, H / 2); ctx.lineTo(W - 20, H / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const { centroid, pc1, pc2, arrowLen1, arrowLen2 } = this;
+
+    // Draw projected points and residuals (if projected)
+    if (this.state === 'projected' && this.projProgress > 0) {
+      const t = easeInOut(Math.min(this.projProgress, 1));
+      this.points.forEach(p => {
+        // Project onto PC1
+        const dx = p.x - centroid.x, dy = p.y - centroid.y;
+        const dot = dx * pc1.ex + dy * pc1.ey;
+        const projX = centroid.x + dot * pc1.ex;
+        const projY = centroid.y + dot * pc1.ey;
+
+        // Interpolated position
+        const ix = lerp(p.x, projX, t);
+        const iy = lerp(p.y, projY, t);
+
+        const { cx: px, cy: py } = this._toCanvas(p.x, p.y);
+        const { cx: projCx, cy: projCy } = this._toCanvas(projX, projY);
+        const { cx: ix_, cy: iy_ } = this._toCanvas(ix, iy);
+
+        // Draw dashed residual line from projected pos to original
+        if (t > 0.05) {
+          ctx.beginPath();
+          ctx.strokeStyle = 'rgba(248,81,73,0.45)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 4]);
+          ctx.moveTo(projCx, projCy);
+          ctx.lineTo(px, py);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Draw animated dot
+        ctx.beginPath();
+        ctx.arc(ix_, iy_, 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(88,166,255,${0.55 + 0.35 * (1 - t)})`;
+        ctx.fill();
+      });
+    } else {
+      // Normal scatter dots
+      this.points.forEach(p => {
+        const { cx, cy } = this._toCanvas(p.x, p.y);
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(88,166,255,0.6)';
+        ctx.fill();
+      });
+    }
+
+    // Draw centroid
+    const { cx: ocx, cy: ocy } = this._toCanvas(centroid.x, centroid.y);
+    ctx.beginPath();
+    ctx.arc(ocx, ocy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#f0a500';
+    ctx.fill();
+
+    // Draw PC1 arrow (animated)
+    if (this.pc1Progress > 0) {
+      const t = easeInOut(Math.min(this.pc1Progress, 1));
+      const endX = centroid.x + pc1.ex * arrowLen1 * t;
+      const endY = centroid.y + pc1.ey * arrowLen1 * t;
+      const { cx: sx, cy: sy } = this._toCanvas(centroid.x, centroid.y);
+      const { cx: ex, cy: ey } = this._toCanvas(endX, endY);
+      drawArrow(ctx, sx, sy, ex, ey, '#f0a500', 12);
+
+      // Back arrow (opposite direction, half length)
+      const backX = centroid.x - pc1.ex * arrowLen1 * 0.6 * t;
+      const backY = centroid.y - pc1.ey * arrowLen1 * 0.6 * t;
+      const { cx: bx, cy: by } = this._toCanvas(backX, backY);
+      ctx.save();
+      ctx.strokeStyle = '#f0a500';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      if (t > 0.95) {
+        // Label
+        const { cx: lx, cy: ly } = this._toCanvas(endX + pc1.ex * 18, endY + pc1.ey * 18);
+        ctx.fillStyle = '#f0a500';
+        ctx.font = 'bold 13px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`PC1 (${(this.evr1 * 100).toFixed(0)}%)`, lx, ly);
+      }
+    }
+
+    // Draw PC2 arrow (animated)
+    if (this.pc2Progress > 0) {
+      const t = easeInOut(Math.min(this.pc2Progress, 1));
+      const endX = centroid.x + pc2.ex * arrowLen2 * t;
+      const endY = centroid.y + pc2.ey * arrowLen2 * t;
+      const { cx: sx, cy: sy } = this._toCanvas(centroid.x, centroid.y);
+      const { cx: ex, cy: ey } = this._toCanvas(endX, endY);
+      drawArrow(ctx, sx, sy, ex, ey, '#3fb950', 12);
+
+      const backX = centroid.x - pc2.ex * arrowLen2 * 0.6 * t;
+      const backY = centroid.y - pc2.ey * arrowLen2 * 0.6 * t;
+      const { cx: bx, cy: by } = this._toCanvas(backX, backY);
+      ctx.save();
+      ctx.strokeStyle = '#3fb950';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      if (t > 0.95) {
+        const { cx: lx, cy: ly } = this._toCanvas(endX + pc2.ex * 18, endY + pc2.ey * 18);
+        ctx.fillStyle = '#3fb950';
+        ctx.font = 'bold 13px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`PC2 (${(this.evr2 * 100).toFixed(0)}%)`, lx, ly);
+      }
+    }
+
+    // EVR display box
+    if (this.pc1Progress > 0.5) {
+      ctx.fillStyle = 'rgba(240,165,0,0.07)';
+      ctx.strokeStyle = 'rgba(240,165,0,0.3)';
+      ctx.lineWidth = 1;
+      const bw = 200, bh = this.pc2Progress > 0.5 ? 58 : 32;
+      ctx.beginPath();
+      ctx.roundRect(W - bw - 16, 16, bw, bh, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#f0a500';
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`PC1 variance: ${(this.evr1 * 100).toFixed(1)}%`, W - bw - 4, 33);
+      if (this.pc2Progress > 0.5) {
+        ctx.fillStyle = '#3fb950';
+        ctx.fillText(`PC2 variance: ${(this.evr2 * 100).toFixed(1)}%`, W - bw - 4, 54);
+      }
+    }
+  }
+
+  _animate(targetProp, onDone) {
+    const start = performance.now();
+    const dur = 900;
+    const step = (now) => {
+      const t = Math.min((now - start) / dur, 1);
+      this[targetProp] = t;
+      this.render();
+      if (t < 1) {
+        this._animId = requestAnimationFrame(step);
+      } else {
+        this[targetProp] = 1;
+        this.render();
+        if (onDone) onDone();
+      }
+    };
+    cancelAnimationFrame(this._animId);
+    this._animId = requestAnimationFrame(step);
+  }
+
+  showPC1() {
+    if (this.state === 'projected') { this.reset(); }
+    this.state = 'pc1';
+    this._animate('pc1Progress');
+    document.getElementById('pcaCaption').innerHTML =
+      `<strong style="color:var(--accent)">PC1</strong> — direction of maximum variance. Points spread most along this axis.`;
+  }
+
+  showPC2() {
+    if (this.state === 'idle') this.showPC1();
+    this.state = 'pc2';
+    this._animate('pc2Progress');
+    document.getElementById('pcaCaption').innerHTML =
+      `<strong style="color:#3fb950">PC2</strong> — perpendicular to PC1, captures remaining variance. PC1+PC2 together explain 100% in 2D.`;
+  }
+
+  projectTo1D() {
+    if (this.pc1Progress < 1) {
+      this.pc1Progress = 1;
+    }
+    this.state = 'projected';
+    this.projProgress = 0;
+    this._animate('projProgress');
+    document.getElementById('pcaCaption').innerHTML =
+      `Projection onto PC1 — each point slides to its closest position on the PC1 axis. <span style="color:var(--red)">Dashed red lines</span> = information lost by discarding PC2.`;
+  }
+
+  reset() {
+    cancelAnimationFrame(this._animId);
+    this.state = 'idle';
+    this.pc1Progress = 0;
+    this.pc2Progress = 0;
+    this.projProgress = 0;
+    this.render();
+    document.getElementById('pcaCaption').textContent = 'Press Show PC1 to begin.';
+  }
+}
+
+const pcaCanvas = document.getElementById('pcaCanvas');
+const pcaAnim = new PCAAnimation(pcaCanvas);
+
+document.getElementById('btnPC1').addEventListener('click', () => pcaAnim.showPC1());
+document.getElementById('btnPC2').addEventListener('click', () => pcaAnim.showPC2());
+document.getElementById('btnProject').addEventListener('click', () => pcaAnim.projectTo1D());
+document.getElementById('btnReset').addEventListener('click', () => pcaAnim.reset());
+
+// ─── Scree Plot Playground ─────────────────────────────────────────────────────
+function drawScreePlot(corr, dims) {
+  const canvas = document.getElementById('screePlot');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+  const borderCol = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Synthetic eigenvalues: λ_k = (1 - corr)^(k-1) * (1 + corr*(dims-1)/dims) normalized
+  let eigenvals = [];
+  for (let k = 0; k < dims; k++) {
+    eigenvals.push(Math.pow(1 - corr * 0.92, k) + 0.05);
+  }
+  const total = eigenvals.reduce((a, b) => a + b, 0);
+  const evr = eigenvals.map(v => v / total);
+  let cumulative = 0;
+  const cumEVR = evr.map(v => { cumulative += v; return cumulative; });
+
+  const pad = { left: 55, right: 30, top: 30, bottom: 50 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  // Axes
+  ctx.strokeStyle = borderCol;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, pad.top + plotH);
+  ctx.lineTo(pad.left + plotW, pad.top + plotH);
+  ctx.stroke();
+
+  // Y axis label
+  ctx.fillStyle = textColor;
+  ctx.font = '11px JetBrains Mono, monospace';
+  ctx.save();
+  ctx.translate(15, H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Explained Variance (%)', 0, 0);
+  ctx.restore();
+
+  // X axis label
+  ctx.textAlign = 'center';
+  ctx.fillText('Principal Component', W / 2, H - 8);
+
+  // Y gridlines
+  [0.25, 0.5, 0.75, 1.0].forEach(v => {
+    const y = pad.top + plotH - v * plotH;
+    ctx.strokeStyle = borderCol;
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + plotW, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'right';
+    ctx.fillText((v * 100).toFixed(0) + '%', pad.left - 6, y + 4);
+  });
+
+  const barW = Math.min(plotW / dims * 0.55, 60);
+  const gap = plotW / dims;
+
+  // Bars (individual EVR)
+  evr.forEach((v, i) => {
+    const x = pad.left + gap * i + gap / 2 - barW / 2;
+    const barH = v * plotH;
+    const y = pad.top + plotH - barH;
+    const hue = i === 0 ? '#f0a500' : 'rgba(88,166,255,0.7)';
+    ctx.fillStyle = hue;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, barH, [4, 4, 0, 0]);
+    ctx.fill();
+
+    // Label
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'center';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillText(`PC${i + 1}`, x + barW / 2, pad.top + plotH + 14);
+    ctx.fillStyle = i === 0 ? '#f0a500' : '#58a6ff';
+    ctx.fillText((v * 100).toFixed(0) + '%', x + barW / 2, y - 5);
+  });
+
+  // Cumulative line
+  ctx.beginPath();
+  ctx.strokeStyle = '#3fb950';
+  ctx.lineWidth = 2;
+  evr.forEach((_, i) => {
+    const x = pad.left + gap * i + gap / 2;
+    const y = pad.top + plotH - cumEVR[i] * plotH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Cumulative dots
+  evr.forEach((_, i) => {
+    const x = pad.left + gap * i + gap / 2;
+    const y = pad.top + plotH - cumEVR[i] * plotH;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#3fb950';
+    ctx.fill();
+  });
+
+  // Legend
+  ctx.fillStyle = '#f0a500';
+  ctx.textAlign = 'left';
+  ctx.font = '11px JetBrains Mono, monospace';
+  ctx.fillRect(pad.left + 8, pad.top + 8, 12, 10);
+  ctx.fillStyle = textColor;
+  ctx.fillText('Individual', pad.left + 26, pad.top + 17);
+  ctx.fillStyle = '#3fb950';
+  ctx.fillRect(pad.left + 105, pad.top + 8, 12, 3);
+  ctx.beginPath();
+  ctx.arc(pad.left + 111, pad.top + 12, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = textColor;
+  ctx.fillText('Cumulative', pad.left + 123, pad.top + 17);
+
+  // Update caption
+  const pc1pct = (evr[0] * 100).toFixed(0);
+  const pc2pct = (evr.length > 1 ? evr[1] * 100 : 0).toFixed(0);
+  let needed = 1;
+  for (let i = 0; i < cumEVR.length; i++) {
+    if (cumEVR[i] >= 0.9) { needed = i + 1; break; }
+    needed = i + 1;
+  }
+  document.getElementById('screeCaption').textContent =
+    `PC1: ${pc1pct}%  ·  PC2: ${pc2pct}%  ·  ${needed} component${needed > 1 ? 's' : ''} needed for 90% variance`;
+}
+
+const corrSlider = document.getElementById('corrSlider');
+const corrValue  = document.getElementById('corrValue');
+const dimSlider  = document.getElementById('dimSlider');
+const dimValue   = document.getElementById('dimValue');
+
+corrSlider.addEventListener('input', () => {
+  const v = parseFloat(corrSlider.value);
+  corrValue.textContent = v.toFixed(2);
+  drawScreePlot(v, parseInt(dimSlider.value));
+});
+
+dimSlider.addEventListener('input', () => {
+  const v = parseInt(dimSlider.value);
+  dimValue.textContent = v;
+  drawScreePlot(parseFloat(corrSlider.value), v);
+});
+
+document.getElementById('playGenBtn').addEventListener('click', () => {
+  drawScreePlot(parseFloat(corrSlider.value), parseInt(dimSlider.value));
+});
+
+document.getElementById('playResetBtn').addEventListener('click', () => {
+  corrSlider.value = '0.85';
+  corrValue.textContent = '0.85';
+  dimSlider.value = '4';
+  dimValue.textContent = '4';
+  drawScreePlot(0.85, 4);
+});
+
+// Initial render
+drawScreePlot(0.85, 4);
+
+// ─── Quiz ─────────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG = 'pca';
+const QUIZ_TOTAL = 9;
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / ${QUIZ_TOTAL} revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / ${QUIZ_TOTAL} revealed`;
+
+// ─── Reading progress bar ─────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─── Scroll reveal ────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── TOC active dot ───────────────────────────────────────────────────────────
+const sections = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots  = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─── Re-render canvases on theme change ───────────────────────────────────────
+window.onThemeChange(function () {
+  pcaAnim.render();
+  drawScreePlot(parseFloat(corrSlider.value), parseInt(dimSlider.value));
+});
+</script>
+</body>
+</html>

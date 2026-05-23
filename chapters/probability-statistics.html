@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Probability &amp; Statistics — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>           <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real Problem</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span> <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>   <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>        <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>           <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 0 · Mathematical Foundations</p>
+    <h1>Probability &amp; Statistics</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      The language every ML model speaks — whether it knows it or not.
+    </p>
+    <div style="display:flex; gap:1.5rem; margin-top:1rem; font-size:0.85rem; color:var(--text-muted); font-family:var(--font-mono);">
+      <a href="calculus-derivatives.html" style="color:var(--text-muted);">← Calculus &amp; Derivatives</a>
+      <a href="information-theory.html"   style="color:var(--text-muted);">Information Theory →</a>
+    </div>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-size:1.05rem; line-height:1.8;">
+      Machine learning doesn't find the right answer — it finds the <strong style="color:var(--accent)">most probable</strong> answer.
+      Every loss function is a likelihood. Every prediction is a distribution. Every weight update is a Bayesian update.
+      Without probability, you can't understand what any model is actually doing.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>A distribution is not a number — it's a story</h2>
+    <p class="lead">
+      There are two ways to think about probability. The <strong style="color:var(--accent)">frequentist</strong> view says
+      probability is the long-run frequency of an event: flip a fair coin a million times, heads comes up ~50% of the time.
+      The <strong style="color:var(--accent)">Bayesian</strong> view says probability is a degree of belief — a number that
+      quantifies how certain you are about something, updated whenever new evidence arrives.
+    </p>
+    <p>
+      ML straddles both. Neural networks are often trained with maximum likelihood (frequentist framing),
+      but interpreted with confidence scores and uncertainty estimates (Bayesian framing).
+      The underlying math is the same either way — what changes is the story you tell about it.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>A <strong style="color:var(--accent)">distribution</strong> assigns a probability to every possible outcome — it's the full picture, not a summary.</li>
+      <li>A <strong style="color:var(--accent)">statistic</strong> (mean, variance) collapses that picture into a single number — useful, but lossy.</li>
+      <li>When a model outputs <code>0.87</code>, it's claiming: "I've placed probability 0.87 on this class." That is a distributional statement.</li>
+      <li>When you train with cross-entropy loss, you're maximizing the likelihood of the observed labels under your model's distribution.</li>
+    </ul>
+    <p>
+      The difference matters. Two distributions can have identical means and variances but completely different shapes.
+      If you only look at summary statistics, you miss the full story the model is telling you.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three ideas that underpin everything</h2>
+
+    <p class="lead">
+      The conceptual gaps below are where ML students stall. Work through each one before continuing.
+      The animation section will make them visual.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What is the difference between probability and likelihood — and why does it matter for MLE?
+      Consider: given a Gaussian with fixed μ = 0, σ = 1, and a data point x = 2, is P(x = 2) the same as
+      L(μ = 0 | x = 2)? What's being held fixed in each case?
+    </div>
+
+    <p>
+      They're the same formula evaluated from different directions.
+      <strong style="color:var(--accent)">Probability</strong> is P(data | parameters) — the parameters are fixed, you ask how probable the data is.
+      <strong style="color:var(--accent)">Likelihood</strong> is L(parameters | data) — the data is fixed, you ask how plausible the parameters are.
+      This isn't just notation. In MLE, you fix the observed data and search over parameter space for the settings
+      that make that data most probable. You're treating the data as given and parameters as the variable.
+      In frequentist inference, you do the opposite. Same function, completely different inferential act.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why is the Gaussian distribution so ubiquitous in ML? Is it because real-world data is normally distributed?
+      Or is there a deeper reason? Think about what happens when you average many independent random variables.
+    </div>
+
+    <p>
+      The <strong style="color:var(--accent)">Central Limit Theorem</strong> says: the mean of many independent, identically distributed random variables
+      converges to a Gaussian, regardless of their underlying distribution — as long as the variance is finite.
+      This makes the Gaussian a natural model for anything that arises as a sum of many small independent effects:
+      measurement error, noise in sensor readings, residuals in regression.
+      It also has a deep connection to maximum entropy — among all distributions with a fixed mean and variance,
+      the Gaussian has the highest entropy. It's the least opinionated distribution consistent with those two constraints.
+      Finally, Gaussians are computationally convenient: they're closed under addition, and their log-likelihood
+      is a quadratic, which makes MLE equivalent to least squares.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What does "conditional independence" mean, and why do naive Bayes models assume it?
+      If two features are statistically dependent in reality — say, word counts for "free" and "money" in spam emails —
+      does the naive Bayes assumption break the model completely?
+    </div>
+
+    <p>
+      Two random variables X and Y are <strong style="color:var(--accent)">conditionally independent</strong> given Z if
+      knowing Z makes X and Y irrelevant to each other: P(X, Y | Z) = P(X | Z) · P(Y | Z).
+      Naive Bayes assumes all features are conditionally independent given the class label.
+      In text classification, this means word counts are independent given the class (spam vs. not spam).
+      This is almost certainly wrong — but it rarely matters in practice. The assumption allows you to
+      factor the joint likelihood into a product of per-feature likelihoods, making the model
+      tractable with tiny datasets. The classifier often produces well-calibrated rankings
+      even when the probability estimates themselves are badly off — because the relative ordering
+      of class probabilities is often preserved even when the absolute values are wrong.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>See the Gaussian — and Bayes — come alive</h2>
+    <p class="lead">
+      The gold curve is a Gaussian with your chosen μ and σ. The shaded region is P(a &lt; X &lt; b).
+      Toggle Bayes mode to see prior × likelihood = posterior. Toggle MLE to fit the distribution to data.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Drag the <span style="color:var(--accent)">gold handles</span> on the x-axis to set a and b. Use sliders to tune μ and σ.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="probCanvas" width="720" height="340" style="max-width:100%;"></canvas>
+      <div class="animation-caption" id="probCaption">
+        Shaded area = P(a &lt; X &lt; b). Drag the gold handles to change the interval.
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">μ (mean)</span>
+        <input type="range" id="muSlider" min="-3" max="3" step="0.1" value="0">
+        <span class="control-value" id="muValue">0.0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">σ (std dev)</span>
+        <input type="range" id="sigmaSlider" min="0.3" max="3" step="0.1" value="1">
+        <span class="control-value" id="sigmaValue">1.0</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="bayesToggle">Toggle: Bayes Demo</button>
+        <button class="btn secondary" id="mleToggle">Toggle: MLE Demo</button>
+        <button class="btn secondary" id="probReset">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 5. The Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>The core formulas — with meaning attached</h2>
+
+    <p class="lead">
+      Formulas without interpretation are just symbols. Each block below pairs the formula with
+      a plain-English reading and a note on where it appears in ML.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Probability Axioms (Kolmogorov)</div>
+      <div class="formula">0 ≤ P(A) ≤ 1 &nbsp;·&nbsp; P(Ω) = 1 &nbsp;·&nbsp; P(A ∪ B) = P(A) + P(B) if A ∩ B = ∅</div>
+      <div class="symbol-table">
+        <span class="sym">P(A)</span>     <span>probability of event A — a number in [0, 1]</span>
+        <span class="sym">P(Ω) = 1</span><span>all probabilities over the entire sample space sum to 1 — normalization</span>
+        <span class="sym">A ∩ B = ∅</span><span>A and B are mutually exclusive — cannot both occur</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Conditional Probability</div>
+      <div class="formula">P(A | B) = P(A ∩ B) / P(B)</div>
+      <div class="symbol-table">
+        <span class="sym">P(A | B)</span>    <span>probability of A <em>given</em> that B has occurred</span>
+        <span class="sym">P(A ∩ B)</span>    <span>joint probability — both A and B occur</span>
+        <span class="sym">P(B)</span>        <span>marginal probability of B — the normalizer that ensures P(·|B) sums to 1</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Bayes' Theorem</div>
+      <div class="formula">P(θ | data) = P(data | θ) · P(θ) / P(data)</div>
+      <div class="symbol-table">
+        <span class="sym">P(θ | data)</span>    <span>posterior — belief about parameters after seeing data</span>
+        <span class="sym">P(data | θ)</span>    <span>likelihood — how probable the data is under parameter θ</span>
+        <span class="sym">P(θ)</span>           <span>prior — belief about θ before seeing any data</span>
+        <span class="sym">P(data)</span>        <span>evidence — normalizing constant (often intractable; ignored in MAP)</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Expectation and Variance</div>
+      <div class="formula">E[X] = Σ x · P(X=x) &nbsp;·&nbsp; Var(X) = E[(X − E[X])²] = E[X²] − (E[X])²</div>
+      <div class="symbol-table">
+        <span class="sym">E[X]</span>     <span>expected value — weighted average of outcomes, weighted by probability</span>
+        <span class="sym">Var(X)</span>   <span>variance — expected squared deviation from the mean; measures spread</span>
+        <span class="sym">σ = √Var</span><span>standard deviation — same units as X, easier to interpret than variance</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Gaussian (Normal) PDF</div>
+      <div class="formula">f(x; μ, σ) = (1 / σ√2π) · exp(−(x−μ)² / 2σ²)</div>
+      <div class="symbol-table">
+        <span class="sym">μ</span>   <span>mean — center of the distribution; shifts the bell curve left/right</span>
+        <span class="sym">σ</span>   <span>standard deviation — controls width; 68% of mass lies in [μ−σ, μ+σ]</span>
+        <span class="sym">exp</span> <span>the exponential ensures the function is always positive and integrates to 1</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">MLE Objective</div>
+      <div class="formula">θ̂ = argmax_θ  Σᵢ log P(xᵢ | θ)</div>
+      <div class="symbol-table">
+        <span class="sym">θ̂</span>          <span>MLE estimate — the parameter value that makes the observed data most likely</span>
+        <span class="sym">log P</span>       <span>log-likelihood — log turns products into sums; easier to differentiate</span>
+        <span class="sym">Σᵢ log P</span>   <span>sum over all data points — assumes i.i.d. samples so joint = product of marginals</span>
+      </div>
+    </div>
+
+    <p style="margin-top:1.5rem;"><strong>Worked example — binary classification with Bayes' theorem.</strong></p>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:0.5rem;">
+      A spam filter sees the email "get free money now". Compute P(spam | "free money") from known priors and likelihoods.
+    </p>
+
+    <div class="worked-example">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span>
+          <strong>Establish the prior.</strong>
+          From historical data, 30% of emails are spam: P(spam) = 0.30, P(ham) = 0.70.
+          This is our belief <em>before</em> reading the words.
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span>
+          <strong>Estimate the likelihoods.</strong>
+          In the spam training corpus, the phrase "free money" appears in 40% of spam emails: P("free money" | spam) = 0.40.
+          In ham, it appears in 2%: P("free money" | ham) = 0.02.
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span>
+          <strong>Compute the evidence.</strong>
+          P("free money") = P("free money" | spam) · P(spam) + P("free money" | ham) · P(ham)
+          = 0.40 × 0.30 + 0.02 × 0.70 = 0.12 + 0.014 = <span class="step-math">0.134</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span>
+          <strong>Apply Bayes' theorem.</strong>
+          P(spam | "free money") = (0.40 × 0.30) / 0.134 = 0.12 / 0.134 ≈
+          <span class="step-math" style="color:var(--accent); font-weight:700;">0.896</span>.
+          The email has an 89.6% posterior probability of being spam. The prior was 30% — the evidence moved it dramatically.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 6. Real Problem Bridge -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Theory to Real Models</p>
+    <h2>Probability is the hidden architecture of every ML model</h2>
+    <p class="lead">
+      Most ML models don't look like probability models. But look at what they're actually optimizing and
+      you'll find probability everywhere.
+    </p>
+
+    <h3>Logistic regression</h3>
+    <p>
+      Despite the name, logistic regression is a <em>probabilistic classifier</em>.
+      It models P(y = 1 | x) = σ(wᵀx + b), where σ is the sigmoid function that squashes any real number
+      into (0, 1). Training with binary cross-entropy loss is exactly maximum likelihood estimation
+      under a Bernoulli distribution. The model is explicitly outputting a probability — not a score,
+      not a distance, a calibrated probability.
+    </p>
+
+    <h3>Gaussian assumptions in linear regression</h3>
+    <p>
+      Ordinary least squares (OLS) minimizes the sum of squared residuals. Where does that come from?
+      Assume residuals are i.i.d. Gaussian noise: εᵢ ~ N(0, σ²). Then the log-likelihood of the data
+      is the negative of the sum of squared residuals — so MLE under Gaussian noise is exactly OLS.
+      The squared loss isn't arbitrary. It's the signature of a Gaussian noise assumption.
+    </p>
+
+    <h3>Bayesian neural networks</h3>
+    <p>
+      Standard neural networks give point estimates of weights. Bayesian NNs maintain a
+      <em>distribution</em> over weights: P(w | data) ∝ P(data | w) · P(w).
+      This is expensive to compute exactly, so variational inference approximates it.
+      The payoff: the model can express uncertainty — instead of outputting a single prediction,
+      it outputs a distribution over predictions. This is critical for safety-critical applications
+      (medical diagnosis, autonomous vehicles) where knowing what the model doesn't know matters.
+    </p>
+
+    <h3>Uncertainty quantification</h3>
+    <p>
+      Modern ML distinguishes two types of uncertainty.
+      <strong style="color:var(--accent)">Aleatoric uncertainty</strong> is irreducible noise in the data itself — more data won't help.
+      <strong style="color:var(--accent)">Epistemic uncertainty</strong> is due to limited training data — adding more data reduces it.
+      Probability theory is the language for distinguishing and quantifying both.
+    </p>
+
+    <div class="insight-box" style="font-style:normal;">
+      When a model outputs a single number — a price, a score, a label — it has collapsed a probability distribution
+      into a point estimate. Understanding that collapse, and what was lost in it, is the difference between using
+      a model and understanding one.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Build intuition for the Gaussian</h2>
+    <p class="lead">
+      Explore how μ and σ interact. Notice: σ controls the <em>spread</em>, not the height alone —
+      as σ increases, the curve flattens and widens to keep area = 1.
+      The shaded region always shows you the numerical probability of that interval.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">μ (mean)</span>
+        <input type="range" id="playMuSlider" min="-3" max="3" step="0.1" value="0">
+        <span class="control-value" id="playMuValue">0.0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">σ (std dev)</span>
+        <input type="range" id="playSigmaSlider" min="0.3" max="3" step="0.1" value="1">
+        <span class="control-value" id="playSigmaValue">1.0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">a (lower bound)</span>
+        <input type="range" id="playASlider" min="-5" max="5" step="0.1" value="-1">
+        <span class="control-value" id="playAValue">-1.0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">b (upper bound)</span>
+        <input type="range" id="playBSlider" min="-5" max="5" step="0.1" value="1">
+        <span class="control-value" id="playBValue">1.0</span>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="playCanvas" width="720" height="280" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="playCaption">
+          68% rule: P(μ−σ &lt; X &lt; μ+σ) ≈ 0.683 · Try setting a = μ−σ, b = μ+σ to verify.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs about probability in ML</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't disconnected mistakes. They form a chain — each one leads naturally to the next.
+      Trace the chain and they all become impossible to hold.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① Probability just means frequency.</div>
+        <div class="truth">
+          Frequentist probability (long-run frequency) is one interpretation — not the only one.
+          Bayesian probability is a degree of belief, updated by evidence. When a model outputs
+          P(rain tomorrow) = 0.73, there is no "long run" of identical tomorrows.
+          The number is a calibrated belief, not a frequency. Most ML inference is Bayesian in spirit,
+          even when trained with frequentist methods.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② The Gaussian is always the right distribution to assume.</div>
+        <div class="truth">
+          The Gaussian is mathematically convenient and justified by CLT in many settings —
+          but real data can have heavy tails (financial returns), be bounded (probabilities, counts),
+          or be multimodal (mixture distributions). Assuming Gaussian when data is heavy-tailed
+          systematically underestimates the probability of extreme events. The squared loss
+          in regression is Gaussian noise; if your residuals look heavy-tailed, you should use
+          a different loss (Huber, Laplace).
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ More data means our distribution estimate is correct.</div>
+        <div class="truth">
+          More data reduces <em>estimation error</em> for the parameters of your assumed model —
+          but if the model family is wrong (you're fitting a Gaussian to multimodal data),
+          infinite data just makes you more precisely wrong. Model mis-specification is a
+          separate problem from statistical efficiency. "We have a lot of data" does not mean
+          "our probabilistic model is correct."
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ Correlation means dependence.</div>
+        <div class="truth">
+          Zero correlation does not mean independence. Correlation measures only linear relationships.
+          X and X² have zero Pearson correlation when X ~ N(0, 1) — but X² is completely determined by X.
+          They are perfectly dependent, not independent.
+          In contrast, joint normality plus zero correlation does imply independence — but only for Gaussians.
+          Naive Bayes's conditional independence assumption is about <em>statistical</em> independence,
+          which is much stronger than zero correlation.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ The p-value tells you the probability that your hypothesis is wrong.</div>
+        <div class="truth">
+          P(data | H₀) is not P(H₀ | data). A p-value is the probability of seeing data this extreme
+          <em>if the null hypothesis were true</em>. It says nothing about the probability
+          that the null is true or false. Inverting this — "p = 0.03, so there's only a 3% chance
+          I'm wrong" — is a textbook fallacy called the prosecutor's fallacy.
+          This matters in ML when evaluating model significance: a low p-value means the result
+          is unlikely under the null, not that the model is definitely good.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Six things to lock in</h2>
+    <ul class="summary-list">
+      <li>Probability and likelihood use the same formula in opposite directions: P(data | θ) fixes θ; L(θ | data) fixes data. MLE searches over θ.</li>
+      <li>Bayes' theorem: posterior ∝ likelihood × prior. Every update moves your belief in proportion to the evidence.</li>
+      <li>The Gaussian is ubiquitous because of CLT (sums of small effects), maximum entropy (least opinionated at fixed mean/variance), and computational convenience (MLE = OLS).</li>
+      <li>Conditional independence P(X,Y|Z) = P(X|Z)P(Y|Z) is what makes naive Bayes tractable. It's usually false but often harmless in practice.</li>
+      <li>Cross-entropy loss is MLE under a categorical distribution. Squared loss is MLE under a Gaussian noise model. The loss function encodes a distributional assumption.</li>
+      <li>Correlation ≠ independence. Zero correlation means no <em>linear</em> dependence. True statistical independence is strictly stronger.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      You now know how to measure uncertainty with probability. But how do you measure the <em>amount of information</em>
+      in a probability distribution? How can two distributions with the same variance contain different amounts of
+      information? And why does the optimal code length for a message equal its log-probability?<br><br>
+      That's information theory — and it's where entropy, KL divergence, and cross-entropy loss all come from. It's the next chapter.
+    </div>
+    <div style="display:flex; gap:1rem; margin-top:1.5rem;">
+      <a href="calculus-derivatives.html" class="btn secondary">← Calculus &amp; Derivatives</a>
+      <a href="information-theory.html"   class="btn">Information Theory →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — Chapter 3: Probability and Information Theory</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: probability axioms, Bayes' theorem, expectation, variance, Gaussian PDF,
+            MLE objective, frequentist vs Bayesian framing, conditional independence, structured probabilistic models.
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">CS229 Lecture Notes — §2: Classification and Logistic Regression; §5: Generative Algorithms</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Andrew Ng &amp; Tengyu Ma, Stanford University (2022 edition)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: GDA, naive Bayes derivation, conditional independence in text classification,
+            MLE for Bernoulli and multinomial models, logistic regression as probabilistic classifier.
+          </span><br>
+          <a href="https://cs229.stanford.edu" style="font-family:var(--font-mono); font-size:0.8rem;">cs229.stanford.edu</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Pattern Recognition and Machine Learning — Chapter 1</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Christopher M. Bishop (Springer, 2006)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: probabilistic perspective on regression and classification,
+            Bayesian inference, uncertainty decomposition (aleatoric vs epistemic),
+            Gaussian as maximum entropy distribution.
+          </span><br>
+          <a href="https://www.microsoft.com/en-us/research/publication/pattern-recognition-machine-learning/" style="font-family:var(--font-mono); font-size:0.8rem;">microsoft.com/research</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">A Gaussian has μ = 0, σ = 1. You observe x = 2. Is L(μ=0 | x=2) the same number as P(x=2 | μ=0, σ=1)? What's the conceptual difference?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>They're numerically identical — but conceptually opposite.</strong> Both equal the Gaussian PDF evaluated at x=2: (1/√2π) exp(−2). The difference is what's variable: in P(x=2 | μ=0, σ=1), the parameters are fixed and x is the outcome; in L(μ=0 | x=2), x is fixed (it's your data) and μ is the hypothesis you're evaluating. MLE finds the μ that maximizes L(μ | x=2) — it treats the observation as given and searches over parameter space.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">P(spam) = 0.25, P("free" | spam) = 0.6, P("free" | ham) = 0.05. A new email contains "free". What is P(spam | "free")?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>P(spam | "free") ≈ 0.80.</strong> Evidence: P("free") = 0.6 × 0.25 + 0.05 × 0.75 = 0.15 + 0.0375 = 0.1875. Posterior: (0.6 × 0.25) / 0.1875 = 0.15 / 0.1875 = 0.80. The prior was 25%; one word moved it to 80%. This demonstrates how strongly even a single informative feature can shift a Bayesian belief.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">You double σ in a Gaussian. What happens to the peak height of the PDF, and why? Does the area under the curve change?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>The peak height halves; the area stays exactly 1.</strong> The peak of a Gaussian is 1/(σ√2π) — so doubling σ halves the peak. But the PDF must integrate to 1 (it's a valid probability distribution), so the curve flattens and widens to compensate. The distribution spreads out, placing more probability mass in the tails. This is why σ controls uncertainty: larger σ means the distribution is more diffuse, more probability assigned to values far from the mean.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">Why does training with cross-entropy loss correspond to MLE? What distribution does it assume?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Cross-entropy loss is negative log-likelihood under a categorical distribution.</strong> For a K-class problem with true label y and predicted probabilities p: cross-entropy = −log p(y). Summing over n examples: −Σᵢ log p(yᵢ). Maximizing the log-likelihood is identical to minimizing the cross-entropy. The distribution assumed is categorical (for classification) or Bernoulli (binary). This connection is why neural network classifiers trained with cross-entropy produce calibrated probabilities — in principle.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">Two features X and Y have Pearson correlation = 0. Does this mean they are independent? Give a concrete counterexample.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No. Zero correlation implies independence only for jointly Gaussian variables.</strong> Counterexample: let X ~ N(0,1) and Y = X². Cov(X, Y) = E[XY] − E[X]E[Y] = E[X³] − 0 = 0 (odd moments of symmetric distributions vanish). So Pearson correlation is exactly 0. But Y is completely determined by X — they are maximally dependent. Correlation measures only the linear component of dependence. Naive Bayes's conditional independence assumption is strictly stronger than assuming zero correlation.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">Why does OLS (ordinary least squares) minimize the sum of squared residuals? What distributional assumption makes this the optimal thing to do?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>OLS is MLE under Gaussian noise.</strong> Assume yᵢ = wᵀxᵢ + εᵢ where εᵢ ~ N(0, σ²) i.i.d. The log-likelihood is: log L = −n log(σ√2π) − (1/2σ²) Σᵢ (yᵢ − wᵀxᵢ)². Maximizing over w is equivalent to minimizing Σᵢ (yᵢ − wᵀxᵢ)² — the sum of squared residuals. The squared loss isn't arbitrary; it's the direct consequence of assuming Gaussian residuals. If residuals are heavy-tailed (Laplace), the optimal loss is the absolute value (L1), not squared.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">A naive Bayes classifier is told to classify a new document. Its predicted P(spam) = 1.000 with machine precision. Why is this a problem, and how do you fix it?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Probability zero / one is catastrophic — and is caused by zero counts in training.</strong> If any word in the test document never appeared in spam training data, its likelihood P(word | spam) = 0, making the entire product zero regardless of other words. This is called the "zero-frequency problem." The fix is Laplace smoothing (add-1 smoothing): add a pseudocount of 1 to every word count, so no probability is ever exactly 0. This is a form of regularization with a uniform Dirichlet prior — a Bayesian interpretation.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">What is the difference between aleatoric and epistemic uncertainty? Which one can you reduce by collecting more data?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Only epistemic uncertainty decreases with more data.</strong> Aleatoric uncertainty is irreducible noise in the data itself — inherent randomness in the world. If a fair die always produces random outcomes, more rolls don't reduce your uncertainty about the next roll. Epistemic uncertainty stems from limited knowledge — you don't have enough data to pin down the model parameters. More data shrinks the posterior distribution over parameters, reducing this form of uncertainty. Distinguishing the two matters for model deployment: if high uncertainty is aleatoric, getting more data won't help; if it's epistemic, it will.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">A model reports p-value = 0.02 for a new feature. A colleague says "there's only a 2% chance this feature is useless." Is that correct?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No. That's the prosecutor's fallacy.</strong> A p-value is P(data this extreme | H₀ is true), not P(H₀ | data). p = 0.02 means: if the feature truly had no effect, there's a 2% chance of observing data this extreme by chance. It says nothing about the probability that the null hypothesis is true. Correctly: "if the null were true, results this strong would occur only 2% of the time by chance." To make probability statements about hypotheses, you need a Bayesian framework with an explicit prior over hypotheses.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ─── ProbabilityAnimation (inline, as required) ─────────────────────────────
+
+class ProbabilityAnimation {
+  constructor(canvas, opts = {}) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+
+    // Distribution params
+    this.mu    = opts.mu    ?? 0;
+    this.sigma = opts.sigma ?? 1;
+
+    // Interval handles
+    this.aVal = opts.a ?? -1;
+    this.bVal = opts.b ?? 1;
+
+    // Mode: 'default' | 'bayes' | 'mle'
+    this.mode = 'default';
+
+    // MLE data points (fixed ticks on x-axis)
+    this.mleData = [-2.1, -0.8, -0.3, 0.1, 0.4, 0.7, 0.9, 1.3, 1.9, 2.5];
+    this.mleFit  = false;
+    this._mleMu  = 0;
+    this._mleSig = 1;
+    this._mleAnimFrame = null;
+    this._mleProgress  = 0; // 0..1 for animation
+
+    // Dragging state
+    this._dragging = null; // 'a' | 'b' | null
+
+    // Second distribution for overlay in bayes mode
+    this.mu2    = 2;
+    this.sigma2 = 0.5;
+
+    // X range for canvas mapping
+    this.xMin = -5;
+    this.xMax = 5;
+    this.pad  = { top: 30, bottom: 55, left: 50, right: 20 };
+
+    this._render();
+  }
+
+  // ── Gaussian PDF ────────────────────────────────────────────
+  _pdf(x, mu, sigma) {
+    const z = (x - mu) / sigma;
+    return Math.exp(-0.5 * z * z) / (sigma * Math.sqrt(2 * Math.PI));
+  }
+
+  // ── Numeric integration (Simpson) for P(a < X < b) ─────────
+  _cdfInterval(a, b, mu, sigma) {
+    const n = 200;
+    const h = (b - a) / n;
+    let s = this._pdf(a, mu, sigma) + this._pdf(b, mu, sigma);
+    for (let i = 1; i < n; i++) {
+      const x = a + i * h;
+      s += (i % 2 === 0 ? 2 : 4) * this._pdf(x, mu, sigma);
+    }
+    return Math.max(0, Math.min(1, s * h / 3));
+  }
+
+  // ── Canvas coordinate helpers ───────────────────────────────
+  _xToCanvas(x) {
+    const { canvas, xMin, xMax, pad } = this;
+    const W = canvas.width - pad.left - pad.right;
+    return pad.left + ((x - xMin) / (xMax - xMin)) * W;
+  }
+
+  _yToCanvas(y, maxY) {
+    const { canvas, pad } = this;
+    const H = canvas.height - pad.top - pad.bottom;
+    return pad.top + H - (y / maxY) * H;
+  }
+
+  _canvasToX(cx) {
+    const { canvas, xMin, xMax, pad } = this;
+    const W = canvas.width - pad.left - pad.right;
+    return xMin + ((cx - pad.left) / W) * (xMax - xMin);
+  }
+
+  // ── Full render ─────────────────────────────────────────────
+  _render() {
+    if (this.mode === 'bayes') { this._renderBayes(); return; }
+    if (this.mode === 'mle')   { this._renderMLE();   return; }
+    this._renderDefault();
+  }
+
+  _renderDefault() {
+    const { ctx, canvas, pad } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+    const cw = W - pad.left - pad.right;
+    const ch = H - pad.top - pad.bottom;
+
+    // Background
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Compute display mu/sigma (with MLE animation blend)
+    let mu    = this.mu;
+    let sigma = this.sigma;
+
+    // Peak for scaling
+    const maxY = 1 / (0.1 * Math.sqrt(2 * Math.PI)) * 1.15;
+
+    // Build curve points
+    const steps = 400;
+    const xs = [];
+    const ys = [];
+    for (let i = 0; i <= steps; i++) {
+      const x = this.xMin + (i / steps) * (this.xMax - this.xMin);
+      xs.push(x);
+      ys.push(this._pdf(x, mu, sigma));
+    }
+
+    // Shaded area (only if a < b)
+    const aX = this._xToCanvas(this.aVal);
+    const bX = this._xToCanvas(this.bVal);
+    if (this.aVal < this.bVal) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(aX, pad.top + ch);
+      for (let i = 0; i <= steps; i++) {
+        const x = this.xMin + (i / steps) * (this.xMax - this.xMin);
+        if (x >= this.aVal && x <= this.bVal) {
+          ctx.lineTo(this._xToCanvas(x), this._yToCanvas(ys[i], maxY));
+        }
+      }
+      ctx.lineTo(bX, pad.top + ch);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(240,165,0,0.20)';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Gaussian curve
+    ctx.beginPath();
+    ctx.strokeStyle = '#f0a500';
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i <= steps; i++) {
+      const cx = this._xToCanvas(xs[i]);
+      const cy = this._yToCanvas(ys[i], maxY);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+
+    // Axes
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top + ch);
+    ctx.lineTo(W - pad.right, pad.top + ch);
+    ctx.moveTo(pad.left, pad.top);
+    ctx.lineTo(pad.left, pad.top + ch);
+    ctx.stroke();
+
+    // X axis labels
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    for (let x = Math.ceil(this.xMin); x <= Math.floor(this.xMax); x++) {
+      if (x % 2 === 0 || Math.abs(x) <= 3) {
+        const cx = this._xToCanvas(x);
+        ctx.fillText(x, cx, pad.top + ch + 16);
+        ctx.strokeStyle = '#30363d';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, pad.top + ch);
+        ctx.lineTo(cx, pad.top + ch + 4);
+        ctx.stroke();
+      }
+    }
+
+    // A and B handles
+    const baseY = pad.top + ch;
+    this._drawHandle(aX, baseY, this.aVal.toFixed(1), '#f0a500', 'a');
+    if (this.aVal < this.bVal) {
+      this._drawHandle(bX, baseY, this.bVal.toFixed(1), '#58a6ff', 'b');
+    } else {
+      this._drawHandle(bX, baseY, this.bVal.toFixed(1), '#f85149', 'b');
+    }
+
+    // Probability label
+    const prob = this.aVal < this.bVal
+      ? this._cdfInterval(this.aVal, this.bVal, mu, sigma)
+      : 0;
+    ctx.fillStyle = '#f0a500';
+    ctx.font = 'bold 13px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`P(${this.aVal.toFixed(1)} < X < ${this.bVal.toFixed(1)}) = ${prob.toFixed(4)}`, pad.left + 4, pad.top + 20);
+
+    // μ marker
+    const muCx = this._xToCanvas(mu);
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(240,165,0,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(muCx, pad.top + 5);
+    ctx.lineTo(muCx, pad.top + ch);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#f0a500';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('μ=' + mu.toFixed(1), muCx, pad.top + 14);
+  }
+
+  _drawHandle(cx, baseY, label, color, name) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(cx, this.pad.top);
+    ctx.lineTo(cx, baseY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(cx, baseY, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0d1117';
+    ctx.font = 'bold 8px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, cx, baseY);
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = color;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillText(label, cx, baseY + 18);
+    ctx.restore();
+  }
+
+  _renderBayes() {
+    const { ctx, canvas, pad } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+    const cw = W - pad.left - pad.right;
+    const ch = H - pad.top - pad.bottom;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // 2x2 grid labels
+    const labels = ['Prior P(θ)', 'Likelihood P(data|θ)', 'Joint (Prior × Likelihood)', 'Posterior P(θ|data)'];
+    const colors = ['#58a6ff', '#3fb950', '#f0a500', '#f85149'];
+    // Each cell: use different μ/σ to represent each distribution
+    const cells = [
+      { mu: 0,           sigma: 2,    color: '#58a6ff' },                       // prior: broad
+      { mu: this.mu,     sigma: this.sigma, color: '#3fb950' },                 // likelihood: data-driven
+      { mu: this.mu * 0.5, sigma: Math.max(0.4, this.sigma * 0.8), color: '#f0a500' }, // joint
+      { mu: this.mu * 0.7, sigma: Math.max(0.3, this.sigma * 0.6), color: '#f85149' }, // posterior: sharper
+    ];
+
+    const cellW = Math.floor(cw / 2);
+    const cellH = Math.floor(ch / 2);
+    const maxY = 0.9;
+
+    for (let i = 0; i < 4; i++) {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const ox = pad.left + col * cellW;
+      const oy = pad.top  + row * cellH;
+
+      // Cell bg
+      ctx.fillStyle = 'rgba(255,255,255,0.02)';
+      ctx.fillRect(ox + 2, oy + 2, cellW - 4, cellH - 4);
+
+      const c = cells[i];
+      // Shaded area
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(ox, oy + cellH - 6);
+      const steps = 150;
+      for (let s = 0; s <= steps; s++) {
+        const x = this.xMin + (s / steps) * (this.xMax - this.xMin);
+        const y = this._pdf(x, c.mu, c.sigma);
+        const cx2 = ox + ((x - this.xMin) / (this.xMax - this.xMin)) * cellW;
+        const cy2 = oy + cellH - 6 - (y / maxY) * (cellH - 16);
+        s === 0 ? ctx.moveTo(cx2, cy2) : ctx.lineTo(cx2, cy2);
+      }
+      ctx.lineTo(ox + cellW, oy + cellH - 6);
+      ctx.closePath();
+      ctx.fillStyle = c.color.replace('#', 'rgba(').replace('#', '') + '33)';
+      // Simple fill
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = c.color;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // Curve
+      ctx.beginPath();
+      ctx.strokeStyle = c.color;
+      ctx.lineWidth = 2;
+      for (let s = 0; s <= steps; s++) {
+        const x = this.xMin + (s / steps) * (this.xMax - this.xMin);
+        const y = this._pdf(x, c.mu, c.sigma);
+        const cx2 = ox + ((x - this.xMin) / (this.xMax - this.xMin)) * cellW;
+        const cy2 = oy + cellH - 6 - (y / maxY) * (cellH - 16);
+        s === 0 ? ctx.moveTo(cx2, cy2) : ctx.lineTo(cx2, cy2);
+      }
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = c.color;
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(labels[i], ox + 6, oy + 14);
+
+      // Border
+      ctx.strokeStyle = c.color;
+      ctx.globalAlpha = 0.25;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(ox + 1, oy + 1, cellW - 2, cellH - 2);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Bayes Demo — move μ/σ sliders to update likelihood and posterior', W / 2, H - 6);
+  }
+
+  _renderMLE() {
+    const { ctx, canvas, pad } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+    const cw = W - pad.left - pad.right;
+    const ch = H - pad.top - pad.bottom;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const mu    = this._mleMu;
+    const sigma = this._mleSig;
+
+    const maxY = 1 / (0.1 * Math.sqrt(2 * Math.PI)) * 1.15;
+
+    // Axes
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top + ch);
+    ctx.lineTo(W - pad.right, pad.top + ch);
+    ctx.moveTo(pad.left, pad.top);
+    ctx.lineTo(pad.left, pad.top + ch);
+    ctx.stroke();
+
+    // X-axis labels
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    for (let x = -4; x <= 4; x += 2) {
+      const cx = this._xToCanvas(x);
+      ctx.fillText(x, cx, pad.top + ch + 16);
+    }
+
+    // Shaded area under fitted curve
+    ctx.save();
+    ctx.beginPath();
+    const steps = 400;
+    ctx.moveTo(this._xToCanvas(this.xMin), pad.top + ch);
+    for (let i = 0; i <= steps; i++) {
+      const x = this.xMin + (i / steps) * (this.xMax - this.xMin);
+      const y = this._pdf(x, mu, sigma);
+      ctx.lineTo(this._xToCanvas(x), this._yToCanvas(y, maxY));
+    }
+    ctx.lineTo(this._xToCanvas(this.xMax), pad.top + ch);
+    ctx.closePath();
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#f0a500';
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // Distribution curve
+    ctx.beginPath();
+    ctx.strokeStyle = '#f0a500';
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i <= steps; i++) {
+      const x = this.xMin + (i / steps) * (this.xMax - this.xMin);
+      const y = this._pdf(x, mu, sigma);
+      const cx = this._xToCanvas(x);
+      const cy = this._yToCanvas(y, maxY);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+
+    // Data point ticks and likelihood lines
+    this.mleData.forEach(xd => {
+      const cx = this._xToCanvas(xd);
+      const lik = this._pdf(xd, mu, sigma);
+      const cy = this._yToCanvas(lik, maxY);
+
+      // Vertical likelihood line
+      ctx.strokeStyle = 'rgba(63,185,80,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(cx, pad.top + ch);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Dot on curve
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#3fb950';
+      ctx.fill();
+
+      // X-axis tick
+      ctx.beginPath();
+      ctx.arc(cx, pad.top + ch, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#58a6ff';
+      ctx.fill();
+    });
+
+    // Log-likelihood label
+    const logLik = this.mleData.reduce((s, x) => s + Math.log(this._pdf(x, mu, sigma) + 1e-12), 0);
+    ctx.fillStyle = '#f0a500';
+    ctx.font = 'bold 12px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`μ̂ = ${mu.toFixed(3)}  σ̂ = ${sigma.toFixed(3)}`, pad.left + 4, pad.top + 18);
+    ctx.fillStyle = '#3fb950';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.fillText(`log L = ${logLik.toFixed(3)}`, pad.left + 4, pad.top + 34);
+
+    if (this.mleFit) {
+      ctx.fillStyle = '#3fb950';
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('MLE fit complete', W - pad.right - 4, pad.top + 18);
+    } else {
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('Press [Fit MLE] to fit', W - pad.right - 4, pad.top + 18);
+    }
+
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Blue dots = data · Green dots = likelihood on curve · Gold = fitted distribution', W / 2, H - 6);
+  }
+
+  // ── MLE fitting animation ────────────────────────────────────
+  fitMLE() {
+    if (this._mleAnimFrame) cancelAnimationFrame(this._mleAnimFrame);
+    const targetMu    = this.mleData.reduce((s, x) => s + x, 0) / this.mleData.length;
+    const targetSigma = Math.sqrt(this.mleData.reduce((s, x) => s + (x - targetMu) ** 2, 0) / this.mleData.length);
+
+    const startMu    = this._mleMu;
+    const startSigma = this._mleSig;
+    const start = performance.now();
+    const dur   = 1200;
+
+    const frame = (now) => {
+      const t = Math.min((now - start) / dur, 1);
+      const te = easeInOut(t);
+      this._mleMu  = lerp(startMu,    targetMu,    te);
+      this._mleSig = lerp(startSigma, targetSigma, te);
+      this._render();
+      if (t < 1) {
+        this._mleAnimFrame = requestAnimationFrame(frame);
+      } else {
+        this._mleMu  = targetMu;
+        this._mleSig = targetSigma;
+        this.mleFit  = true;
+        this._render();
+      }
+    };
+    this.mleFit = false;
+    this._mleAnimFrame = requestAnimationFrame(frame);
+  }
+
+  // ── Drag handling ─────────────────────────────────────────────
+  _getCanvasX(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return (clientX - rect.left) * (this.canvas.width / rect.width);
+  }
+
+  onMouseDown(e) {
+    const cx = this._getCanvasX(e);
+    const { pad, canvas } = this;
+    const ch = canvas.height - pad.top - pad.bottom;
+    const baseY = pad.top + ch;
+
+    const aCx = this._xToCanvas(this.aVal);
+    const bCx = this._xToCanvas(this.bVal);
+
+    if (Math.abs(cx - aCx) < 12) { this._dragging = 'a'; e.preventDefault(); }
+    else if (Math.abs(cx - bCx) < 12) { this._dragging = 'b'; e.preventDefault(); }
+  }
+
+  onMouseMove(e) {
+    if (!this._dragging) return;
+    e.preventDefault();
+    const cx = this._getCanvasX(e);
+    const x  = Math.max(this.xMin, Math.min(this.xMax, this._canvasToX(cx)));
+    if (this._dragging === 'a') this.aVal = parseFloat(x.toFixed(1));
+    else                        this.bVal = parseFloat(x.toFixed(1));
+    this._render();
+    this._updateCaption();
+  }
+
+  onMouseUp() {
+    this._dragging = null;
+  }
+
+  _updateCaption() {
+    const el = document.getElementById('probCaption');
+    if (!el) return;
+    if (this.mode === 'bayes') { el.textContent = 'Bayes Demo — move μ/σ sliders to update likelihood and posterior'; return; }
+    if (this.mode === 'mle')   { el.textContent = 'MLE Demo — click [Fit MLE] to animate the distribution fitting the data points'; return; }
+    const prob = this.aVal < this.bVal
+      ? this._cdfInterval(this.aVal, this.bVal, this.mu, this.sigma)
+      : 0;
+    el.textContent = `P(${this.aVal.toFixed(1)} < X < ${this.bVal.toFixed(1)}) = ${prob.toFixed(4)}`;
+  }
+
+  setMu(mu)    { this.mu = mu; this._render(); this._updateCaption(); }
+  setSigma(s)  { this.sigma = Math.max(0.1, s); this._render(); this._updateCaption(); }
+  setMode(m)   { this.mode = m; if (m === 'mle') { this._mleMu = this.mu; this._mleSig = this.sigma; } this._render(); this._updateCaption(); }
+  reset() {
+    this.mu    = 0; this.sigma = 1;
+    this.aVal  = -1; this.bVal  = 1;
+    this.mode  = 'default';
+    this.mleFit = false;
+    this._mleMu = 0; this._mleSig = 1;
+    document.getElementById('muSlider').value = 0;
+    document.getElementById('muValue').textContent = '0.0';
+    document.getElementById('sigmaSlider').value = 1;
+    document.getElementById('sigmaValue').textContent = '1.0';
+    this._render();
+    this._updateCaption();
+  }
+}
+
+// ── Instantiate main animation ────────────────────────────────────────────────
+const probCanvas = document.getElementById('probCanvas');
+const probAnim   = new ProbabilityAnimation(probCanvas, { mu: 0, sigma: 1, a: -1, b: 1 });
+
+// Mouse / touch events for dragging handles
+probCanvas.addEventListener('mousedown',  e => probAnim.onMouseDown(e));
+probCanvas.addEventListener('mousemove',  e => probAnim.onMouseMove(e));
+probCanvas.addEventListener('mouseup',    ()  => probAnim.onMouseUp());
+probCanvas.addEventListener('mouseleave', ()  => probAnim.onMouseUp());
+probCanvas.addEventListener('touchstart', e => probAnim.onMouseDown(e), { passive: false });
+probCanvas.addEventListener('touchmove',  e => probAnim.onMouseMove(e),  { passive: false });
+probCanvas.addEventListener('touchend',   ()  => probAnim.onMouseUp());
+
+// Sliders
+const muSlider     = document.getElementById('muSlider');
+const muValue      = document.getElementById('muValue');
+const sigmaSlider  = document.getElementById('sigmaSlider');
+const sigmaValue   = document.getElementById('sigmaValue');
+
+muSlider.addEventListener('input', () => {
+  const v = parseFloat(muSlider.value);
+  muValue.textContent = v.toFixed(1);
+  probAnim.setMu(v);
+});
+
+sigmaSlider.addEventListener('input', () => {
+  const v = parseFloat(sigmaSlider.value);
+  sigmaValue.textContent = v.toFixed(1);
+  probAnim.setSigma(v);
+});
+
+// Mode toggles
+let bayesActive = false;
+let mleActive   = false;
+
+document.getElementById('bayesToggle').addEventListener('click', () => {
+  mleActive = false;
+  bayesActive = !bayesActive;
+  document.getElementById('bayesToggle').classList.toggle('secondary', !bayesActive);
+  document.getElementById('mleToggle').classList.add('secondary');
+  probAnim.setMode(bayesActive ? 'bayes' : 'default');
+});
+
+document.getElementById('mleToggle').addEventListener('click', () => {
+  bayesActive = false;
+  mleActive = !mleActive;
+  document.getElementById('mleToggle').classList.toggle('secondary', !mleActive);
+  document.getElementById('bayesToggle').classList.add('secondary');
+  probAnim.setMode(mleActive ? 'mle' : 'default');
+
+  if (mleActive) {
+    // Inject Fit MLE button dynamically if not present
+    if (!document.getElementById('mleFitBtn')) {
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.id = 'mleFitBtn';
+      btn.textContent = 'Fit MLE';
+      btn.style.marginLeft = '0.5rem';
+      document.getElementById('mleToggle').insertAdjacentElement('afterend', btn);
+      btn.addEventListener('click', () => probAnim.fitMLE());
+    }
+  } else {
+    const btn = document.getElementById('mleFitBtn');
+    if (btn) btn.remove();
+  }
+});
+
+document.getElementById('probReset').addEventListener('click', () => {
+  bayesActive = false;
+  mleActive   = false;
+  document.getElementById('bayesToggle').classList.add('secondary');
+  document.getElementById('mleToggle').classList.add('secondary');
+  const mlBtn = document.getElementById('mleFitBtn');
+  if (mlBtn) mlBtn.remove();
+  probAnim.reset();
+});
+
+// ── Playground canvas (independent instance) ──────────────────────────────────
+const playCanvas = document.getElementById('playCanvas');
+const playAnim   = new ProbabilityAnimation(playCanvas, { mu: 0, sigma: 1, a: -1, b: 1 });
+
+// Playground mouse events
+playCanvas.addEventListener('mousedown',  e => playAnim.onMouseDown(e));
+playCanvas.addEventListener('mousemove',  e => playAnim.onMouseMove(e));
+playCanvas.addEventListener('mouseup',    ()  => playAnim.onMouseUp());
+playCanvas.addEventListener('mouseleave', ()  => playAnim.onMouseUp());
+
+// Override _updateCaption for playground (uses different caption element)
+playAnim._updateCaption = function() {
+  const el = document.getElementById('playCaption');
+  if (!el) return;
+  const prob = this.aVal < this.bVal
+    ? this._cdfInterval(this.aVal, this.bVal, this.mu, this.sigma)
+    : 0;
+  el.textContent = `P(${this.aVal.toFixed(1)} < X < ${this.bVal.toFixed(1)}) = ${prob.toFixed(4)}  ·  μ = ${this.mu.toFixed(1)}, σ = ${this.sigma.toFixed(1)}`;
+};
+
+const playMuSlider    = document.getElementById('playMuSlider');
+const playMuValue     = document.getElementById('playMuValue');
+const playSigmaSlider = document.getElementById('playSigmaSlider');
+const playSigmaValue  = document.getElementById('playSigmaValue');
+const playASlider     = document.getElementById('playASlider');
+const playAValue      = document.getElementById('playAValue');
+const playBSlider     = document.getElementById('playBSlider');
+const playBValue      = document.getElementById('playBValue');
+
+playMuSlider.addEventListener('input', () => {
+  const v = parseFloat(playMuSlider.value);
+  playMuValue.textContent = v.toFixed(1);
+  playAnim.setMu(v);
+  playAnim._updateCaption();
+});
+
+playSigmaSlider.addEventListener('input', () => {
+  const v = parseFloat(playSigmaSlider.value);
+  playSigmaValue.textContent = v.toFixed(1);
+  playAnim.setSigma(v);
+  playAnim._updateCaption();
+});
+
+playASlider.addEventListener('input', () => {
+  const v = parseFloat(playASlider.value);
+  playAValue.textContent = v.toFixed(1);
+  playAnim.aVal = v;
+  playAnim._render();
+  playAnim._updateCaption();
+});
+
+playBSlider.addEventListener('input', () => {
+  const v = parseFloat(playBSlider.value);
+  playBValue.textContent = v.toFixed(1);
+  playAnim.bVal = v;
+  playAnim._render();
+  playAnim._updateCaption();
+});
+
+// ── Quiz logic ─────────────────────────────────────────────────────────────────
+const CHAPTER_SLUG   = 'probability-statistics';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+const TOTAL_Q = 9;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+
+// ── Reading progress bar ───────────────────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ── Scroll reveal ──────────────────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ── TOC active dot ─────────────────────────────────────────────────────────────
+const sections  = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots   = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ── Re-render canvases on theme change ────────────────────────────────────────
+window.onThemeChange(function() {
+  probAnim._render();
+  playAnim._render();
+});
+</script>
+</body>
+</html>

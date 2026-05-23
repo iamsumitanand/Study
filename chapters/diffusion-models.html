@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diffusion Models — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>          <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real World</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span><span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>          <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 4 · Generative AI</p>
+    <h1>Diffusion Models</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      How DALL-E and Stable Diffusion turn pure noise into photorealistic images — one denoising step at a time.
+    </p>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-style:normal; font-size:1.05rem; line-height:1.8;">
+      DALL-E 3 and Stable Diffusion both start with <strong style="color:var(--accent)">pure noise</strong> and ask a single question: <em>what direction makes this look slightly less like noise?</em> They answer that question, take one tiny step, then ask again. One thousand times. What comes out the other end is a photorealistic image of a concept that never existed.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>Destroying information — then learning to reverse it</h2>
+    <p class="lead">
+      Diffusion models are built on a two-part idea. The <strong style="color:var(--accent)">forward process</strong>
+      takes a clean image and gradually destroys it by adding a tiny amount of Gaussian noise at each step.
+      After enough steps (typically T = 1000), the image is indistinguishable from pure random noise.
+      This process has no parameters — it's a fixed, mathematical procedure.
+      The <strong style="color:var(--accent)">reverse process</strong> is where learning happens: a neural network trains
+      to predict and remove the noise added at each step, walking the image back toward clean from noise.
+    </p>
+    <p>
+      Why is this more stable than GANs? In a GAN, a generator and discriminator compete — and that competition
+      is notoriously difficult to balance. The discriminator can overpower the generator, causing mode collapse,
+      or training can oscillate endlessly. Diffusion models sidestep this entirely: there is no adversary.
+      The training objective is simply to predict noise, which is a well-posed regression problem.
+      The loss surface is smooth, gradients are stable, and training converges reliably at scale.
+      The tradeoff is speed — generating a sample requires running the denoising network hundreds of times,
+      versus a single forward pass in a GAN.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>The <strong style="color:var(--accent)">forward process</strong> is fixed and has no learnable parameters — pure math, T steps of noise addition.</li>
+      <li>The <strong style="color:var(--accent)">reverse process</strong> is learned — a neural network (usually U-Net) predicts the noise at each step.</li>
+      <li>The <strong style="color:var(--accent)">training signal</strong> is trivial to produce: take a clean image, corrupt it, ask the network to predict the corruption.</li>
+      <li>The <strong style="color:var(--accent)">stability advantage</strong> over GANs: the objective is a standard L2 regression — no minimax game.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Build the intuition before you trust the math</h2>
+
+    <p class="lead">
+      Three questions drive the deepest understanding of diffusion models.
+      Each one reveals a non-obvious design choice that separates diffusion from every prior generative model.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why does learning to predict the added noise ε work better than learning to predict the clean image x₀ directly?
+      Both are regression tasks. What makes noise prediction the better target?
+    </div>
+
+    <p>
+      When the network tries to predict the clean image directly, it must output a complex, high-dimensional
+      distribution that varies wildly depending on image content. At high noise levels (early in denoising),
+      the task is especially hard: almost all information about x₀ is buried, so the prediction is a heavily
+      uncertain mean across all possible clean images — producing blur.
+      Predicting the noise ε is different: noise is i.i.d. Gaussian by construction, with fixed statistics
+      at every timestep. The network always predicts something drawn from the same standard normal distribution,
+      regardless of image content. This consistent target means gradients are stable across all noise levels,
+      and the loss landscape is well-conditioned throughout training. Ho et al. (DDPM, 2020) empirically confirmed
+      this "noise prediction" (also called "ε-prediction") consistently outperforms direct x₀ prediction.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What makes diffusion models more stable than GANs during training, despite being far slower at inference?
+      Name at least one concrete failure mode of GANs that diffusion eliminates by design.
+    </div>
+
+    <p>
+      GANs suffer from <strong style="color:var(--accent)">mode collapse</strong> — the generator finds a small set of outputs that fool the discriminator and stops exploring the full data distribution. They also suffer from <strong style="color:var(--accent)">training instability</strong>: because the generator and discriminator co-evolve, the gradients are non-stationary. The discriminator's signal can become uninformative (saturated) or oscillate. Diffusion models have neither problem. Training is a fixed regression against a consistent Gaussian target at every step. There is no adversary, no co-evolution, and no mode collapse — the network learns a probability path from noise to data, and every image in the training set contributes equally via every noise level. The cost is that sampling requires running the denoising network T times (versus once for GANs), making diffusion models significantly slower at inference.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What role does the U-Net architecture specifically play in the reverse process?
+      Why not use a simple fully connected network or a plain convolutional network?
+    </div>
+
+    <p>
+      The reverse process requires the network to take a noisy image x_t and a timestep t and output
+      the noise ε that was added at that step. This is fundamentally an image-to-image task —
+      the output must have the same spatial dimensions as the input.
+      U-Net addresses this with its encoder-decoder structure: the encoder compresses the noisy image
+      into a lower-resolution representation (capturing global structure), while the decoder upsamples
+      back to full resolution (recovering spatial detail). The <strong style="color:var(--accent)">skip connections</strong>
+      between encoder and decoder are critical — they let high-frequency detail preserved in the encoder
+      flow directly into the decoder, preventing blurring. The U-Net also accepts the timestep t as a
+      conditioning signal (via sinusoidal embeddings added to each layer), so the network knows how noisy
+      the input is and calibrates its denoising strength accordingly.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Watch noise destroy and reconstruct an image</h2>
+    <p class="lead">
+      A 16×16 pixel grid showing a star icon. The forward process adds noise progressively —
+      pixels blur and randomize. The reverse process reconstructs the star step by step from pure noise.
+      The timestep counter tracks t=0 (clean) → t=20 (pure noise).
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Use the slider to scrub to any timestep, or press Run to watch the full animation automatically.
+    </p>
+
+    <div class="animation-wrapper grain">
+      <canvas id="diffCanvas" width="400" height="300" style="max-width:100%; image-rendering:pixelated;"></canvas>
+      <div class="animation-caption" id="diffCaption">
+        t = 0 · clean image · press a button below to begin
+      </div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <span class="control-label">Timestep t</span>
+        <input type="range" id="diffSlider" min="0" max="20" step="1" value="0">
+        <span class="control-value" id="diffSliderVal">0</span>
+      </div>
+      <div class="control-row" style="flex-wrap:wrap; gap:0.5rem;">
+        <button class="btn" id="btnAddNoise">+ Add Noise</button>
+        <button class="btn secondary" id="btnStepFwd">Step →</button>
+        <button class="btn" id="btnDenoise">− Denoise</button>
+        <button class="btn secondary" id="btnStepBack">← Step</button>
+        <button class="btn" id="btnRunFwd">▶ Run Forward</button>
+        <button class="btn secondary" id="btnRunRev">▶ Run Reverse</button>
+        <button class="btn secondary" id="btnReset">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Forward process, reparameterization, and the training objective</h2>
+
+    <p class="lead">
+      The elegance of diffusion models is that the entire forward process can be collapsed to a single
+      closed-form equation — you don't need to run T steps to get x_t from x_0. That makes training efficient.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Forward Process (single step)</div>
+      <div class="formula">q(x_t | x_{t-1}) = N(x_t ; √(1−β_t) · x_{t-1} , β_t · I)</div>
+      <div class="symbol-table">
+        <span class="sym">x_t</span>         <span>noisy image at timestep t</span>
+        <span class="sym">β_t</span>          <span>noise schedule — small positive number (e.g. 0.0001 to 0.02), controls how much noise is added</span>
+        <span class="sym">√(1−β_t)</span>    <span>scaling factor applied to the previous image — shrinks toward zero as noise accumulates</span>
+        <span class="sym">N(μ, σ²·I)</span>  <span>Gaussian distribution — sample from it to get x_t given x_{t-1}</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Reparameterization — closed-form x_t from x_0</div>
+      <div class="formula">x_t = √(ᾱ_t) · x_0  +  √(1 − ᾱ_t) · ε     where ε ∼ N(0, I)</div>
+      <div class="symbol-table">
+        <span class="sym">ᾱ_t</span>         <span>cumulative product: ᾱ_t = ∏_{s=1}^{t} (1−β_s) — the retained signal fraction at step t</span>
+        <span class="sym">√(ᾱ_t) · x_0</span>  <span>signal component — the original image, scaled down toward zero as t increases</span>
+        <span class="sym">√(1−ᾱ_t) · ε</span> <span>noise component — pure Gaussian noise, scaled up as t increases</span>
+      </div>
+    </div>
+
+    <p>
+      This reparameterization is key: at any timestep t, we can compute the noisy image directly from
+      x_0 and a single noise sample ε, without simulating t sequential steps. This makes training efficient —
+      just sample a random t, draw ε, compute x_t in one shot, then train the network to predict ε back.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">Simplified Training Objective (Ho et al., DDPM 2020)</div>
+      <div class="formula">L = E_{x_0, ε, t} [ ‖ ε − ε_θ(x_t, t) ‖² ]</div>
+      <div class="symbol-table">
+        <span class="sym">ε</span>            <span>the actual noise added — ground truth, sampled from N(0, I)</span>
+        <span class="sym">ε_θ(x_t, t)</span> <span>the noise predicted by the neural network (U-Net) given noisy image x_t and timestep t</span>
+        <span class="sym">‖·‖²</span>         <span>mean squared error — just like any regression loss. No adversarial component.</span>
+        <span class="sym">E[...]</span>        <span>expectation over random x_0 (training images), random ε, and random t</span>
+      </div>
+    </div>
+
+    <p><strong>Worked example: compute x_t at t=3 for a 4×4 image</strong></p>
+    <p>
+      Suppose we have a simple 4×4 grayscale image x_0 (pixel values in [0, 1]).
+      Use a linear noise schedule: β_1=0.1, β_2=0.1, β_3=0.1 (all equal for simplicity).
+    </p>
+
+    <div class="worked-example">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span style="font-size:0.92rem;">
+          <span class="step-math">α_t = 1 − β_t = 0.9</span>
+          <span style="color:var(--text-muted); margin-left:1rem;">Same for all three steps here.</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span style="font-size:0.92rem;">
+          <span class="step-math">ᾱ_3 = α_1 · α_2 · α_3 = 0.9³ = 0.729</span>
+          <span style="color:var(--text-muted); margin-left:1rem;">Cumulative product of all αs up to t=3.</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span style="font-size:0.92rem;">
+          <span class="step-math">x_3 = √0.729 · x_0  +  √(1−0.729) · ε = 0.854 · x_0 + 0.521 · ε</span>
+          <span style="color:var(--text-muted); margin-left:1rem;">ε is drawn once from N(0, I) — same shape as x_0 (4×4).</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span style="font-size:0.92rem;">
+          For a pixel with value <span class="step-math">x_0 = 0.8</span> and <span class="step-math">ε = 1.2</span>:
+          &nbsp;<span class="step-math">x_3 = 0.854 × 0.8 + 0.521 × 1.2 = 0.683 + 0.625 = 1.308</span>
+          <span style="color:var(--text-muted); margin-left:0.5rem;">(clipped to [0,1] for display — noise can push beyond range)</span>
+        </span>
+      </div>
+      <div class="step" style="flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">
+          Pattern: after T=1000 steps with typical β schedule, ᾱ_T ≈ 0 and x_T ≈ pure noise.
+        </span>
+        <span style="color:var(--text-muted); font-size:0.88rem;">
+          The closed-form formula means training never simulates T sequential steps. It samples t uniformly,
+          computes x_t in one shot, and trains the network to recover ε. Efficient and elegant.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real World -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">From Theory to Production</p>
+    <h2>DALL-E 3, Stable Diffusion, and Midjourney</h2>
+    <p class="lead">
+      Diffusion models didn't just beat GANs on benchmarks — they transformed the entire image generation
+      industry between 2021 and 2023. Here's how the three dominant systems differ and what they share.
+    </p>
+    <p>
+      <strong style="color:var(--white)">Stable Diffusion</strong> introduced <em>latent diffusion</em>: instead of running the
+      diffusion process on full-resolution pixels (expensive), it first encodes the image into a compressed
+      latent space using a VAE (variational autoencoder), runs diffusion there, then decodes back to pixels.
+      This made high-resolution generation 4–8× faster and democratized the technology — Stable Diffusion
+      runs on a consumer GPU. The U-Net operates in latent space, and text conditioning is injected via
+      cross-attention with CLIP text embeddings.
+    </p>
+    <p>
+      <strong style="color:var(--white)">DALL-E 3</strong> (OpenAI, 2023) combined a diffusion backbone with a dramatically
+      better text-to-image alignment approach. The key insight: the quality of the text prompt at training time
+      matters enormously. DALL-E 3 used GPT-4 to generate detailed, accurate captions for training images —
+      replacing the short, human-written alt-text that previous models trained on. The result was vastly
+      better prompt following, especially for compositional prompts with multiple objects and relationships.
+    </p>
+    <p>
+      <strong style="color:var(--white)">Midjourney</strong> is less technically transparent but is believed to use
+      diffusion with heavy aesthetic fine-tuning. Its distinctive look comes from RLHF-style training on
+      human preference feedback — the model was steered to produce images that humans rate as visually
+      compelling, not just technically accurate.
+    </p>
+    <p>
+      <strong style="color:var(--white)">Text conditioning mechanism</strong>: all three systems inject text information
+      into the reverse process via <em>cross-attention</em>. At each denoising step, the U-Net's intermediate
+      features attend over the text embedding — each spatial position in the noisy image "looks at" the
+      text tokens and decides how to denoise based on the meaning of the prompt. This is what allows
+      "a cat wearing a tuxedo at a jazz bar" to produce coherent, prompt-faithful images.
+    </p>
+    <div class="insight-box" style="font-style:normal;">
+      <strong style="color:var(--accent)">Why diffusion beat GANs for images:</strong>
+      GANs won on speed and sharpness but failed on diversity and stability. Training large GANs reliably
+      was an art form — mode collapse, training instability, and poor coverage of rare images were persistent
+      problems. Diffusion models traded speed for coverage and stability. With enough compute and latent
+      compression tricks, the speed gap narrowed enough that the quality and reliability advantages became decisive.
+      By 2022, no new frontier image generation system was GAN-based.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Explore the noise schedule</h2>
+    <p class="lead">
+      The noise schedule controls how quickly signal is destroyed in the forward process.
+      A fast schedule reaches pure noise in fewer steps; a slow schedule preserves signal longer.
+      The network must adapt its denoising behavior to the schedule it was trained on.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Schedule speed (β scale)</span>
+        <input type="range" id="schedSlider" min="1" max="5" step="1" value="3">
+        <span class="control-value" id="schedVal">medium</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Show signal fraction ᾱ_t</span>
+        <input type="range" id="alphaSlider" min="0" max="20" step="1" value="0">
+        <span class="control-value" id="alphaSliderVal">t=0, ᾱ=1.000</span>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="playCanvas" width="600" height="220" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="playCaption">
+          Signal fraction ᾱ_t vs timestep — how much of the original image survives at step t
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs about diffusion models</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      These aren't random mistakes. Each one reflects a reasonable guess that happens to be wrong in
+      a revealing way.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① The model is directly learning to "draw" or "paint" an image.</div>
+        <div class="truth">
+          The model never learns to draw. It learns one narrow skill: predict the noise vector ε that was
+          added to a clean image to produce a noisy image x_t, given x_t and the timestep t.
+          That's a regression task. The "drawing" emerges from applying this denoising step 1000 times
+          starting from pure noise — each step removes a little noise, and the residual structure
+          accumulates into a coherent image. The model has no explicit concept of objects, composition,
+          or style — all of that emerges implicitly from learning the data distribution.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② The reverse process requires running T sequential steps through the full network.</div>
+        <div class="truth">
+          The training forward process is collapsed to a single step using the closed-form reparameterization
+          (x_t = √ᾱ_t · x_0 + √(1−ᾱ_t) · ε). However, at inference time, the reverse process does require
+          roughly T sequential network evaluations — which is why diffusion is slow to sample. Acceleration
+          methods like DDIM (Song et al., 2020) and DPM-Solver can reduce this to 20–50 steps by using
+          higher-order ODE solvers, trading a small quality reduction for a 10–50× speedup.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Text-to-image generation works by training on (image, text) pairs and learning a mapping.</div>
+        <div class="truth">
+          The diffusion model itself generates images unconditionally — it models p(x). Text conditioning
+          is added via <em>classifier-free guidance</em> (Ho &amp; Salimans, 2021): during training, the
+          text condition is randomly dropped ~10% of the time, training the model to also work
+          unconditionally. At inference, the model runs twice per step — once with the text prompt, once
+          without — and the denoising direction is extrapolated away from the unconditional direction
+          toward the text-conditioned direction. This amplifies prompt adherence at the cost of diversity.
+          The guidance scale controls this tradeoff.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ Stable Diffusion does diffusion in pixel space, just like DDPM.</div>
+        <div class="truth">
+          Stable Diffusion uses <em>latent diffusion</em>: it first encodes the image into a compressed
+          latent representation via a VAE (4× or 8× spatial compression), runs the full diffusion process
+          in this latent space, then decodes back to pixels. The U-Net never sees raw pixels during
+          diffusion — only latent codes. This reduces computation by 16–64× and is why Stable Diffusion
+          can run on consumer hardware. DALL-E 3 and other high-end models typically use pixel-space
+          diffusion at multiple resolutions (cascaded diffusion) or hybrid approaches.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ Once fully denoised, running more reverse steps improves quality.</div>
+        <div class="truth">
+          The reverse process is designed for exactly T steps — it starts at pure noise and reaches the
+          data distribution at step 0. Running additional steps beyond that has no defined meaning:
+          the model was not trained to "further improve" a clean image, only to denoise a noisy one.
+          In practice, "over-denoising" typically degrades the image or introduces artifacts.
+          Post-generation quality improvements (upscaling, sharpening) are done with separate models,
+          not by continuing the reverse diffusion chain.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 10. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>Two processes: the forward process adds Gaussian noise step-by-step (fixed, no parameters); the reverse process learns to undo it (U-Net, trained by regression).</li>
+      <li>Closed-form reparameterization: x_t = √ᾱ_t · x_0 + √(1−ᾱ_t) · ε — any noise level can be computed directly from x_0, making training efficient.</li>
+      <li>Training objective is L2 noise prediction: E[‖ε − ε_θ(x_t, t)‖²] — plain regression, no adversarial component, hence stable training.</li>
+      <li>Text conditioning via classifier-free guidance: the model runs twice per step, and the output is guided away from unconditional toward text-conditioned denoising.</li>
+      <li>Diffusion beat GANs on coverage, diversity, and training stability — at the cost of slow inference. Latent diffusion (Stable Diffusion) and DDIM sampling close much of that speed gap.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves open:</strong>
+      Diffusion models work beautifully for images — continuous data where noise addition is well-defined.
+      But text is discrete. You can't add Gaussian noise to the word "cat." So how do large language models
+      generate coherent sentences? They use a completely different generative paradigm — not denoising,
+      but autoregressive prediction: one token at a time, each conditioned on everything before it.<br><br>
+      That's what the next chapter covers.
+    </div>
+    <div style="margin-top:1.5rem; display:flex; gap:1rem; flex-wrap:wrap;">
+      <a href="gans.html" class="btn secondary">← GANs</a>
+      <a href="llms.html" class="btn">Large Language Models →</a>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim traces to one of these primary sources.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Denoising Diffusion Probabilistic Models (DDPM)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ho, Jain &amp; Abbeel — NeurIPS 2020</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Foundational paper. Introduces the simplified ε-prediction objective, noise schedule, and
+            demonstrates high-quality image generation from pure diffusion without adversarial training.
+          </span><br>
+          <a href="https://arxiv.org/abs/2006.11239" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/2006.11239</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">High-Resolution Image Synthesis with Latent Diffusion Models</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Rombach, Blattmann et al. — CVPR 2022 (Stable Diffusion)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Introduces latent diffusion: VAE compression + diffusion in latent space.
+            Explains cross-attention text conditioning and the practical architecture behind Stable Diffusion.
+          </span><br>
+          <a href="https://arxiv.org/abs/2112.10752" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/2112.10752</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Classifier-Free Diffusion Guidance</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ho &amp; Salimans — NeurIPS 2021 Workshop</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Introduces the conditioning approach used by all modern text-to-image systems.
+            Explains guidance scale and the tradeoff between prompt adherence and output diversity.
+          </span><br>
+          <a href="https://arxiv.org/abs/2207.12598" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/2207.12598</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free PDF</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>9 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 9 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">In the forward process, what happens to the signal fraction ᾱ_t as t increases from 0 to T?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>ᾱ_t decreases from 1 toward 0.</strong> ᾱ_t = ∏_{s=1}^{t} (1−β_s). Since each β_s is a small positive number, each factor (1−β_s) is slightly less than 1. Multiplying T such factors together drives ᾱ_t to near-zero. At t=0, no noise has been added (ᾱ_0 = 1, x_0 = clean image). At t=T, ᾱ_T ≈ 0 and x_T ≈ pure Gaussian noise. The reparameterization x_t = √ᾱ_t · x_0 + √(1−ᾱ_t) · ε shows this directly: as ᾱ_t→0, the signal term vanishes and only noise remains.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">Why is the simplified training objective L = E[‖ε − ε_θ(x_t, t)‖²] better than training the network to predict x_0 directly?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Noise ε has consistent, fixed statistics (N(0,I)) at every timestep, making it a stable regression target.</strong> Predicting x_0 at high noise levels is extremely hard: nearly all information about the clean image is buried, so the best prediction is a blurry average across all plausible images. This creates poorly conditioned gradients. Noise ε is always drawn from the same standard normal, regardless of image content. The network always predicts something from the same distribution, gradients remain stable across all t, and Ho et al. (DDPM) empirically confirmed ε-prediction outperforms direct x_0 prediction.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">What is the purpose of skip connections in the U-Net used in the reverse process?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Skip connections preserve high-frequency spatial detail that would otherwise be lost during the encoder's downsampling.</strong> The U-Net encoder compresses the noisy image into lower resolutions (capturing global structure and semantics). The decoder upsamples back to full resolution. Without skip connections, the decoder must reconstruct fine spatial detail from the compressed bottleneck — producing blurry outputs. Skip connections pipe high-resolution feature maps from the encoder directly into the decoder at matching resolutions, allowing the model to recover sharp, spatially precise details in the denoised output.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">Stable Diffusion generates 512×512 images but runs diffusion on a 64×64 latent space. What component converts between them, and why does this matter?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>A VAE (Variational Autoencoder) — encoder compresses 512×512 pixels → 64×64 latents; decoder expands back.</strong> This matters because diffusion in pixel space on a 512×512 image requires the U-Net to process images with 512²=262,144 values per step, hundreds of times. In the 64×64 latent space, each step processes only 64²=4,096 values — a 64× reduction in spatial size. Since each reverse step calls the U-Net, this translates directly into a 64× reduction in compute per step. This is what makes high-resolution generation feasible on consumer GPUs. The VAE is pre-trained separately and kept frozen during diffusion training.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">Explain classifier-free guidance in one sentence. What tradeoff does the guidance scale control?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Classifier-free guidance runs the denoising network twice per step — once with the text prompt, once without — and amplifies the difference to steer generation toward the prompt.</strong> Formally, the guided output = unconditional output + scale × (conditional − unconditional). The guidance scale controls the tradeoff between <em>prompt adherence</em> and <em>output diversity</em>. Low scale (≈1): outputs are diverse but may ignore parts of the prompt. High scale (≈7-15): outputs follow the prompt tightly but are less varied and can look oversaturated or distorted. Most users find 7–9 optimal for general prompts.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">A GAN and a diffusion model are both trained on the same 100k image dataset. The GAN trains faster and achieves higher FID. Why might you still prefer the diffusion model for a production application?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Diffusion models offer better coverage of the data distribution and more predictable training.</strong> GANs with good FID scores may still have mode collapse — they cover the most common images well but fail to generate rare, unusual, or compositionally complex images. In production, you want a model that reliably generates diverse, high-quality outputs across the full prompt distribution, not just on FID benchmark cases. Diffusion models also scale more predictably with data and compute — they don't require careful GAN-specific tricks (progressive growing, spectral norm, careful discriminator tuning) to train. For text-to-image specifically, the cross-attention conditioning mechanism works naturally in diffusion; conditioning GANs on open-ended text is much harder architecturally.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">Using the reparameterization formula, compute x_t for a pixel with x_0 = 0.5, ε = −0.8, and ᾱ_t = 0.64. Show the calculation.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>x_t = 0.4 − 0.48 = −0.08</strong> (below 0 before clipping to display range).<br>
+          Step 1: √ᾱ_t = √0.64 = 0.8.<br>
+          Step 2: 1 − ᾱ_t = 0.36, so √(1−ᾱ_t) = √0.36 = 0.6.<br>
+          Step 3: x_t = 0.8 × 0.5 + 0.6 × (−0.8) = 0.40 − 0.48 = −0.08.<br>
+          The pixel was pushed below 0 by the noise (ε was negative and large enough to overcome the signal). In practice, values outside [0,1] occur during diffusion and are handled in the normalized latent space — only the final VAE decode clips to the valid pixel range.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">DDIM (Song et al., 2020) reduces the 1000 reverse steps needed by DDPM to just 20–50. What algorithmic change enables this speedup?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>DDIM reformulates the reverse process as a non-Markovian ODE instead of a Markov chain, enabling larger, higher-order integration steps.</strong> DDPM's reverse process is stochastic (Markovian) — each step introduces new random noise, forcing small steps to stay accurate. DDIM's deterministic ODE-based formulation means consecutive denoising steps are consistent: you can skip ahead further in timestep without accumulating large integration error. Essentially, DDIM treats the reverse process like solving a differential equation and applies more efficient numerical solvers (similar to how ODE solvers use larger step sizes where the function is smooth). The same trained DDPM model can be used with DDIM sampling — no retraining required.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">Why can't diffusion models be directly applied to text generation the way they are to image generation?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Text is discrete — you cannot add Gaussian noise to a token ID and get a meaningful interpolation.</strong> In image diffusion, x_t = √ᾱ_t · x_0 + √(1−ᾱ_t) · ε works because pixel values are continuous real numbers — mixing a pixel value with Gaussian noise is well-defined. Token IDs (e.g., "cat" = 4231, "dog" = 5897) have no continuous geometry: the average of "cat" and "dog" is not "pet." Diffusion over discrete tokens would require defining a meaningful noise process on a discrete space, which is much harder. This is why LLMs use autoregressive generation instead — predicting the next token one at a time — which naturally handles the discrete token vocabulary.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+
+// ═══════════════════════════════════════════════════════════════
+//  DiffusionAnimation — 16×16 pixel grid, forward + reverse process
+// ═══════════════════════════════════════════════════════════════
+class DiffusionAnimation {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.T = 20;
+    this.t = 0;
+    this._runTimer = null;
+    this._runDir = null;
+
+    // Star shape: 16×16 grid, 1 = lit pixel, 0 = background
+    this._starPixels = [
+      [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
+      [0,0,0,1,0,0,0,1,1,0,0,0,1,0,0,0],
+      [0,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0],
+      [0,0,0,0,0,1,0,1,1,0,1,0,0,0,0,0],
+      [0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0],
+      [0,0,0,0,0,1,0,1,1,0,1,0,0,0,0,0],
+      [0,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0],
+      [0,0,0,1,0,0,0,1,1,0,0,0,1,0,0,0],
+      [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
+    ];
+
+    // Pre-generate noise fields for each step
+    this._noise = [];
+    for (let step = 0; step <= this.T; step++) {
+      const field = [];
+      for (let r = 0; r < 16; r++) {
+        const row = [];
+        for (let c = 0; c < 16; c++) {
+          row.push(Math.random());
+        }
+        field.push(row);
+      }
+      this._noise.push(field);
+    }
+
+    this._render();
+  }
+
+  // Compute pixel brightness for a given row, col at timestep t
+  _pixelAt(r, c, t) {
+    // ᾱ_t: signal fraction, linear decay from 1.0 at t=0 to 0 at t=T
+    const alphaBar = Math.pow(1 - (t / this.T), 1.6);
+    const signal = this._starPixels[r][c];  // 0 or 1
+    const noise  = this._noise[t][r][c];     // 0..1 uniform → treat as Gaussian-like
+    // Lerp: at t=0 pure signal, at t=T pure noise
+    return lerp(noise, signal, alphaBar);
+  }
+
+  setT(t) {
+    this.t = Math.max(0, Math.min(this.T, t));
+    this._render();
+  }
+
+  stepForward() {
+    if (this.t < this.T) { this.t++; this._render(); }
+  }
+
+  stepBack() {
+    if (this.t > 0) { this.t--; this._render(); }
+  }
+
+  addNoise()  { this.stepForward(); }
+  denoise()   { this.stepBack(); }
+
+  stopRun() {
+    if (this._runTimer) { clearInterval(this._runTimer); this._runTimer = null; }
+  }
+
+  runForward() {
+    this.stopRun();
+    this._runTimer = setInterval(() => {
+      if (this.t >= this.T) { this.stopRun(); return; }
+      this.t++;
+      this._render();
+    }, 120);
+  }
+
+  runReverse() {
+    this.stopRun();
+    this._runTimer = setInterval(() => {
+      if (this.t <= 0) { this.stopRun(); return; }
+      this.t--;
+      this._render();
+    }, 120);
+  }
+
+  reset() {
+    this.stopRun();
+    // Re-seed noise
+    for (let step = 0; step <= this.T; step++) {
+      for (let r = 0; r < 16; r++) {
+        for (let c = 0; c < 16; c++) {
+          this._noise[step][r][c] = Math.random();
+        }
+      }
+    }
+    this.t = 0;
+    this._render();
+  }
+
+  _render() {
+    const { ctx, canvas, t, T } = this;
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Background
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Determine grid layout — centered with some padding
+    const GRID = 16;
+    const cellSize = Math.floor(Math.min((W - 120) / GRID, (H - 60) / GRID));
+    const gridW = cellSize * GRID;
+    const gridH = cellSize * GRID;
+    const ox = Math.floor((W - gridW) / 2);
+    const oy = Math.floor((H - gridH) / 2) + 10;
+
+    // Determine accent / muted colors from theme
+    const accent   = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()      || '#f0a500';
+    const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+    const white    = getComputedStyle(document.documentElement).getPropertyValue('--white').trim()       || '#ffffff';
+    const blue     = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim()        || '#58a6ff';
+
+    // Draw pixels
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        const v = this._pixelAt(r, c, t);   // 0..1
+        // Color: bright gold for signal, grayish for noise
+        const alphaBar = Math.pow(1 - (t / T), 1.6);
+        // Interpolate: gold (signal) ↔ muted gray (noise)
+        const sr = Math.round(lerp(88, 240, v));   // noise is blue-gray (#58..), signal is gold (#f0..)
+        const sg = Math.round(lerp(108, 165, v));
+        const sb = Math.round(lerp(120, 0, v));
+        // At high noise levels desaturate toward gray
+        const noiseGray = Math.round(v * 180);
+        const r_ = Math.round(lerp(noiseGray, sr, alphaBar));
+        const g_ = Math.round(lerp(noiseGray, sg, alphaBar));
+        const b_ = Math.round(lerp(noiseGray, sb, alphaBar));
+
+        ctx.fillStyle = `rgb(${r_},${g_},${b_})`;
+        ctx.fillRect(ox + c * cellSize, oy + r * cellSize, cellSize - 1, cellSize - 1);
+      }
+    }
+
+    // Grid border
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(ox - 0.5, oy - 0.5, gridW + 1, gridH + 1);
+
+    // Timestep label (left side)
+    ctx.fillStyle = textMuted;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`t = ${t}`, ox - 8, oy + gridH / 2 + 4);
+
+    // Process label (right side)
+    ctx.textAlign = 'left';
+    if (t === 0) {
+      ctx.fillStyle = accent;
+      ctx.fillText('clean image', ox + gridW + 8, oy + gridH / 2 + 4);
+    } else if (t === T) {
+      ctx.fillStyle = blue;
+      ctx.fillText('pure noise', ox + gridW + 8, oy + gridH / 2 + 4);
+    } else if (t <= T / 2) {
+      ctx.fillStyle = accent;
+      ctx.fillText('signal fading', ox + gridW + 8, oy + gridH / 2 + 4);
+    } else {
+      ctx.fillStyle = blue;
+      ctx.fillText('mostly noise', ox + gridW + 8, oy + gridH / 2 + 4);
+    }
+
+    // Progress bar at bottom
+    const barW = gridW;
+    const barH = 6;
+    const barY = oy + gridH + 14;
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+    ctx.fillRect(ox, barY, barW, barH);
+    const prog = t / T;
+    // Gradient from accent (left=clean) to blue (right=noise)
+    const grad = ctx.createLinearGradient(ox, 0, ox + barW, 0);
+    grad.addColorStop(0, accent);
+    grad.addColorStop(1, blue);
+    ctx.fillStyle = grad;
+    ctx.fillRect(ox, barY, Math.round(barW * prog), barH);
+
+    // Labels below bar
+    ctx.fillStyle = textMuted;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('t=0 clean', ox, barY + barH + 12);
+    ctx.textAlign = 'right';
+    ctx.fillText(`t=${T} noise`, ox + barW, barY + barH + 12);
+
+    // ᾱ_t value
+    const alphaBar = Math.pow(1 - (t / T), 1.6);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = accent;
+    ctx.fillText(`ᾱ = ${alphaBar.toFixed(3)}`, ox + barW / 2, barY + barH + 12);
+
+    // Update caption
+    const caption = document.getElementById('diffCaption');
+    if (caption) {
+      if (t === 0) caption.textContent = 't = 0 · clean image · ᾱ = 1.000 — no noise added';
+      else if (t === T) caption.textContent = `t = ${T} · pure noise · ᾱ ≈ 0 — all signal destroyed`;
+      else caption.textContent = `t = ${t} · ᾱ = ${alphaBar.toFixed(3)} — ${Math.round(alphaBar*100)}% signal, ${Math.round((1-alphaBar)*100)}% noise`;
+    }
+
+    // Update slider
+    const sl = document.getElementById('diffSlider');
+    const sv = document.getElementById('diffSliderVal');
+    if (sl) sl.value = t;
+    if (sv) sv.textContent = t;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Playground: noise schedule chart
+// ═══════════════════════════════════════════════════════════════
+function renderScheduleChart() {
+  const canvas = document.getElementById('playCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  const T = 20;
+
+  const schedScale = parseInt(document.getElementById('schedSlider').value, 10);
+  const betaBase = schedScale === 1 ? 0.04 : schedScale === 2 ? 0.07 : schedScale === 3 ? 0.10 : schedScale === 4 ? 0.15 : 0.20;
+
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f0a500';
+  const blue   = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim()   || '#58a6ff';
+  const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+  const border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#30363d';
+  const white  = getComputedStyle(document.documentElement).getPropertyValue('--white').trim()  || '#ffffff';
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const pad = { top: 30, right: 30, bottom: 50, left: 55 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  // Compute ᾱ_t for this schedule
+  const alphaBar = [1];
+  for (let t = 1; t <= T; t++) {
+    alphaBar.push(alphaBar[t-1] * (1 - betaBase));
+  }
+
+  // Axes
+  ctx.strokeStyle = border;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, pad.top + cH);
+  ctx.lineTo(pad.left + cW, pad.top + cH);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = textMuted;
+  ctx.font = '11px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Timestep t', pad.left + cW / 2, H - 8);
+  ctx.save();
+  ctx.translate(14, pad.top + cH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Signal fraction ᾱ_t', 0, 0);
+  ctx.restore();
+
+  // Y axis ticks
+  ctx.textAlign = 'right';
+  for (let v = 0; v <= 10; v += 2) {
+    const y = pad.top + cH - (v / 10) * cH;
+    ctx.fillStyle = textMuted;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillText((v/10).toFixed(1), pad.left - 6, y + 4);
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cW, y);
+    ctx.stroke();
+  }
+
+  // X axis ticks
+  ctx.textAlign = 'center';
+  for (let t = 0; t <= T; t += 5) {
+    const x = pad.left + (t / T) * cW;
+    ctx.fillStyle = textMuted;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillText(t, x, pad.top + cH + 16);
+  }
+
+  // Draw three schedule lines (slow, current, fast) for reference
+  const schedules = [
+    { beta: 0.04, label: 'slow', color: blue,   dash: [4,4] },
+    { beta: betaBase, label: 'current', color: accent, dash: [] },
+    { beta: 0.20, label: 'fast', color: '#f85149', dash: [4,4] },
+  ];
+
+  for (const sched of schedules) {
+    const abars = [1];
+    for (let t = 1; t <= T; t++) abars.push(abars[t-1] * (1 - sched.beta));
+    ctx.beginPath();
+    ctx.strokeStyle = sched.color;
+    ctx.lineWidth = sched.dash.length ? 1.5 : 2.5;
+    ctx.setLineDash(sched.dash);
+    for (let t = 0; t <= T; t++) {
+      const x = pad.left + (t / T) * cW;
+      const y = pad.top + cH - abars[t] * cH;
+      t === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Label at the right end
+    const endY = pad.top + cH - abars[T] * cH;
+    ctx.fillStyle = sched.color;
+    ctx.font = '10px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(sched.label, pad.left + cW + 4, endY + 4);
+  }
+
+  // Highlight selected t from alphaSlider
+  const selT = parseInt(document.getElementById('alphaSlider').value, 10);
+  const selAB = alphaBar[selT];
+  const selX  = pad.left + (selT / T) * cW;
+  const selY  = pad.top + cH - selAB * cH;
+
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(selX, pad.top + cH);
+  ctx.lineTo(selX, selY);
+  ctx.moveTo(pad.left, selY);
+  ctx.lineTo(selX, selY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.beginPath();
+  ctx.arc(selX, selY, 5, 0, Math.PI * 2);
+  ctx.fillStyle = accent;
+  ctx.fill();
+
+  // Update displays
+  const schedValEl = document.getElementById('schedVal');
+  const alphaValEl = document.getElementById('alphaSliderVal');
+  const labels = ['', 'very slow', 'slow', 'medium', 'fast', 'very fast'];
+  if (schedValEl) schedValEl.textContent = labels[schedScale];
+  if (alphaValEl) alphaValEl.textContent = `t=${selT}, ᾱ=${selAB.toFixed(3)}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Boot
+// ═══════════════════════════════════════════════════════════════
+const diffCanvas = document.getElementById('diffCanvas');
+const diffAnim = new DiffusionAnimation(diffCanvas);
+
+document.getElementById('btnAddNoise').addEventListener('click',  () => { diffAnim.stopRun(); diffAnim.addNoise(); });
+document.getElementById('btnStepFwd').addEventListener('click',   () => { diffAnim.stopRun(); diffAnim.stepForward(); });
+document.getElementById('btnDenoise').addEventListener('click',   () => { diffAnim.stopRun(); diffAnim.denoise(); });
+document.getElementById('btnStepBack').addEventListener('click',  () => { diffAnim.stopRun(); diffAnim.stepBack(); });
+document.getElementById('btnRunFwd').addEventListener('click',    () => diffAnim.runForward());
+document.getElementById('btnRunRev').addEventListener('click',    () => diffAnim.runReverse());
+document.getElementById('btnReset').addEventListener('click',     () => diffAnim.reset());
+
+document.getElementById('diffSlider').addEventListener('input', (e) => {
+  diffAnim.stopRun();
+  diffAnim.setT(parseInt(e.target.value, 10));
+});
+
+document.getElementById('schedSlider').addEventListener('input', renderScheduleChart);
+document.getElementById('alphaSlider').addEventListener('input', renderScheduleChart);
+
+// Initial render of playground chart
+renderScheduleChart();
+
+// ── Quiz ─────────────────────────────────────────────────────
+const CHAPTER_SLUG = 'diffusion-models';
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+const TOTAL_Q = 9;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+}
+
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / ${TOTAL_Q} revealed`;
+
+// ── Reading progress bar ────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ── Scroll reveal ───────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ── TOC active dot ──────────────────────────────────────────
+const sections = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots  = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ── Re-render canvases on theme change ─────────────────────
+window.onThemeChange(function() {
+  diffAnim._render();
+  renderScheduleChart();
+});
+
+</script>
+</body>
+</html>

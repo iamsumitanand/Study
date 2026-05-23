@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Optimizers (SGD, Adam, RMSProp) — ML Study</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../theme.js"></script>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div id="reading-progress"></div>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <span class="toggle-icon">☾</span>
+  <span class="toggle-label">Dark</span>
+</button>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar" id="tocSidebar">
+  <a class="toc-dot" href="#sec-hook"       data-sec="sec-hook">      <span class="toc-dot-label">Hook</span>          <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-intuition"  data-sec="sec-intuition"> <span class="toc-dot-label">Intuition</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-deepdive"   data-sec="sec-deepdive">  <span class="toc-dot-label">Deep Dive</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-animation"  data-sec="sec-animation"> <span class="toc-dot-label">Animation</span>     <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-math"       data-sec="sec-math">      <span class="toc-dot-label">The Math</span>      <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-real"       data-sec="sec-real">      <span class="toc-dot-label">Real World</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-playground" data-sec="sec-playground"><span class="toc-dot-label">Playground</span>    <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-myths"      data-sec="sec-myths">     <span class="toc-dot-label">Misconceptions</span><span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-summary"    data-sec="sec-summary">   <span class="toc-dot-label">Summary</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-next"       data-sec="sec-next">      <span class="toc-dot-label">What's next</span>  <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-sources"    data-sec="sec-sources">   <span class="toc-dot-label">Sources</span>       <span class="toc-dot-inner"></span></a>
+  <a class="toc-dot" href="#sec-quiz"       data-sec="sec-quiz">      <span class="toc-dot-label">Quiz</span>          <span class="toc-dot-inner"></span></a>
+</nav>
+
+<div class="container">
+
+  <!-- Nav -->
+  <header class="page-header">
+    <div class="breadcrumb"><a href="../index.html">← Back to curriculum</a></div>
+    <p class="section-label">Part 2 · Neural Networks</p>
+    <h1>Optimizers</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem; margin-top:0.5rem;">
+      SGD, RMSProp, and Adam — the algorithms that navigate the loss landscape.
+    </p>
+    <div style="display:flex; gap:1rem; margin-top:1rem; flex-wrap:wrap;">
+      <a href="backpropagation.html" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--text-muted); border:1px solid var(--border); border-radius:999px; padding:0.25rem 0.75rem;">← Backpropagation</a>
+      <a href="weight-init.html"     style="font-family:var(--font-mono); font-size:0.78rem; color:var(--text-muted); border:1px solid var(--border); border-radius:999px; padding:0.25rem 0.75rem;">Weight Initialization →</a>
+    </div>
+  </header>
+
+  <!-- 1. Hook -->
+  <div class="section reveal" id="sec-hook">
+    <div class="insight-box" style="font-style:normal; font-size:1.05rem; line-height:1.8;">
+      The same loss landscape can take <strong style="color:var(--accent)">SGD 10,000 steps</strong> or
+      <strong style="color:var(--accent)">Adam 500 steps</strong> to navigate.
+      The math is identical. The path isn't.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 2. Intuition -->
+  <div class="section reveal" id="sec-intuition">
+    <p class="section-label">The Intuition</p>
+    <h2>A ball rolling down a hill — but the terrain is treacherous</h2>
+    <p class="lead">
+      Gradient descent is a ball rolling downhill: every step moves in the direction of steepest descent.
+      But most real loss landscapes aren't smooth bowls. They're ravines — steeply curved in one direction
+      and nearly flat in another. A ball that rolls freely in the steep direction overshoots wildly,
+      while barely budging in the flat direction. That mismatch is <em>ill-conditioned curvature</em>,
+      and it's the core problem every optimizer beyond vanilla SGD exists to solve.
+    </p>
+    <p>
+      Plain SGD uses the same learning rate for every parameter, every step. If the landscape
+      has wildly different curvatures in different directions — a narrow ravine rather than a round bowl —
+      SGD is forced to use a tiny learning rate to avoid bouncing off the steep walls,
+      which makes progress crawlingly slow along the flat floor.
+      Adaptive optimizers solve this by giving each parameter its own effective learning rate,
+      automatically scaled by how much that parameter's gradient has been varying.
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li><strong style="color:var(--accent)">SGD</strong> — raw gradient step. Fast to compute, can generalize well, but requires tuning and struggles with ravines.</li>
+      <li><strong style="color:var(--accent)">Momentum</strong> — accumulates a velocity vector across steps. Smooths oscillations, escapes shallow saddle points.</li>
+      <li><strong style="color:var(--accent)">RMSProp</strong> — divides each gradient by a running estimate of its recent magnitude. Slows down in steep directions, speeds up in flat ones.</li>
+      <li><strong style="color:var(--accent)">Adam</strong> — combines momentum (first moment) with RMSProp's adaptive scaling (second moment). Typically the fastest to a good solution.</li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 3. Deep Dive -->
+  <div class="section reveal" id="sec-deepdive">
+    <p class="section-label">Understanding It Deeply</p>
+    <h2>Three questions that separate real understanding from surface knowledge</h2>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What does "adaptive learning rate" actually mean mechanically? If Adam gives each parameter
+      its own learning rate, where does that rate come from — and how does it change from step to step?
+      Try to describe the mechanism before reading on.
+    </div>
+
+    <p>
+      The per-parameter effective learning rate in Adam is <code>α / (√v̂ + ε)</code>,
+      where <code>v̂</code> is the bias-corrected running average of squared gradients.
+      If a parameter's gradient has been consistently large, <code>v̂</code> is large and the
+      effective rate shrinks — the parameter gets cautious updates. If the gradient has been small
+      or noisy, <code>v̂</code> is small and the effective rate stays near <code>α</code>.
+      No human tunes these per-parameter rates; the algorithm infers them from gradient history
+      alone. "Adaptive" means the learning rate is a function of observed gradient behavior,
+      not a fixed hyperparameter.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      Why can Adam sometimes fail to generalize as well as SGD, even when Adam converges faster
+      and to a lower training loss? What property of the solution does SGD find that Adam can miss?
+    </div>
+
+    <p>
+      DL Book §8.5 and empirical research (notably Wilson et al., 2017) highlight that Adam often
+      converges to <em>sharp minima</em> — points where the loss is very low in the training landscape
+      but surrounded by steep walls. A small shift in parameters (as happens when the model sees
+      test data) can escape the minimum and land at much higher loss.
+      SGD with momentum, due to its noisier trajectory and isotropic steps, is more likely to
+      settle into <em>flat minima</em> — wide basins where nearby points also have low loss.
+      Flat minima generalize better because small perturbations keep you inside the basin.
+      This is the practical reason some vision models still use SGD: not because Adam is broken,
+      but because the basin geometry SGD finds can be more robust to distribution shift.
+    </p>
+
+    <div class="think-box">
+      <span class="think-label">Think first</span>
+      What is the intuition behind the "first moment estimate" and "second moment estimate" in Adam?
+      If you had to explain them as two different kinds of memory the algorithm keeps, what would
+      each one remember?
+    </div>
+
+    <p>
+      The <strong style="color:var(--accent)">first moment</strong> (<code>m</code>) is momentum —
+      a smoothed, exponentially decaying average of the raw gradients. It remembers
+      <em>which direction</em> the gradient has consistently pointed. If the gradient keeps pointing
+      the same way, <code>m</code> builds up in that direction, giving accumulated velocity.
+      The <strong style="color:var(--accent)">second moment</strong> (<code>v</code>) is a smoothed
+      average of the <em>squared</em> gradients — it remembers how much each gradient has been
+      fluctuating in magnitude, not its direction. Large squared gradients indicate a steep dimension
+      that needs caution; small squared gradients indicate a flat dimension that can afford larger steps.
+      Adam divides the first moment by the square root of the second moment:
+      directional memory ÷ magnitude-scale → a step that knows where to go
+      and how boldly to go there along each axis.
+    </p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 4. Animation -->
+  <div class="section reveal" id="sec-animation">
+    <p class="section-label">The Animation</p>
+    <h2>Three optimizers, one landscape</h2>
+    <p class="lead">
+      A Rosenbrock-like contour map — a narrow banana-shaped valley with a saddle region.
+      Watch how each optimizer navigates it: SGD bounces erratically across the ravine walls,
+      RMSProp adapts to curvature and finds the valley floor, Adam charges most directly to the minimum.
+    </p>
+    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:0.5rem;">
+      Use the toggles to show/hide individual paths. Press <strong>Run All</strong> to animate,
+      <strong>Step</strong> to advance one step at a time, <strong>Reset</strong> to start over.
+    </p>
+
+    <div class="animation-wrapper grain" style="padding:1rem 1rem 0.75rem;">
+      <canvas id="optCanvas" width="700" height="420" style="max-width:100%;"></canvas>
+      <div id="optLegend" style="display:flex; gap:1.5rem; flex-wrap:wrap; justify-content:center; margin-top:0.75rem; font-family:var(--font-mono); font-size:0.78rem; color:var(--text-muted);"></div>
+      <div class="animation-caption" id="optCaption">Press Run All to start the animation</div>
+    </div>
+
+    <div class="playground" style="margin-top:0;">
+      <div class="control-row">
+        <button class="btn" id="optRunBtn">▶ Run All</button>
+        <button class="btn secondary" id="optStepBtn">⏭ Step</button>
+        <button class="btn secondary" id="optResetBtn">↺ Reset</button>
+      </div>
+      <div class="control-row" style="gap:0.75rem; margin-bottom:0;">
+        <span class="control-label" style="min-width:auto;">Show:</span>
+        <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; font-size:0.85rem; color:var(--text-muted);">
+          <input type="checkbox" id="showSGD"     checked style="accent-color:#f0a500;">
+          <span style="color:#f0a500; font-weight:700;">SGD</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; font-size:0.85rem; color:var(--text-muted);">
+          <input type="checkbox" id="showRMSProp" checked style="accent-color:#58a6ff;">
+          <span style="color:#58a6ff; font-weight:700;">RMSProp</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; font-size:0.85rem; color:var(--text-muted);">
+          <input type="checkbox" id="showAdam"    checked style="accent-color:#3fb950;">
+          <span style="color:#3fb950; font-weight:700;">Adam</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 5. Math -->
+  <div class="section reveal" id="sec-math">
+    <p class="section-label">The Math</p>
+    <h2>Four update rules — from raw to refined</h2>
+
+    <p class="lead">
+      Each optimizer is a refinement of the one before it. Reading them in sequence shows
+      exactly what problem each addition solves.
+    </p>
+
+    <div class="math-block">
+      <div class="math-label">SGD — Stochastic Gradient Descent</div>
+      <div class="formula">θ  :=  θ  −  α · g</div>
+      <div class="symbol-table">
+        <span class="sym">θ</span>  <span>the parameter vector — all weights being updated</span>
+        <span class="sym">α</span>  <span>learning rate — a fixed scalar (e.g. 0.01), same for all parameters</span>
+        <span class="sym">g</span>  <span>gradient of loss w.r.t. θ, estimated from a mini-batch</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">SGD with Momentum</div>
+      <div class="formula">v  :=  β · v  −  α · g</div>
+      <div class="formula" style="border-bottom:none; margin-bottom:0; padding-bottom:0;">θ  :=  θ  +  v</div>
+      <div class="symbol-table" style="margin-top:1rem;">
+        <span class="sym">v</span>  <span>velocity — accumulated gradient direction; starts at 0</span>
+        <span class="sym">β</span>  <span>momentum coefficient — typically 0.9. Older gradients decay by ×0.9 each step</span>
+        <span class="sym">α · g</span> <span>current gradient contribution — added to the running velocity</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">RMSProp</div>
+      <div class="formula">s  :=  ρ · s  +  (1−ρ) · g²</div>
+      <div class="formula" style="border-bottom:none; margin-bottom:0; padding-bottom:0;">θ  :=  θ  −  α · g / (√s + ε)</div>
+      <div class="symbol-table" style="margin-top:1rem;">
+        <span class="sym">s</span>  <span>per-parameter running mean of squared gradients; starts at 0</span>
+        <span class="sym">ρ</span>  <span>decay rate — typically 0.9. Controls how quickly old gradient history is forgotten</span>
+        <span class="sym">g²</span> <span>element-wise square of gradient — measures recent gradient magnitude per parameter</span>
+        <span class="sym">ε</span>  <span>small constant (e.g. 1e-8) — prevents division by zero when gradient is near-zero</span>
+      </div>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Adam — Adaptive Moment Estimation</div>
+      <div class="formula">m  :=  β₁·m  +  (1−β₁)·g           <span style="color:var(--text-muted); font-size:0.85rem;">← first moment (momentum)</span></div>
+      <div class="formula">v  :=  β₂·v  +  (1−β₂)·g²          <span style="color:var(--text-muted); font-size:0.85rem;">← second moment (RMSProp)</span></div>
+      <div class="formula">m̂  :=  m / (1−β₁ᵗ)                  <span style="color:var(--text-muted); font-size:0.85rem;">← bias correction (step t)</span></div>
+      <div class="formula">v̂  :=  v / (1−β₂ᵗ)</div>
+      <div class="formula" style="border-bottom:none; margin-bottom:0; padding-bottom:0;">θ  :=  θ  −  α · m̂ / (√v̂ + ε)</div>
+      <div class="symbol-table" style="margin-top:1rem;">
+        <span class="sym">β₁</span>       <span>first-moment decay — default 0.9. How quickly momentum forgets old directions</span>
+        <span class="sym">β₂</span>       <span>second-moment decay — default 0.999. How quickly the scale estimate forgets old magnitudes</span>
+        <span class="sym">m̂, v̂</span>  <span>bias-corrected estimates — correct for the fact that m and v start at 0 (biased toward zero early in training)</span>
+        <span class="sym">1−β₁ᵗ</span> <span>bias correction factor at step t — approaches 1 after many steps, disappears late in training</span>
+      </div>
+    </div>
+
+    <h3 style="margin-top:2rem;">Worked example: SGD vs Adam on a 2D quadratic</h3>
+    <p>
+      Loss function: <code>L(w₁, w₂) = w₁² + 10·w₂²</code>. Starting point: <code>(w₁, w₂) = (2, 1)</code>.
+      This is a bowl with curvature 10× steeper in the w₂ direction — a simple ill-conditioned landscape.
+      Learning rate <code>α = 0.1</code> for both. Adam defaults: β₁=0.9, β₂=0.999, ε=1e-8.
+    </p>
+
+    <div class="worked-example">
+      <div class="step" style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.2rem; background:transparent !important;">
+        <span class="step-num" style="background:transparent; color:var(--text-muted); font-size:0.72rem; min-width:1.6rem;"></span>
+        <span style="display:grid; grid-template-columns:3.5rem 5rem 5rem 5rem 5rem; gap:0 0.75rem; font-weight:600; font-family:var(--font-mono); font-size:0.76rem; color:var(--text-muted);">
+          <span>Step</span><span>w₁</span><span>w₂</span><span>SGD loss</span><span>Adam loss</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">0</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 5rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.85rem;">
+          <span class="step-math">2.000</span>
+          <span class="step-math">1.000</span>
+          <span class="step-math" style="color:var(--red);">14.000</span>
+          <span class="step-math" style="color:var(--green);">14.000</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">1</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 5rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.85rem;">
+          <span class="step-math">1.600</span>
+          <span class="step-math">−1.000</span>
+          <span class="step-math" style="color:var(--red);">12.560</span>
+          <span class="step-math" style="color:var(--green);">2.214</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 5rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.85rem;">
+          <span class="step-math">1.280</span>
+          <span class="step-math">3.000</span>
+          <span class="step-math" style="color:var(--red);">91.638</span>
+          <span class="step-math" style="color:var(--green);">0.472</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span style="display:grid; grid-template-columns:5rem 5rem 5rem 5rem; gap:0 0.75rem; font-family:var(--font-mono); font-size:0.85rem;">
+          <span class="step-math">1.024</span>
+          <span class="step-math">−7.000</span>
+          <span class="step-math" style="color:var(--red);">491.05</span>
+          <span class="step-math" style="color:var(--green);">0.103</span>
+        </span>
+      </div>
+      <div class="step" style="margin-top:0; flex-direction:column; gap:0.35rem; background:color-mix(in srgb, var(--accent) 5%, var(--bg-card)) !important;">
+        <span style="color:var(--accent); font-family:var(--font-mono); font-size:0.85rem; font-weight:700;">
+          SGD diverges in the steep w₂ direction. Adam converges in all directions simultaneously.
+        </span>
+        <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.7;">
+          SGD with α=0.1 is too large for the w₂ curvature (requires α &lt; 0.05 to converge).
+          Adam's adaptive scaling automatically uses a much smaller effective rate for w₂,
+          converging smoothly without needing manual α tuning per parameter.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 6. Real World -->
+  <div class="section reveal" id="sec-real">
+    <p class="section-label">Real-World Practice</p>
+    <h2>Why transformers use Adam but some vision models still use SGD</h2>
+    <p class="lead">
+      The optimizer choice in production systems is not arbitrary. It reflects specific properties
+      of the architecture, the loss landscape, and what kind of solution is needed.
+    </p>
+    <p>
+      <strong style="color:var(--white)">Transformers and language models: Adam.</strong>
+      The loss landscape for attention-based models has highly variable curvature across parameters —
+      embedding matrices, attention projections, and feed-forward layers all have very different
+      gradient statistics. Adam's per-parameter adaptive scaling handles this naturally.
+      Without it, a single global learning rate either diverges in steep directions or stalls in flat ones.
+      GPT, BERT, T5, and every major transformer family uses Adam (or AdamW, the weight-decay variant).
+    </p>
+    <p>
+      <strong style="color:var(--white)">Vision models: sometimes SGD with momentum.</strong>
+      ResNet, VGG, and classical convolutional architectures were often trained with SGD + momentum
+      and careful learning rate schedules (cosine annealing or step decay). The DL Book notes that
+      SGD with carefully tuned hyperparameters can match or exceed Adam on image classification,
+      and the wider, flatter minima that SGD tends to find can improve robustness to distribution shift —
+      relevant when deploying vision models across real-world variation.
+    </p>
+    <p>
+      <strong style="color:var(--white)">Practical defaults from DL Book §8.5:</strong>
+    </p>
+    <ul style="margin: 0.5rem 0 1rem 1.5rem; line-height:2;">
+      <li>Adam with <code>α=1e-3</code>, <code>β₁=0.9</code>, <code>β₂=0.999</code> is a robust first choice for most tasks.</li>
+      <li>If you have time to tune and care about generalization, try SGD + momentum <code>β=0.9</code> with a decaying learning rate schedule.</li>
+      <li>AdamW (Adam + weight decay decoupled from the gradient) is preferred over vanilla Adam for most modern architectures — weight decay behaves more predictably when decoupled.</li>
+      <li>Learning rate warmup (start at ~0.1× target α, ramp up over 1000 steps) stabilizes Adam on transformers by letting the second-moment estimate stabilize before taking large steps.</li>
+    </ul>
+    <div class="insight-box" style="font-style:normal;">
+      The right optimizer is the one that converges reliably given your architecture and compute budget.
+      Adam is the practical default. SGD + momentum is worth trying when generalization on the held-out
+      set matters more than training speed — and when you can afford the hyperparameter tuning.
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 7. Playground -->
+  <div class="section reveal" id="sec-playground">
+    <p class="section-label">Interactive Playground</p>
+    <h2>Tune the hyperparameters</h2>
+    <p class="lead">
+      Adjust the learning rate and see how each optimizer behaves on the same landscape.
+      A rate that works for Adam may diverge SGD. A rate that barely moves SGD may not be
+      needed at all with Adam's adaptive scaling.
+    </p>
+
+    <div class="playground">
+      <div class="control-row">
+        <span class="control-label">Learning rate (α)</span>
+        <input type="range" id="pgLrSlider" min="0.005" max="0.3" step="0.005" value="0.05">
+        <span class="control-value" id="pgLrValue">0.050</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Steps to run</span>
+        <input type="range" id="pgStepsSlider" min="10" max="200" step="10" value="80">
+        <span class="control-value" id="pgStepsValue">80</span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="pgRunBtn">▶ Run</button>
+        <button class="btn secondary" id="pgResetBtn">↺ Reset</button>
+      </div>
+      <div class="animation-wrapper grain" style="margin-top:1rem;">
+        <canvas id="pgCanvas" width="700" height="300" style="max-width:100%;"></canvas>
+        <div class="animation-caption" id="pgCaption">
+          Loss vs. step count for each optimizer at the chosen learning rate
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 8. Misconceptions -->
+  <div class="section reveal" id="sec-myths">
+    <p class="section-label">Common Misconceptions</p>
+    <h2>Five wrong beliefs about optimizers</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+      Each misconception below leads naturally to the next. Tracing the chain makes all five impossible to hold simultaneously once you see the through-line.
+    </p>
+    <ul class="misconceptions-list">
+      <li>
+        <div class="myth">① Adam always converges faster, so just use Adam for everything.</div>
+        <div class="truth">
+          Adam converges faster to a solution, but not necessarily to a <em>better</em> solution.
+          On image classification benchmarks, carefully tuned SGD + momentum regularly matches or
+          exceeds Adam's test accuracy despite slower training. "Fastest to low training loss"
+          ≠ "best generalization." The optimizer affects not just convergence speed but the geometry
+          of the minimum found.
+        </div>
+      </li>
+      <li>
+        <div class="myth">② The learning rate in Adam doesn't matter much because it adapts per-parameter anyway.</div>
+        <div class="truth">
+          The global learning rate <code>α</code> still sets the overall scale of updates.
+          Per-parameter adaptation only rescales relative to gradient history — it cannot fix a
+          globally too-large or too-small α. A learning rate of 0.1 with Adam on a transformer will
+          diverge. The recommendation of 1e-3 or 3e-4 matters. Warmup matters. The per-parameter
+          scaling handles the <em>relative</em> differences, not the absolute magnitude.
+        </div>
+      </li>
+      <li>
+        <div class="myth">③ Momentum in SGD and the first moment in Adam are the same thing.</div>
+        <div class="truth">
+          They're related but not identical. Classical SGD momentum adds a velocity term <code>v = β·v − α·g</code>
+          and updates <code>θ += v</code> — the learning rate scales the gradient contribution to velocity.
+          Adam's first moment is a pure exponential moving average of the gradient itself (<code>m = β₁·m + (1−β₁)·g</code>),
+          then the learning rate is applied separately to the moment estimate.
+          The scaling and the bias correction are structurally different. Treating them as identical
+          leads to wrong intuitions about Adam's behavior at early training steps.
+        </div>
+      </li>
+      <li>
+        <div class="myth">④ RMSProp is just Adam without momentum — so Adam is strictly better.</div>
+        <div class="truth">
+          RMSProp uses a simpler, unnormalized running average of squared gradients without bias correction.
+          This makes it more responsive to recent gradient changes — useful in non-stationary settings
+          like reinforcement learning or recurrent networks where the loss landscape shifts rapidly
+          over time. Adam's bias correction and longer-memory second moment can be too slow to
+          adapt in these settings. RMSProp was Hinton's recommendation for RNNs for this reason.
+        </div>
+      </li>
+      <li>
+        <div class="myth">⑤ Once you pick an optimizer, the learning rate schedule doesn't matter.</div>
+        <div class="truth">
+          A flat learning rate (no decay) almost always leaves performance on the table, regardless
+          of optimizer. DL Book §8.3: decaying the learning rate over time — step decay, cosine annealing,
+          or linear warmup-then-decay — consistently improves final performance because:
+          (1) a large early α covers ground quickly, (2) a small late α allows fine-grained
+          convergence near the minimum. The optimizer chooses the direction and scaling;
+          the schedule chooses how aggressively to move as training progresses. Both matter independently.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- 9. Summary -->
+  <div class="section reveal" id="sec-summary">
+    <p class="section-label">Summary</p>
+    <h2>Five things to lock in</h2>
+    <ul class="summary-list">
+      <li>SGD uses a single global learning rate for all parameters. In ill-conditioned landscapes (narrow ravines), this forces a rate too small for flat directions or too large for steep ones.</li>
+      <li>Momentum accumulates a velocity vector across steps, smoothing oscillations and helping escape saddle points where the gradient is near-zero but no minimum has been reached.</li>
+      <li>RMSProp adapts per-parameter learning rates by dividing each gradient by a running estimate of recent gradient magnitudes — automatic speed-up in flat directions, slowdown in steep ones.</li>
+      <li>Adam combines both: first moment (momentum) for direction, second moment (RMSProp) for per-parameter scaling, plus bias correction to remove the zero-initialization effect in early steps.</li>
+      <li>Adam ≠ always best. It often finds sharper minima that generalize less well. SGD + momentum with careful scheduling is competitive on vision tasks and can find flatter, more robust minima.</li>
+    </ul>
+  </div>
+
+  <!-- What's next -->
+  <div class="section reveal" id="sec-next">
+    <div class="insight-box" style="font-style:normal; line-height:1.9;">
+      <strong style="color:var(--accent); display:block; margin-bottom:0.5rem;">One question this chapter leaves unanswered:</strong>
+      You now know that Adam adapts per-parameter learning rates based on gradient history.
+      But before the optimizer takes its first step, all parameters start at some initial value.
+      What should those initial values be? Start everything at zero, and every neuron learns
+      the same gradient — effectively collapsing the network. Start too large, and signals
+      explode through layers before training even begins.<br><br>
+      The right initialization strategy is what makes deep networks trainable at all.
+      That's the next chapter: <a href="weight-init.html">Weight Initialization</a>.
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section reveal" id="sec-sources">
+    <p class="section-label">Sources</p>
+    <h2>What this chapter is derived from</h2>
+    <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:1.25rem;">
+      Every factual claim in this chapter traces to one of these texts. Derivations and
+      recommendations are taken directly from them, not synthesized from memory.
+    </p>
+    <ul class="summary-list">
+      <li>
+        <div>
+          <strong style="color:var(--white)">Deep Learning — Chapter 8 (Optimization)</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Ian Goodfellow, Yoshua Bengio &amp; Aaron Courville (MIT Press, 2016)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: ill-conditioned curvature (§8.2.1), momentum (§8.3.2), RMSProp (§8.5.2),
+            Adam algorithm and defaults (§8.5.3), sharp vs flat minima discussion (§8.5),
+            learning rate schedule guidance (§8.3.1), optimizer selection guidance (§8.5).
+          </span><br>
+          <a href="https://www.deeplearningbook.org" style="font-family:var(--font-mono); font-size:0.8rem;">deeplearningbook.org</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free online</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">Adam: A Method for Stochastic Optimization</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Diederik P. Kingma &amp; Jimmy Ba (ICLR 2015)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: original Adam algorithm, bias correction derivation, default hyperparameter values
+            (β₁=0.9, β₂=0.999, ε=1e-8), moment estimate interpretation.
+          </span><br>
+          <a href="https://arxiv.org/abs/1412.6980" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1412.6980</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong style="color:var(--white)">The Marginal Value of Momentum for Small Learning Rate SGD</strong><br>
+          <span style="color:var(--text-muted); font-size:0.88rem;">Wilson et al. (ICLR 2018)</span><br>
+          <span style="color:var(--text-muted); font-size:0.88rem; line-height:1.8;">
+            Used for: empirical evidence that adaptive methods find sharper minima with worse
+            generalization than SGD; motivation for SGD preference in vision tasks.
+          </span><br>
+          <a href="https://arxiv.org/abs/1705.08292" style="font-family:var(--font-mono); font-size:0.8rem;">arxiv.org/abs/1705.08292</a>
+          <span style="color:var(--text-muted); font-size:0.8rem;"> · Free</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Quiz -->
+  <div class="section reveal" id="sec-quiz">
+    <p class="section-label">Test Your Understanding</p>
+    <h2>10 Questions</h2>
+    <p class="quiz-progress" id="quizProgress">0 / 10 revealed</p>
+    <div class="quiz-grid" id="quizGrid">
+
+      <div class="quiz-card" data-idx="0">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">01</span>
+          <span class="q-text">Why does vanilla SGD struggle with a loss landscape shaped like a narrow ravine — steep in one direction, flat in the other?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>SGD uses a single global learning rate for all parameters.</strong> In a ravine, the curvature differs by orders of magnitude between directions. A learning rate small enough to avoid bouncing off the steep walls is far too small to make progress along the flat floor. The only fix with plain SGD is manual per-parameter tuning — which is impractical. This is precisely the problem RMSProp and Adam solve automatically.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="1">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">02</span>
+          <span class="q-text">What specific problem does momentum solve that plain SGD cannot? Name the type of critical point momentum helps escape.</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>Momentum helps escape saddle points.</strong> At a saddle point, the gradient is near-zero — plain SGD stalls because updates ∝ gradient. Momentum accumulates velocity from previous steps, so even when the current gradient is tiny, the accumulated velocity carries the optimizer through. DL Book §8.2.3: saddle points are exponentially more common than local minima in high-dimensional networks, making momentum's saddle-escaping property practically essential.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="2">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">03</span>
+          <span class="q-text">In RMSProp, why does dividing the gradient by √s (the running mean of squared gradients) automatically handle ill-conditioned curvature?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>It normalizes the effective step size per parameter by recent gradient magnitude.</strong> In a steep dimension, gradients have been consistently large → s is large → √s is large → effective step g/√s is small. In a flat dimension, gradients have been small → s is small → effective step is large. The landscape's curvature information is encoded in recent gradient history, and s extracts it automatically. No manual per-parameter tuning needed.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="3">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">04</span>
+          <span class="q-text">Adam's update rule includes bias correction terms (1−β₁ᵗ) and (1−β₂ᵗ). Why are these needed, and what problem do they fix at the start of training?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>They correct for the zero-initialization bias in the moment estimates.</strong> Both m and v start at 0. At step t=1, m = (1−β₁)·g and v = (1−β₂)·g² — both are much smaller than the true moment estimates because they're just 1% to 10% of the actual gradient. Dividing by (1−β₁ᵗ) inflates the estimate to its true scale early in training. By step ~1000 with β₂=0.999, the correction factor ≈1 and disappears. Without it, Adam takes tiny steps for hundreds of iterations before the moments build up.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="4">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">05</span>
+          <span class="q-text">A model trained with Adam achieves 95% training accuracy and 80% test accuracy. An identical model trained with SGD + momentum achieves 93% training accuracy and 83% test accuracy. Which optimizer performed better, and why?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>SGD + momentum performed better for the task that matters — generalization.</strong> Adam found a lower training loss but worse test performance, which is consistent with Adam converging to a sharper minimum. SGD's noisier trajectory found a flatter minimum that generalizes 3 points better. If the goal is deployment on unseen data (which it almost always is), SGD's solution is superior despite lower training accuracy. This is the practical manifestation of the sharp vs. flat minima distinction.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="5">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">06</span>
+          <span class="q-text">You train a transformer with Adam at α=0.1 and training loss explodes in the first 100 steps. What are two distinct things you should try, and which should you try first?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>1. Add a learning rate warmup (try first). 2. Reduce α.</strong> Adam on transformers is known to be unstable at large learning rates early in training because the second-moment estimate v is near-zero (bias correction inflates it), making effective steps enormous before the estimate stabilizes. Warmup (starting at ~1e-5 and ramping to 1e-3 over 1000 steps) is the standard fix. Only after verifying warmup doesn't help should you reduce α globally — since a smaller α will slow convergence throughout training, not just the unstable early phase.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="6">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">07</span>
+          <span class="q-text">Why is RMSProp still used in reinforcement learning and RNNs even though Adam exists? What property of RMSProp makes it better suited to non-stationary loss landscapes?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>RMSProp reacts faster to recent gradient changes.</strong> In RL and RNNs, the effective loss landscape changes as the policy or hidden state evolves — what was relevant 1000 steps ago may be irrelevant now. Adam's second moment has β₂=0.999, meaning gradient history going back ~1000 steps is still influencing the step scale. RMSProp's simpler running average with typical ρ=0.9 gives ~10x more weight to recent gradients. When the landscape itself is drifting, stale gradient statistics in Adam's slow-decaying v can mislead step scaling. RMSProp's shorter memory adapts faster.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="7">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">08</span>
+          <span class="q-text">AdamW differs from Adam by decoupling weight decay from the gradient update. What goes wrong when you apply L2 regularization through the gradient in Adam (as vanilla Adam does)?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>L2 regularization in Adam's gradient gets divided by √v̂, diminishing its effect for high-gradient parameters.</strong> In standard Adam, adding λ·θ to the gradient means the weight decay contribution is also scaled by 1/√v̂. Parameters with large gradients (large v̂) get very little weight decay effect. Parameters with small gradients get disproportionately large decay. This breaks the intended regularization — it's no longer uniform across parameters. AdamW applies weight decay directly to θ before the gradient update: θ := θ·(1−λ) − α·m̂/√v̂. This makes decay genuinely proportional to parameter magnitude, as intended.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="8">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">09</span>
+          <span class="q-text">Both Adam and SGD with momentum are running at the same training loss after 500 steps. Does this mean the gradients are flowing identically through the network? What differs internally?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>No — the internal parameter values and gradient landscapes differ significantly.</strong> Identical training loss doesn't mean identical parameter vectors. Adam and SGD take different paths through parameter space: Adam's adaptive scaling causes it to update high-gradient parameters less aggressively than SGD. The resulting parameter vectors — even at equal training loss — have different geometry relative to the loss surface. In particular, the curvature at their respective positions differs, which is why their generalization behavior diverges. Two models at the same training loss can be at very different points in weight space.
+        </div>
+      </div>
+
+      <div class="quiz-card" data-idx="9">
+        <div class="quiz-question" onclick="toggleQuiz(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleQuiz(this)">
+          <span class="q-num">10</span>
+          <span class="q-text">Training stalls: loss is flat for 2000 steps with SGD + momentum. You've ruled out saddle points (the gradient is non-negligible). What two optimizer-related causes remain, and how would you diagnose which it is?</span>
+          <span class="q-toggle">▼</span>
+        </div>
+        <div class="quiz-answer">
+          <strong>1. Learning rate too small. 2. Ill-conditioned curvature (ravine landscape).</strong> Diagnose: if the loss is moving even slightly and consistently in one direction — it's probably just too small an α. Try 10× the current α for a short run and see if loss drops faster. If the loss <em>oscillates</em> rather than being truly flat — that's ill-conditioning: the optimizer is bouncing in steep directions and barely moving in flat ones. Fix oscillation by switching to Adam or RMSProp (automatic rescaling) rather than changing α. The key diagnostic is whether loss moves monotonically (too small α) or fluctuates (curvature mismatch).
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<script src="../animations.js"></script>
+<script src="../motivation.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  OptimizersAnimation — inline 2D contour map with 3 optimizer paths
+// ═══════════════════════════════════════════════════════════════════
+
+class OptimizersAnimation {
+  constructor(canvas) {
+    this.canvas  = canvas;
+    this.ctx     = canvas.getContext('2d');
+
+    // Rosenbrock-like landscape parameters
+    // f(x,y) = (a - x)² + b(y - x²)²  with a=1, b=5
+    // shifted so minimum is near center of canvas
+    this.A = 1;
+    this.B = 5;
+
+    // Canvas domain: x ∈ [-1.5, 2.5], y ∈ [-0.5, 3.5]
+    this.domX = [-1.5, 2.5];
+    this.domY = [-0.5, 3.5];
+    this.pad  = { top: 30, right: 20, bottom: 30, left: 30 };
+
+    // Optimizer colors
+    this.colors = {
+      SGD:     '#f0a500',  // gold
+      RMSProp: '#58a6ff',  // blue
+      Adam:    '#3fb950',  // green
+    };
+
+    // Visibility
+    this.visible = { SGD: true, RMSProp: true, Adam: true };
+
+    // Start position (near top-left, away from minimum at (1,1))
+    this.start = { x: -1.0, y: 2.8 };
+    this.lr = 0.03;
+
+    // State for each optimizer
+    this._initState();
+
+    // Animation
+    this.running   = false;
+    this.stepCount = 0;
+    this.maxSteps  = 400;
+    this._frameId  = null;
+    this._lastTime = null;
+    this._accumMs  = 0;
+    this.msPerStep = 40;  // ms between steps when animating
+
+    this._precomputeContour();
+    this._render();
+  }
+
+  _initState() {
+    const { x, y } = this.start;
+    this.states = {
+      SGD: {
+        x, y,
+        path: [{ x, y }],
+      },
+      RMSProp: {
+        x, y,
+        s: { x: 1e-8, y: 1e-8 },   // running mean squared grad
+        rho: 0.9,
+        path: [{ x, y }],
+      },
+      Adam: {
+        x, y,
+        m: { x: 0, y: 0 },          // first moment
+        v: { x: 1e-8, y: 1e-8 },    // second moment
+        b1: 0.9, b2: 0.999,
+        t: 0,
+        path: [{ x, y }],
+      },
+    };
+    this.stepCount = 0;
+  }
+
+  // Rosenbrock loss and gradients
+  _loss(x, y) {
+    const a = this.A, b = this.B;
+    return (a - x) ** 2 + b * (y - x * x) ** 2;
+  }
+
+  _grad(x, y) {
+    const a = this.A, b = this.B;
+    const gx = -2 * (a - x) - 4 * b * x * (y - x * x);
+    const gy =  2 * b * (y - x * x);
+    return { gx, gy };
+  }
+
+  _clamp(x, y) {
+    const [x0, x1] = this.domX;
+    const [y0, y1] = this.domY;
+    return {
+      x: Math.max(x0, Math.min(x1, x)),
+      y: Math.max(y0, Math.min(y1, y)),
+    };
+  }
+
+  _stepSGD() {
+    const s = this.states.SGD;
+    const { gx, gy } = this._grad(s.x, s.y);
+    const scale = Math.min(1, 3 / (Math.sqrt(gx * gx + gy * gy) + 1e-8));  // clip
+    const nx = s.x - this.lr * 0.8 * gx * scale;
+    const ny = s.y - this.lr * 0.8 * gy * scale;
+    const clamped = this._clamp(nx, ny);
+    s.x = clamped.x; s.y = clamped.y;
+    s.path.push({ x: s.x, y: s.y });
+  }
+
+  _stepRMSProp() {
+    const s = this.states.RMSProp;
+    const { gx, gy } = this._grad(s.x, s.y);
+    s.s.x = s.rho * s.s.x + (1 - s.rho) * gx * gx;
+    s.s.y = s.rho * s.s.y + (1 - s.rho) * gy * gy;
+    const stepX = this.lr * gx / (Math.sqrt(s.s.x) + 1e-8);
+    const stepY = this.lr * gy / (Math.sqrt(s.s.y) + 1e-8);
+    const nx = s.x - stepX;
+    const ny = s.y - stepY;
+    const clamped = this._clamp(nx, ny);
+    s.x = clamped.x; s.y = clamped.y;
+    s.path.push({ x: s.x, y: s.y });
+  }
+
+  _stepAdam() {
+    const s = this.states.Adam;
+    s.t += 1;
+    const { gx, gy } = this._grad(s.x, s.y);
+    s.m.x = s.b1 * s.m.x + (1 - s.b1) * gx;
+    s.m.y = s.b1 * s.m.y + (1 - s.b1) * gy;
+    s.v.x = s.b2 * s.v.x + (1 - s.b2) * gx * gx;
+    s.v.y = s.b2 * s.v.y + (1 - s.b2) * gy * gy;
+    const mhx = s.m.x / (1 - Math.pow(s.b1, s.t));
+    const mhy = s.m.y / (1 - Math.pow(s.b1, s.t));
+    const vhx = s.v.x / (1 - Math.pow(s.b2, s.t));
+    const vhy = s.v.y / (1 - Math.pow(s.b2, s.t));
+    const nx = s.x - this.lr * mhx / (Math.sqrt(vhx) + 1e-8);
+    const ny = s.y - this.lr * mhy / (Math.sqrt(vhy) + 1e-8);
+    const clamped = this._clamp(nx, ny);
+    s.x = clamped.x; s.y = clamped.y;
+    s.path.push({ x: s.x, y: s.y });
+  }
+
+  step() {
+    if (this.stepCount >= this.maxSteps) return false;
+    this._stepSGD();
+    this._stepRMSProp();
+    this._stepAdam();
+    this.stepCount++;
+    this._render();
+    return true;
+  }
+
+  // ── Coordinate helpers ──────────────────────────────────────
+  _toCanvas(wx, wy) {
+    const { canvas, pad, domX, domY } = this;
+    const W = canvas.width  - pad.left - pad.right;
+    const H = canvas.height - pad.top  - pad.bottom;
+    const cx = pad.left + ((wx - domX[0]) / (domX[1] - domX[0])) * W;
+    const cy = pad.top  + (1 - (wy - domY[0]) / (domY[1] - domY[0])) * H;
+    return { cx, cy };
+  }
+
+  // ── Pre-compute contour image ───────────────────────────────
+  _precomputeContour() {
+    const { canvas, pad, domX, domY } = this;
+    const W = canvas.width  - pad.left - pad.right;
+    const H = canvas.height - pad.top  - pad.bottom;
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = W;
+    offscreen.height = H;
+    const oc = offscreen.getContext('2d');
+    const imgData = oc.createImageData(W, H);
+
+    // Find loss range for normalization
+    let maxL = 0;
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const wx = domX[0] + (px / W) * (domX[1] - domX[0]);
+        const wy = domY[0] + (1 - py / H) * (domY[1] - domY[0]);
+        maxL = Math.max(maxL, this._loss(wx, wy));
+      }
+    }
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const wx = domX[0] + (px / W) * (domX[1] - domX[0]);
+        const wy = domY[0] + (1 - py / H) * (domY[1] - domY[0]);
+        const l  = this._loss(wx, wy);
+        const t  = Math.pow(l / maxL, 0.35);  // gamma for visual range
+        const idx = (py * W + px) * 4;
+        imgData.data[idx]     = Math.round(lerp(15,  8,  t));   // R
+        imgData.data[idx + 1] = Math.round(lerp(25, 16,  t));   // G
+        imgData.data[idx + 2] = Math.round(lerp(35, 22,  t));   // B
+        imgData.data[idx + 3] = 255;
+      }
+    }
+    oc.putImageData(imgData, 0, 0);
+    this._contourCanvas = offscreen;
+    this._contourMaxL   = maxL;
+  }
+
+  // ── Render ──────────────────────────────────────────────────
+  _render() {
+    const { ctx, canvas, pad, colors, visible, states } = this;
+    const canvasBg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const W = canvas.width;
+    const H = canvas.height;
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = canvasBg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Recompute contour for theme changes
+    if (!this._contourCanvas || this._lastThemeLight !== isLight) {
+      this._lastThemeLight = isLight;
+      this._buildContourForTheme(isLight);
+    }
+
+    // Draw contour
+    const cW = W - pad.left - pad.right;
+    const cH = H - pad.top  - pad.bottom;
+    ctx.drawImage(this._contourCanvas, pad.left, pad.top, cW, cH);
+
+    // Draw minimum star
+    const minPt = this._toCanvas(this.A, this.A * this.A);
+    ctx.beginPath();
+    ctx.arc(minPt.cx, minPt.cy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.9;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('min', minPt.cx + 8, minPt.cy + 4);
+
+    // Draw axes labels
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('w₁', pad.left + cW / 2, H - 5);
+    ctx.save();
+    ctx.translate(10, pad.top + cH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('w₂', 0, 0);
+    ctx.restore();
+
+    // Draw paths and dots
+    const optimizerNames = ['SGD', 'RMSProp', 'Adam'];
+    optimizerNames.forEach(name => {
+      if (!visible[name]) return;
+      const s = states[name];
+      const color = colors[name];
+
+      if (s.path.length > 1) {
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.7;
+        for (let i = 0; i < s.path.length; i++) {
+          const { cx, cy } = this._toCanvas(s.path[i].x, s.path[i].y);
+          i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      // Current position dot
+      const { cx, cy } = this._toCanvas(s.x, s.y);
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = color;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+    });
+
+    // Draw legend info at bottom
+    const lossLabels = optimizerNames.map(n => {
+      const s = states[n];
+      const l = this._loss(s.x, s.y);
+      return `${n}: step ${s.path.length - 1} | loss ${l.toFixed(3)}`;
+    });
+
+    // Update external legend div
+    const legendEl = document.getElementById('optLegend');
+    if (legendEl) {
+      legendEl.innerHTML = optimizerNames.map(n => {
+        const s = states[n];
+        const l = this._loss(s.x, s.y).toFixed(3);
+        const col = colors[n];
+        return `<span style="display:flex;align-items:center;gap:0.4rem;"><span style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0;"></span><span style="color:${col}">${n}</span><span style="color:var(--text-muted)">step ${s.path.length - 1}</span><span style="color:var(--text-muted)">loss ${l}</span></span>`;
+      }).join('');
+    }
+  }
+
+  _buildContourForTheme(isLight) {
+    const { pad, domX, domY } = this;
+    const W = this.canvas.width  - pad.left - pad.right;
+    const H = this.canvas.height - pad.top  - pad.bottom;
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = W;
+    offscreen.height = H;
+    const oc = offscreen.getContext('2d');
+    const imgData = oc.createImageData(W, H);
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const wx = domX[0] + (px / W) * (domX[1] - domX[0]);
+        const wy = domY[0] + (1 - py / H) * (domY[1] - domY[0]);
+        const l  = this._loss(wx, wy);
+        const t  = Math.pow(Math.min(l / (this._contourMaxL || 50), 1), 0.35);
+        const idx = (py * W + px) * 4;
+
+        if (isLight) {
+          // Light theme: white low-loss → warm tan at high loss
+          imgData.data[idx]     = Math.round(lerp(248, 180, t));
+          imgData.data[idx + 1] = Math.round(lerp(245, 160, t));
+          imgData.data[idx + 2] = Math.round(lerp(240, 130, t));
+        } else {
+          // Dark theme: deep navy for high loss, slightly lighter for low
+          imgData.data[idx]     = Math.round(lerp(30,  8,  t));
+          imgData.data[idx + 1] = Math.round(lerp(50, 18,  t));
+          imgData.data[idx + 2] = Math.round(lerp(70, 30,  t));
+        }
+        imgData.data[idx + 3] = 255;
+      }
+    }
+    // Contour lines
+    oc.putImageData(imgData, 0, 0);
+    this._drawContourLines(oc, W, H);
+    this._contourCanvas = offscreen;
+  }
+
+  _drawContourLines(oc, W, H) {
+    const { domX, domY } = this;
+    const levels = [0.05, 0.2, 0.5, 1, 2, 5, 10, 20];
+    const isLight = this._lastThemeLight;
+
+    levels.forEach(level => {
+      // Marching-squares-lite: draw iso-contour by connecting segment midpoints
+      const cellW = 4, cellH = 4;
+      const cols = Math.floor(W / cellW);
+      const rows = Math.floor(H / cellH);
+
+      oc.beginPath();
+      oc.strokeStyle = isLight
+        ? `rgba(0,0,0,${0.06 + 0.01 * Math.log10(level + 1)})`
+        : `rgba(255,255,255,${0.06 + 0.01 * Math.log10(level + 1)})`;
+      oc.lineWidth = 0.5;
+
+      for (let row = 0; row < rows - 1; row++) {
+        for (let col = 0; col < cols - 1; col++) {
+          const corners = [
+            [col,       row      ],
+            [col + 1,   row      ],
+            [col + 1,   row + 1  ],
+            [col,       row + 1  ],
+          ].map(([c, r]) => {
+            const wx = domX[0] + (c * cellW / W) * (domX[1] - domX[0]);
+            const wy = domY[0] + (1 - r * cellH / H) * (domY[1] - domY[0]);
+            return { px: c * cellW, py: r * cellH, loss: this._loss(wx, wy) };
+          });
+
+          // Simple: collect crossings on each edge
+          const edges = [
+            [corners[0], corners[1]],
+            [corners[1], corners[2]],
+            [corners[2], corners[3]],
+            [corners[3], corners[0]],
+          ];
+          const pts = [];
+          edges.forEach(([a, b]) => {
+            if ((a.loss - level) * (b.loss - level) < 0) {
+              const t = (level - a.loss) / (b.loss - a.loss);
+              pts.push({ px: a.px + t * (b.px - a.px), py: a.py + t * (b.py - a.py) });
+            }
+          });
+          if (pts.length === 2) {
+            oc.moveTo(pts[0].px, pts[0].py);
+            oc.lineTo(pts[1].px, pts[1].py);
+          }
+        }
+      }
+      oc.stroke();
+    });
+  }
+
+  // ── Animation loop ──────────────────────────────────────────
+  run() {
+    if (this.running) return;
+    this.running = true;
+    this._lastTime = null;
+    this._accumMs  = 0;
+    const loop = (ts) => {
+      if (!this.running) return;
+      if (this._lastTime !== null) {
+        this._accumMs += ts - this._lastTime;
+        while (this._accumMs >= this.msPerStep) {
+          this._accumMs -= this.msPerStep;
+          if (!this.step()) { this.running = false; return; }
+        }
+      }
+      this._lastTime = ts;
+      this._frameId = requestAnimationFrame(loop);
+    };
+    this._frameId = requestAnimationFrame(loop);
+  }
+
+  reset() {
+    this.running = false;
+    cancelAnimationFrame(this._frameId);
+    this._frameId = null;
+    this._initState();
+    this._render();
+    const cap = document.getElementById('optCaption');
+    if (cap) cap.textContent = 'Press Run All to start the animation';
+  }
+
+  setVisible(name, val) {
+    this.visible[name] = val;
+    this._render();
+  }
+}
+
+// ─── Playground: loss vs step chart ─────────────────────────────
+class PlaygroundChart {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+    this.pad    = { top: 20, right: 20, bottom: 40, left: 55 };
+    this.lr     = 0.05;
+    this.nSteps = 80;
+    this._render();
+  }
+
+  setLr(lr)     { this.lr = lr; this._render(); }
+  setSteps(n)   { this.nSteps = n; this._render(); }
+
+  _simulate(lr, n) {
+    // 2D quadratic: L = w1² + 10·w2²
+    // SGD
+    let [s1, s2] = [2, 1];
+    const sgdLoss = [];
+    for (let i = 0; i < n; i++) {
+      sgdLoss.push(s1 * s1 + 10 * s2 * s2);
+      s1 = s1 - lr * 2 * s1;
+      s2 = s2 - lr * 20 * s2;
+      if (!isFinite(s1) || !isFinite(s2) || Math.abs(s1) > 1e6) {
+        for (let j = sgdLoss.length; j < n; j++) sgdLoss.push(sgdLoss[sgdLoss.length - 1] * 2);
+        break;
+      }
+    }
+
+    // RMSProp
+    let [r1, r2] = [2, 1];
+    let [sv1, sv2] = [1e-8, 1e-8];
+    const rmsLoss = [];
+    for (let i = 0; i < n; i++) {
+      rmsLoss.push(r1 * r1 + 10 * r2 * r2);
+      const g1 = 2 * r1, g2 = 20 * r2;
+      sv1 = 0.9 * sv1 + 0.1 * g1 * g1;
+      sv2 = 0.9 * sv2 + 0.1 * g2 * g2;
+      r1 -= lr * g1 / (Math.sqrt(sv1) + 1e-8);
+      r2 -= lr * g2 / (Math.sqrt(sv2) + 1e-8);
+    }
+
+    // Adam
+    let [a1, a2] = [2, 1];
+    let [m1, m2] = [0, 0];
+    let [v1, v2] = [1e-8, 1e-8];
+    const adamLoss = [];
+    for (let t = 1; t <= n; t++) {
+      adamLoss.push(a1 * a1 + 10 * a2 * a2);
+      const g1 = 2 * a1, g2 = 20 * a2;
+      m1 = 0.9 * m1 + 0.1 * g1;
+      m2 = 0.9 * m2 + 0.1 * g2;
+      v1 = 0.999 * v1 + 0.001 * g1 * g1;
+      v2 = 0.999 * v2 + 0.001 * g2 * g2;
+      const mh1 = m1 / (1 - Math.pow(0.9, t));
+      const mh2 = m2 / (1 - Math.pow(0.9, t));
+      const vh1 = v1 / (1 - Math.pow(0.999, t));
+      const vh2 = v2 / (1 - Math.pow(0.999, t));
+      a1 -= lr * mh1 / (Math.sqrt(vh1) + 1e-8);
+      a2 -= lr * mh2 / (Math.sqrt(vh2) + 1e-8);
+    }
+
+    return { sgd: sgdLoss, rms: rmsLoss, adam: adamLoss };
+  }
+
+  _render() {
+    const { ctx, canvas, pad, lr, nSteps } = this;
+    const canvasBg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#161b22';
+    const W = canvas.width;
+    const H = canvas.height;
+    const cW = W - pad.left - pad.right;
+    const cH = H - pad.top  - pad.bottom;
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = canvasBg;
+    ctx.fillRect(0, 0, W, H);
+
+    const { sgd, rms, adam } = this._simulate(lr, nSteps);
+    const allVals = [...sgd, ...rms, ...adam].filter(isFinite);
+    const maxVal  = Math.min(Math.max(...allVals), 500);
+    const minVal  = 0;
+    const range   = maxVal - minVal || 1;
+
+    const toX = (i)  => pad.left + (i / (nSteps - 1)) * cW;
+    const toY = (v)  => pad.top  + (1 - Math.min(v, maxVal) / range) * cH;
+
+    // Grid
+    ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.08)' : '#30363d';
+    ctx.lineWidth   = 1;
+    for (let i = 0; i <= 5; i++) {
+      const y = pad.top + (i / 5) * cH;
+      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cW, y); ctx.stroke();
+      const label = (maxVal * (1 - i / 5)).toFixed(0);
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(label, pad.left - 6, y + 4);
+    }
+    ctx.textAlign = 'center';
+    ctx.fillText('step', pad.left + cW / 2, H - 6);
+    ctx.save();
+    ctx.translate(12, pad.top + cH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('loss', 0, 0);
+    ctx.restore();
+
+    // Lines
+    const series = [
+      { data: sgd,  color: '#f0a500', label: 'SGD'     },
+      { data: rms,  color: '#58a6ff', label: 'RMSProp' },
+      { data: adam, color: '#3fb950', label: 'Adam'    },
+    ];
+
+    series.forEach(({ data, color, label }) => {
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      data.forEach((v, i) => {
+        const x = toX(i), y = toY(v);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // End label
+      const last = data[data.length - 1];
+      ctx.fillStyle = color;
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, toX(nSteps - 1) - 4, Math.max(pad.top + 12, toY(last) - 4));
+    });
+  }
+}
+
+// ─── Wire everything up ──────────────────────────────────────────
+
+const CHAPTER_SLUG = 'optimizers';
+
+// Main animation
+const optCanvas = document.getElementById('optCanvas');
+const optAnim   = new OptimizersAnimation(optCanvas);
+
+document.getElementById('optRunBtn').addEventListener('click', () => {
+  optAnim.run();
+  const cap = document.getElementById('optCaption');
+  if (cap) cap.textContent = 'Animating… watch each optimizer navigate the valley';
+});
+document.getElementById('optStepBtn').addEventListener('click', () => {
+  optAnim.running = false;
+  cancelAnimationFrame(optAnim._frameId);
+  optAnim.step();
+});
+document.getElementById('optResetBtn').addEventListener('click', () => optAnim.reset());
+
+['SGD', 'RMSProp', 'Adam'].forEach(name => {
+  const el = document.getElementById('show' + name);
+  if (el) el.addEventListener('change', () => optAnim.setVisible(name, el.checked));
+});
+
+// Playground
+const pgCanvas = document.getElementById('pgCanvas');
+const pgChart  = new PlaygroundChart(pgCanvas);
+
+const pgLrSlider    = document.getElementById('pgLrSlider');
+const pgLrValue     = document.getElementById('pgLrValue');
+const pgStepsSlider = document.getElementById('pgStepsSlider');
+const pgStepsValue  = document.getElementById('pgStepsValue');
+
+pgLrSlider.addEventListener('input', () => {
+  const v = parseFloat(pgLrSlider.value);
+  pgLrValue.textContent = v.toFixed(3);
+  pgChart.setLr(v);
+  updatePgCaption(v);
+});
+
+pgStepsSlider.addEventListener('input', () => {
+  const v = parseInt(pgStepsSlider.value, 10);
+  pgStepsValue.textContent = v;
+  pgChart.setSteps(v);
+});
+
+function updatePgCaption(lr) {
+  const cap = document.getElementById('pgCaption');
+  if (!cap) return;
+  if (lr <= 0.01)       cap.textContent = `α=${lr.toFixed(3)} — very cautious. Adam still converges fast; SGD barely moves.`;
+  else if (lr <= 0.05)  cap.textContent = `α=${lr.toFixed(3)} — Adam converges smoothly; SGD struggles with the ill-conditioned w₂ direction.`;
+  else if (lr <= 0.1)   cap.textContent = `α=${lr.toFixed(3)} — SGD starts to oscillate; Adam remains stable.`;
+  else                   cap.textContent = `α=${lr.toFixed(3)} — SGD diverges; Adam still converges (adaptive scaling).`;
+}
+
+document.getElementById('pgRunBtn').addEventListener('click', () => {
+  pgChart._render();
+});
+document.getElementById('pgResetBtn').addEventListener('click', () => {
+  pgLrSlider.value = '0.05';
+  pgLrValue.textContent = '0.050';
+  pgStepsSlider.value = '80';
+  pgStepsValue.textContent = '80';
+  pgChart.setLr(0.05);
+  pgChart.setSteps(80);
+  updatePgCaption(0.05);
+});
+
+// ─── Quiz ────────────────────────────────────────────────────────
+const alreadyAnswered = new Set(StudyMotivation.getQuizAnswered(CHAPTER_SLUG));
+let revealed = alreadyAnswered.size;
+
+function toggleQuiz(questionEl) {
+  const card = questionEl.closest('.quiz-card');
+  const wasRevealed = card.classList.contains('revealed');
+  card.classList.toggle('revealed');
+  if (!wasRevealed) {
+    const idx = parseInt(card.dataset.idx, 10);
+    const scores = StudyMotivation.onQuizAnswered(CHAPTER_SLUG, idx);
+    revealed = scores.chapter;
+  } else {
+    revealed = Math.max(0, revealed - 1);
+  }
+  document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+}
+
+// Restore previously answered quiz cards
+alreadyAnswered.forEach(idx => {
+  const card = document.querySelector(`.quiz-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('revealed');
+});
+document.getElementById('quizProgress').textContent = `${revealed} / 10 revealed`;
+
+// ─── Reading progress bar ────────────────────────────────────────
+const progressBar = document.getElementById('reading-progress');
+function updateProgressBar() {
+  const scrollTop  = window.scrollY;
+  const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
+  if (pct >= 90) StudyMotivation.onChapterRead(CHAPTER_SLUG);
+}
+window.addEventListener('scroll', updateProgressBar, { passive: true });
+
+// ─── Scroll reveal ────────────────────────────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── TOC active dot ───────────────────────────────────────────────
+const sections   = Array.from(document.querySelectorAll('[id^="sec-"]'));
+const tocDots    = document.querySelectorAll('.toc-dot');
+const tocObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocDots.forEach(d => d.classList.remove('active'));
+      const active = document.querySelector(`.toc-dot[data-sec="${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => tocObserver.observe(s));
+
+// ─── Re-render on theme change ────────────────────────────────────
+window.onThemeChange(function() {
+  optAnim._lastThemeLight = undefined;  // force contour rebuild
+  optAnim._render();
+  pgChart._render();
+});
+</script>
+</body>
+</html>
